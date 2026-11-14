@@ -5,6 +5,7 @@ backups/
 storage/
 screenshots/
 data/
+apps/ledger/data.db
 
 # ---------- 构建产物与依赖 ----------
 apps/erp/web/node_modules/
