@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>升班关系图 · 流向可下钻</title>
+<link rel="stylesheet" href="assets/style.css" />
+<style>
+  .graph-wrap { display: flex; gap: 16px; align-items: flex-start; }
+  .graph-main { flex: 1; min-width: 0; }
+  .canvas { background: #fff; border: 1px solid var(--border); border-radius: 10px; padding: 8px; }
+  svg text { font-family: inherit; }
+  .node rect { cursor: pointer; transition: all .15s; }
+  .node:hover rect { stroke: var(--primary); stroke-width: 2; }
+  .edge { cursor: pointer; }
+  .edge:hover path { stroke-width: 3.5; }
+  .edge-label { font-size: 12px; fill: var(--text-2); }
+  .node-title { font-size: 13px; font-weight: 600; fill: var(--text); }
+  .node-sub { font-size: 11.5px; fill: var(--text-3); }
+
+  .drawer {
+    width: 340px; flex: 0 0 340px;
+    background: #fff; border: 1px solid var(--border); border-radius: 10px;
+    padding: 14px 16px; position: sticky; top: 70px;
+  }
+  .drawer .head { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+  .drawer .head h3 { margin: 0; font-size: 14px; }
+  .drawer .head button {
+    margin-left: auto; border: 0; background: transparent; color: var(--text-3);
+    cursor: pointer; font-size: 16px;
+  }
+  .drawer .sub { color: var(--text-3); font-size: 12px; margin-bottom: 10px; }
+  .drawer table { font-size: 12.5px; }
+  .drawer td, .drawer th { padding: 7px 6px; }
+  .empty { color: var(--text-3); font-size: 12.5px; padding: 24px 6px; text-align: center; }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="brand"><span class="logo">幻</span> 幻彩教育管理系统</div>
+  <div class="crumb">班级管理 / <b>升班关系</b></div>
+  <div class="spacer"></div>
+  <div class="user">教务管理员</div>
+</div>
+
+<div class="page">
+  <div class="page-head">
+    <h1>升班关系</h1>
+    <div class="sub">按批次查看班级之间的升班流向，点击节点或连线可下钻学员明细</div>
+    <div class="spacer"></div>
+    <a class="btn" href="records.html">升班批次记录</a>
+    <a class="btn" href="wizard.html">+ 新建升班</a>
+  </div>
+
+  <div class="stat-row" style="margin-bottom:14px">
+    <div class="stat"><div class="label">当前批次</div><div class="value" style="font-size:16px">SB20261114001</div></div>
+    <div class="stat"><div class="label">原班学员</div><div class="value">14 <small>人</small></div></div>
+    <div class="stat"><div class="label">升入新班</div><div class="value">12 <small>人</small></div></div>
+    <div class="stat"><div class="label">不念留档</div><div class="value">2 <small>人</small></div></div>
+    <div class="stat"><div class="label">欠费保留原班</div><div class="value" style="color:var(--orange)">3 <small>人</small></div></div>
+  </div>
+
+  <div class="graph-wrap">
+    <div class="graph-main">
+      <div class="card" style="padding:12px">
+        <div class="legend" style="margin-bottom:6px">
+          <span><i></i>升班流向（人数）</span>
+          <span><i class="dash"></i>欠费保留原班在读</span>
+          <span><i style="border-color:#c9cdd4"></i>不念留档</span>
+        </div>
+        <div class="canvas">
+          <svg viewBox="0 0 900 440" width="100%" height="440" role="img" aria-label="升班关系图">
+            <!-- 连线 -->
+            <g class="edge" data-key="edgeA">
+              <path d="M245 190 C 360 190, 380 105, 515 105" fill="none" stroke="#1677ff" stroke-width="2.5" />
+              <circle cx="515" cy="105" r="4" fill="#1677ff" />
+              <text class="edge-label" x="365" y="135">8 人</text>
+            </g>
+            <g class="edge" data-key="edgeB">
+              <path d="M245 205 C 360 205, 380 285, 515 285" fill="none" stroke="#1677ff" stroke-width="2.5" />
+              <circle cx="515" cy="285" r="4" fill="#1677ff" />
+              <text class="edge-label" x="365" y="265">4 人</text>
+            </g>
+            <g class="edge" data-key="edgeQuit">
+              <path d="M245 218 C 350 260, 380 360, 515 360" fill="none" stroke="#bfbfbf" stroke-width="2" stroke-dasharray="6 5" />
+              <circle cx="515" cy="360" r="4" fill="#bfbfbf" />
+              <text class="edge-label" x="345" y="330" fill="#8c8c8c">2 人（不念）</text>
+            </g>
+            <g class="edge" data-key="edgeDebt">
+              <path d="M150 160 C 110 110, 200 95, 190 160" fill="none" stroke="#d46b08" stroke-width="2" stroke-dasharray="5 4" />
+              <text class="edge-label" x="150" y="88" fill="#d46b08" text-anchor="middle">3 人欠费保留原班在读</text>
+            </g>
+
+            <!-- 原班级 -->
+            <g class="node" data-key="nodeSource">
+              <rect x="55" y="160" width="190" height="72" rx="10" fill="#f0f6ff" stroke="#1677ff" stroke-width="1.5" />
+              <text class="node-title" x="150" y="188" text-anchor="middle">三年级语文A班</text>
+              <text class="node-sub" x="150" y="207" text-anchor="middle">14 人 · 2026 春季</text>
+              <text class="node-sub" x="150" y="222" text-anchor="middle">已结课（升班后）</text>
+            </g>
+
+            <!-- 目标班级 -->
+            <g class="node" data-key="nodeA">
+              <rect x="515" y="72" width="190" height="66" rx="10" fill="#fff" stroke="#91caff" stroke-width="1.5" />
+              <text class="node-title" x="610" y="98" text-anchor="middle">四年级语文A班</text>
+              <text class="node-sub" x="610" y="117" text-anchor="middle">本批 +8 人 · 周六 09:00</text>
+            </g>
+            <g class="node" data-key="nodeB">
+              <rect x="515" y="252" width="190" height="66" rx="10" fill="#fff" stroke="#91caff" stroke-width="1.5" />
+              <text class="node-title" x="610" y="278" text-anchor="middle">四年级语文B班</text>
+              <text class="node-sub" x="610" y="297" text-anchor="middle">本批 +4 人 · 周日 14:00</text>
+            </g>
+            <g class="node" data-key="nodeQuit">
+              <rect x="515" y="330" width="190" height="62" rx="10" fill="#fafafa" stroke="#d9d9d9" stroke-dasharray="5 4" />
+              <text class="node-title" x="610" y="355" text-anchor="middle" fill="#595959">离班留档</text>
+              <text class="node-sub" x="610" y="374" text-anchor="middle">2 人 · 不念，未退费</text>
+            </g>
+
+            <!-- 说明 -->
+            <text class="node-sub" x="735" y="420" text-anchor="end">批次 SB20261114001 · 操作人 教务管理员 · 2026-11-14</text>
+          </svg>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>怎么读这张图</h2>
+        <ul class="rule-list">
+          <li>左侧是升班前的班级，右侧是升班后的班级；连线上的数字是本批次升过去的人数。</li>
+          <li>橙色虚线圈表示<b>欠费学员</b>：他们同时保留在原班（继续显示在读），又进入新班，属于“双班并存”。</li>
+          <li>灰色虚线表示<b>不念留档</b>：学员不再进入新班，但原班记录与剩余课时保留，方便后续退费核算。</li>
+          <li>原班 14 人中，正常升走的 12 人原班标记为「已升班」；结班时不会再拦截。</li>
+        </ul>
+      </div>
+    </div>
+
+    <aside class="drawer" id="drawer">
+      <div class="head">
+        <h3 id="drawerTitle">下钻明细</h3>
+        <button id="drawerClose" title="关闭">✕</button>
+      </div>
+      <div class="sub" id="drawerSub">点击左侧图中的班级或连线查看学员</div>
+      <div id="drawerBody"><div class="empty">暂未选择节点</div></div>
+    </aside>
+  </div>
+
+  <footer>幻彩教育管理系统 · 升班功能原型</footer>
+</div>
+
+<script>
+  const detail = {
+    edgeA: {
+      title: '三年级语文A班 → 四年级语文A班',
+      sub: '升班 8 人 · 其中欠费保留原班 2 人',
+      rows: [
+        ['赵明轩', '四年级语文A班', '已升班', '—'],
+        ['陈嘉怡', '四年级语文A班', '已升班', '—'],
+        ['周雨桐', '四年级语文A班', '保留原班在读', '欠费 ¥320 / 2 节'],
+        ['孙浩然', '四年级语文A班', '已升班', '—'],
+        ['李明泽', '四年级语文A班', '已升班', '—'],
+        ['王欣怡', '四年级语文A班', '保留原班在读', '欠课时 1'],
+        ['张子涵', '四年级语文A班', '已升班', '—'],
+        ['刘思彤', '四年级语文A班', '已升班', '—']
+      ]
+    },
+    edgeB: {
+      title: '三年级语文A班 → 四年级语文B班',
+      sub: '升班 4 人 · 其中欠费保留原班 1 人',
+      rows: [
+        ['郑雨萱', '四年级语文B班', '已升班', '—'],
+        ['何雨欣', '四年级语文B班', '保留原班在读', '欠费 ¥180'],
+        ['徐若曦', '四年级语文B班', '已升班', '—'],
+        ['高梓涵', '四年级语文B班', '已升班', '—']
+      ]
+    },
+    edgeQuit: {
+      title: '不念留档',
+      sub: '2 人未进入新班，原班记录与剩余课时保留',
+      rows: [
+        ['吴俊熙', '不进入新班', '保留原班记录', '剩余 3 节'],
+        ['林子轩', '不进入新班', '保留原班记录', '剩余 0 节']
+      ]
+    },
+    edgeDebt: {
+      title: '欠费保留原班在读',
+      sub: '3 人同时存在于旧班与新班',
+      rows: [
+        ['周雨桐', '四年级语文A班', '保留原班在读', '欠费 ¥320 / 2 节'],
+        ['王欣怡', '四年级语文A班', '保留原班在读', '欠课时 1'],
+        ['何雨欣', '四年级语文B班', '保留原班在读', '欠费 ¥180']
+      ]
+    },
+    nodeSource: {
+      title: '三年级语文A班（原班）',
+      sub: '共 14 人 · 2026 春季 · 升班后原班记录按情况保留',
+      rows: [
+        ['赵明轩', '四年级语文A班', '已升班', '—'],
+        ['陈嘉怡', '四年级语文A班', '已升班', '—'],
+        ['周雨桐', '四年级语文A班', '保留原班在读', '欠费 ¥320 / 2 节'],
+        ['孙浩然', '四年级语文A班', '已升班', '—'],
+        ['李明泽', '四年级语文A班', '已升班', '—'],
+        ['王欣怡', '四年级语文A班', '保留原班在读', '欠课时 1'],
+        ['张子涵', '四年级语文A班', '已升班', '—'],
+        ['刘思彤', '四年级语文A班', '已升班', '—'],
+        ['郑雨萱', '四年级语文B班', '已升班', '—'],
+        ['何雨欣', '四年级语文B班', '保留原班在读', '欠费 ¥180'],
+        ['徐若曦', '四年级语文B班', '已升班', '—'],
+        ['高梓涵', '四年级语文B班', '已升班', '—'],
+        ['吴俊熙', '不进入新班', '保留原班记录', '剩余 3 节'],
+        ['林子轩', '不进入新班', '保留原班记录', '剩余 0 节']
+      ]
+    },
+    nodeA: {
+      title: '四年级语文A班（目标班）',
+      sub: '本批新增 8 人 · 王芳 · 周六 09:00',
+      rows: [
+        ['赵明轩', '来自 三年级语文A班', '已升班', '—'],
+        ['陈嘉怡', '来自 三年级语文A班', '已升班', '—'],
+        ['周雨桐', '来自 三年级语文A班', '保留原班在读', '欠费 ¥320 / 2 节'],
+        ['孙浩然', '来自 三年级语文A班', '已升班', '—'],
+        ['李明泽', '来自 三年级语文A班', '已升班', '—'],
+        ['王欣怡', '来自 三年级语文A班', '保留原班在读', '欠课时 1'],
+        ['张子涵', '来自 三年级语文A班', '已升班', '—'],
+        ['刘思彤', '来自 三年级语文A班', '已升班', '—']
+      ]
+    },
+    nodeB: {
+      title: '四年级语文B班（目标班）',
+      sub: '本批新增 4 人 · 李静 · 周日 14:00',
+      rows: [
+        ['郑雨萱', '来自 三年级语文A班', '已升班', '—'],
+        ['何雨欣', '来自 三年级语文A班', '保留原班在读', '欠费 ¥180'],
+        ['徐若曦', '来自 三年级语文A班', '已升班', '—'],
+        ['高梓涵', '来自 三年级语文A班', '已升班', '—']
+      ]
+    },
+    nodeQuit: {
+      title: '离班留档',
+      sub: '2 人不念，未退费；原班记录保留',
+      rows: [
+        ['吴俊熙', '不进入新班', '保留原班记录', '剩余 3 节'],
+        ['林子轩', '不进入新班', '保留原班记录', '剩余 0 节']
+      ]
+    }
+  };
+
+  const drawer = document.getElementById('drawer');
+  const titleEl = document.getElementById('drawerTitle');
+  const subEl = document.getElementById('drawerSub');
+  const bodyEl = document.getElementById('drawerBody');
+
+  function show(key) {
+    const data = detail[key];
+    if (!data) return;
+    titleEl.textContent = data.title;
+    subEl.textContent = data.sub;
+    bodyEl.innerHTML = '<table><thead><tr><th>姓名</th><th>去向 / 来源</th><th>原班处理</th><th>欠费</th></tr></thead><tbody>' +
+      data.rows.map((r) => {
+        const debtCell = r[3] === '—' ? '<span class="muted">—</span>' : '<span style="color:#cf1322">' + r[3] + '</span>';
+        const actionCell = r[2] === '保留原班在读'
+          ? '<span class="tag orange">保留原班在读</span>'
+          : r[2] === '保留原班记录'
+            ? '<span class="tag gray">留档</span>'
+            : '<span class="tag blue">已升班</span>';
+        return '<tr><td><b>' + r[0] + '</b></td><td>' + r[1] + '</td><td>' + actionCell + '</td><td>' + debtCell + '</td></tr>';
+      }).join('') + '</tbody></table>';
+    drawer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  document.querySelectorAll('[data-key]').forEach((el) => {
+    el.addEventListener('click', () => show(el.dataset.key));
+  });
+  document.getElementById('drawerClose').addEventListener('click', () => {
+    titleEl.textContent = '下钻明细';
+    subEl.textContent = '点击左侧图中的班级或连线查看学员';
+    bodyEl.innerHTML = '<div class="empty">暂未选择节点</div>';
+  });
+</script>
+</body>
+</html>

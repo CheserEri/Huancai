@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.huancai.erp.module.staff.mapper.StaffMapper">
+
+  <sql id="whereClause">
+    <where>
+      <if test="campusId != null">AND sf.campus_id = #{campusId}</if>
+      <if test="role != null and role != ''">AND sf.role = #{role}</if>
+      <if test="status != null">AND sf.status = #{status}</if>
+      <if test="keyword != null and keyword != ''">
+        AND (sf.name LIKE CONCAT('%', #{keyword}, '%')
+          OR sf.phone LIKE CONCAT('%', #{keyword}, '%')
+          OR sf.title LIKE CONCAT('%', #{keyword}, '%'))
+      </if>
+    </where>
+  </sql>
+
+  <select id="selectStaffList" resultType="cn.huancai.erp.module.staff.vo.StaffVO">
+    SELECT
+      sf.id,
+      sf.name,
+      sf.phone,
+      sf.account,
+      sf.role,
+      sf.title,
+      sf.menu_permissions AS menuPermissions,
+      sf.status,
+      sf.campus_id AS campusId,
+      cp.name      AS campusName,
+      (SELECT COUNT(*) FROM class_group cg WHERE cg.teacher_id = sf.id)    AS classCount,
+      (SELECT COUNT(*) FROM schedule s WHERE s.teacher_id = sf.id)         AS scheduleCount,
+      (SELECT COUNT(*) FROM class_comment cc WHERE cc.teacher_id = sf.id)  AS commentCount
+    FROM staff sf
+    LEFT JOIN campus cp ON cp.id = sf.campus_id
+    <include refid="whereClause"/>
+    ORDER BY sf.status DESC, sf.id
+  </select>
+
+  <select id="selectSummary" resultType="cn.huancai.erp.module.staff.vo.StaffSummaryVO">
+    SELECT
+      COUNT(*)                                              AS total,
+      COALESCE(SUM(sf.status = 1), 0)                       AS active,
+      COALESCE(SUM(sf.role = 'teacher'), 0)                 AS teachers,
+      COALESCE(SUM(sf.role = 'consultant'), 0)              AS consultants
+    FROM staff sf
+    <include refid="whereClause"/>
+  </select>
+</mapper>

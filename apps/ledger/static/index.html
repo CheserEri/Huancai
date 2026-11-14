@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>幻彩教育 · 课时记账</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --nav-bg:#101b2d;
+  --nav-active:#007aff;
+  --bg:#f4f6f9;
+  --card:#fff;
+  --primary:#007aff;
+  --primary-h:#0066d6;
+  --text:rgba(0,0,0,.65);
+  --text-1:rgba(0,0,0,.85);
+  --text-2:rgba(0,0,0,.45);
+  --text-3:rgba(0,0,0,.25);
+  --border:#f0f0f0;
+  --border-2:#d9d9d9;
+  --red:#f5222d;
+  --orange:#fa8c16;
+  --green:#52c41a;
+  --purple:#722ed1;
+  --cyan:#13c2c2;
+}
+html,body{height:100%}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  font-size:14px;color:var(--text);background:var(--bg);-webkit-font-smoothing:antialiased;overflow:hidden}
+
+/* ---------- 布局 ---------- */
+.app{display:flex;height:100vh}
+.sidenav{width:176px;flex:0 0 176px;background:var(--nav-bg);display:flex;flex-direction:column;
+  color:#fff;overflow:hidden}
+.logo{height:56px;display:flex;align-items:center;justify-content:center;gap:8px;
+  border-bottom:1px solid rgba(255,255,255,.06);flex:0 0 auto}
+.logo .mark{width:26px;height:26px;border-radius:6px;background:linear-gradient(135deg,#ff4d4f,#d4380d);
+  display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff}
+.logo .txt{font-size:13px;font-weight:600;letter-spacing:.5px}
+.navlist{flex:1;overflow-y:auto;padding-top:6px}
+.navlist::-webkit-scrollbar{width:0}
+.nav-item{height:48px;display:flex;align-items:center;gap:10px;padding:0 18px;cursor:pointer;
+  font-size:12.5px;color:rgba(255,255,255,.72);transition:background .15s,color .15s;position:relative}
+.nav-item:hover{background:rgba(255,255,255,.06);color:#fff}
+.nav-item.on{background:var(--nav-active);color:#fff}
+.nav-item svg{width:16px;height:16px;flex:0 0 16px;stroke:currentColor;fill:none;
+  stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.nav-foot{padding:12px 16px;border-top:1px solid rgba(255,255,255,.06);font-size:11.5px;
+  color:rgba(255,255,255,.4);display:flex;align-items:center;gap:8px;flex:0 0 auto}
+.dot-online{width:6px;height:6px;border-radius:50%;background:#52c41a;flex:0 0 6px}
+
+.main{flex:1;display:flex;flex-direction:column;min-width:0}
+/* ---------- 顶部 ---------- */
+.topbar{height:46px;background:#fff;display:flex;align-items:center;padding:0 16px 0 8px;
+  border-bottom:1px solid var(--border);flex:0 0 auto;gap:10px}
+.collapse{width:32px;height:32px;border-radius:4px;display:flex;align-items:center;justify-content:center;
+  cursor:pointer;color:var(--text-2)}
+.collapse:hover{background:#f5f5f5}
+.tabstrip{flex:1;display:flex;align-items:center;gap:4px;overflow-x:auto;height:100%}
+.tabstrip::-webkit-scrollbar{height:0}
+.tab{display:flex;align-items:center;gap:6px;height:30px;padding:0 10px;border-radius:4px;
+  font-size:13px;color:var(--text);cursor:pointer;white-space:nowrap;transition:.15s;position:relative}
+.tab:hover{background:#f5f7fa}
+.tab.on{background:#eef5ff;color:var(--primary);font-weight:500}
+.tab .tdot{width:6px;height:6px;border-radius:50%;background:#bfbfbf;flex:0 0 6px}
+.tab.on .tdot{background:var(--primary)}
+.tab .tclose{width:14px;height:14px;border-radius:3px;display:flex;align-items:center;justify-content:center;
+  font-size:12px;color:var(--text-3);margin-left:2px}
+.tab .tclose:hover{background:rgba(0,0,0,.08);color:var(--text)}
+.topright{display:flex;align-items:center;gap:6px;flex:0 0 auto}
+.org{display:flex;align-items:center;gap:5px;font-size:13px;color:var(--text);padding:5px 8px;
+  border-radius:4px;cursor:pointer;white-space:nowrap}
+.org:hover{background:#f5f5f5}
+.icobtn{width:32px;height:32px;border-radius:4px;display:flex;align-items:center;justify-content:center;
+  color:var(--text-2);cursor:pointer;position:relative}
+.icobtn:hover{background:#f5f5f5;color:var(--text)}
+.icobtn svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.6;
+  stroke-linecap:round;stroke-linejoin:round}
+.avatar{width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#5b8def,#3366cc);
+  color:#fff;font-size:12px;display:flex;align-items:center;justify-content:center;font-weight:600;
+  cursor:pointer;margin-left:2px}
+
+/* ---------- 内容 ---------- */
+.content{flex:1;overflow-y:auto;padding:16px}
+.content::-webkit-scrollbar{width:8px}
+.content::-webkit-scrollbar-thumb{background:#d9d9d9;border-radius:4px}
+.view{display:none}
+.view.on{display:block}
+
+.card{background:var(--card);border-radius:8px;margin-bottom:16px;overflow:hidden}
+.card-h{height:52px;padding:0 20px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.card-h h3{font-size:16px;font-weight:500;color:var(--text-1)}
+.card-h .more{font-size:13px;color:var(--text-2);cursor:pointer}
+.card-h .more:hover{color:var(--primary)}
+.card-b{padding:0 20px 20px}
+
+/* 待办条 */
+.todos{display:flex;align-items:stretch;padding:6px 8px 18px}
+.todo{flex:1;display:flex;align-items:center;gap:10px;padding:6px 12px;position:relative;cursor:pointer;min-width:0}
+.todo+.todo::before{content:"";position:absolute;left:0;top:12%;height:76%;width:1px;background:var(--border)}
+.todo .ico{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex:0 0 38px}
+.todo .ico svg{width:19px;height:19px;stroke-width:1.7;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.todo .n{font-size:20px;font-weight:600;color:var(--text-1);line-height:1.2;letter-spacing:-.4px;white-space:nowrap}
+.todo .n i{font-style:normal;font-size:12px;font-weight:400;color:var(--text-2);margin-left:2px}
+.todo .l{font-size:12.5px;color:var(--text-2);margin-top:2px;white-space:nowrap}
+
+/* 快捷操作 */
+.quick{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:4px 8px 20px}
+.qitem{padding:14px 12px;border-radius:6px;display:flex;flex-direction:column;align-items:center;gap:9px;
+  cursor:pointer;transition:.15s;border:1px solid transparent}
+.qitem:hover{background:#f7f9fc;border-color:#e8eef7}
+.qitem .qi{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center}
+.qitem .qi svg{width:20px;height:20px;stroke-width:1.7;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.qitem span{font-size:12.5px;color:var(--text)}
+
+/* 表格 */
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{height:44px;text-align:left;padding:0 12px;font-weight:400;color:var(--text);background:#fafafa;
+  border-bottom:1px solid var(--border);white-space:nowrap;font-size:13px}
+td{height:46px;padding:0 12px;color:#67757c;border-bottom:1px solid var(--border)}
+tbody tr:last-child td{border-bottom:0}
+tbody tr:hover td{background:#f7f9fc}
+td.strong{color:var(--text-1);font-weight:500}
+.num{font-variant-numeric:tabular-nums}
+.link{color:var(--primary);cursor:pointer}
+.link:hover{text-decoration:underline}
+
+/* 标签 */
+.tag{display:inline-block;font-size:12px;line-height:20px;padding:0 8px;border-radius:3px;
+  background:#f5f5f5;color:var(--text);border:1px solid #f0f0f0}
+.tag.ok{background:#f6ffed;border-color:#b7eb8f;color:#389e0d}
+.tag.warn{background:#fffbe6;border-color:#ffe58f;color:#d46b08}
+.tag.bad{background:#fff1f0;border-color:#ffa39e;color:#cf1322}
+.tag.blue{background:#e6f4ff;border-color:#91caff;color:#0958d9}
+
+/* 按钮 */
+.btn{height:32px;padding:0 15px;border:1px solid var(--border-2);background:#fff;color:var(--text);
+  border-radius:4px;font-size:14px;cursor:pointer;font-family:inherit;transition:.15s;
+  display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.btn:hover{border-color:var(--primary);color:var(--primary)}
+.btn.pri{background:var(--primary);border-color:var(--primary);color:#fff}
+.btn.pri:hover{background:var(--primary-h);border-color:var(--primary-h);color:#fff}
+.btn.sm{height:26px;padding:0 10px;font-size:13px}
+.btn.ghost{border-color:transparent;background:transparent;color:var(--primary);padding:0 8px}
+.btn.ghost:hover{background:#e6f4ff}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+
+/* 子导航 */
+.subnav{display:flex;align-items:center;gap:4px;padding:0 20px;border-bottom:1px solid var(--border);
+  height:46px}
+.subnav .si{height:46px;padding:0 14px;display:flex;align-items:center;font-size:14px;color:var(--text);
+  cursor:pointer;position:relative;white-space:nowrap}
+.subnav .si:hover{color:var(--primary)}
+.subnav .si.on{color:var(--primary)}
+.subnav .si.on::after{content:"";position:absolute;left:14px;right:14px;bottom:-1px;height:2px;
+  background:var(--primary);border-radius:1px}
+
+/* 工具条 */
+.toolbar{display:flex;align-items:center;gap:10px;padding:14px 20px;flex-wrap:wrap}
+input,select{height:32px;padding:0 11px;border:1px solid var(--border-2);border-radius:4px;
+  font-size:14px;font-family:inherit;color:var(--text);outline:none;background:#fff;transition:.15s}
+input:focus,select:focus{border-color:var(--primary);box-shadow:0 0 0 2px rgba(0,122,255,.1)}
+input::placeholder{color:var(--text-3)}
+.searchbox{position:relative}
+.searchbox input{padding-left:30px;width:220px}
+.searchbox svg{position:absolute;left:9px;top:8px;width:15px;height:15px;stroke:var(--text-3);
+  fill:none;stroke-width:1.8}
+
+/* 布局两栏 */
+.cols{display:grid;grid-template-columns:1fr 320px;gap:16px;align-items:start}
+@media(max-width:1100px){.cols{grid-template-columns:1fr}}
+
+/* 列表 */
+.li{padding:12px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;
+  gap:10px;font-size:13.5px}
+.li:last-child{border-bottom:0}
+.li .lt{color:var(--text);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.li .ld{color:var(--text-2);font-size:12.5px;flex:0 0 auto}
+.li:hover{background:#fafcff}
+
+/* 空态 */
+.empty{padding:56px 20px;text-align:center;color:var(--text-3);font-size:13.5px}
+.empty svg{width:48px;height:48px;stroke:#d9d9d9;fill:none;stroke-width:1.2;margin-bottom:10px}
+
+/* 抽屉 */
+.mask{position:fixed;inset:0;background:rgba(0,0,0,.45);opacity:0;pointer-events:none;transition:.2s;z-index:60}
+.mask.on{opacity:1;pointer-events:auto}
+.drawer{position:fixed;top:0;right:0;bottom:0;width:560px;max-width:92vw;background:#fff;
+  transform:translateX(100%);transition:transform .26s cubic-bezier(.4,0,.2,1);z-index:61;
+  display:flex;flex-direction:column;box-shadow:-6px 0 24px rgba(0,0,0,.12)}
+.drawer.on{transform:translateX(0)}
+.dh{height:56px;padding:0 20px;display:flex;align-items:center;justify-content:space-between;
+  border-bottom:1px solid var(--border);flex:0 0 auto}
+.dh h3{font-size:16px;font-weight:500;color:var(--text-1)}
+.dh .x{width:28px;height:28px;border-radius:4px;display:flex;align-items:center;justify-content:center;
+  cursor:pointer;color:var(--text-2);font-size:18px}
+.dh .x:hover{background:#f5f5f5}
+.db{flex:1;overflow-y:auto;padding:18px 20px 40px}
+.db::-webkit-scrollbar{width:6px}
+.db::-webkit-scrollbar-thumb{background:#e0e0e0;border-radius:3px}
+
+/* 弹窗 */
+.modal{position:fixed;top:50%;left:50%;transform:translate(-50%,-46%);width:520px;max-width:92vw;
+  max-height:88vh;background:#fff;border-radius:8px;z-index:62;display:none;flex-direction:column;
+  box-shadow:0 6px 24px rgba(0,0,0,.16)}
+.modal.on{display:flex}
+.mh{height:52px;padding:0 20px;display:flex;align-items:center;justify-content:space-between;
+  border-bottom:1px solid var(--border);flex:0 0 auto}
+.mh h3{font-size:16px;font-weight:500}
+.mh .x{cursor:pointer;color:var(--text-2);font-size:18px;width:26px;height:26px;display:flex;
+  align-items:center;justify-content:center;border-radius:4px}
+.mh .x:hover{background:#f5f5f5}
+.mb{padding:20px;overflow-y:auto}
+.mf{padding:12px 20px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px}
+
+.field{margin-bottom:16px}
+.field label{display:block;font-size:14px;color:var(--text);margin-bottom:6px}
+.field label em{color:var(--red);font-style:normal;margin-right:2px}
+.field input,.field select{width:100%}
+.f2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+
+/* 报读卡 */
+.enr{border:1px solid var(--border);border-radius:6px;padding:14px 16px;margin-bottom:12px;background:#fcfdff}
+.enr .top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:10px}
+.enr .cn{font-size:14px;font-weight:500;color:var(--text-1)}
+.enr .mt{font-size:12.5px;color:var(--text-2);margin-top:4px;line-height:1.7}
+.enr .big{font-size:26px;font-weight:600;color:var(--primary);letter-spacing:-.6px;line-height:1.1;text-align:right}
+.enr .big small{font-size:12px;font-weight:400;color:var(--text-2);margin-left:2px}
+.enr .rl{font-size:12px;color:var(--text-2);text-align:right;margin-top:2px}
+.enr .acts{display:flex;gap:8px;flex-wrap:wrap}
+
+.calc{background:#fafcff;border:1px dashed #bae0ff;border-radius:6px;padding:14px 16px;font-size:13.5px}
+.calc .ln{display:flex;justify-content:space-between;padding:5px 0}
+.calc .ln.total{border-top:1px solid #e6f4ff;margin-top:6px;padding-top:9px;font-weight:600;color:var(--red);font-size:15px}
+.note{font-size:12.5px;color:var(--text-2);line-height:1.8;margin-top:12px;background:#fafafa;
+  padding:10px 12px;border-radius:4px}
+
+.toast{position:fixed;top:20px;left:50%;transform:translateX(-50%) translateY(-12px);background:#fff;
+  color:var(--text-1);padding:10px 18px;border-radius:6px;font-size:13.5px;opacity:0;
+  transition:.22s;z-index:99;pointer-events:none;box-shadow:0 4px 16px rgba(0,0,0,.14);
+  border-left:3px solid var(--green)}
+.toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+.hint{font-size:12.5px;color:var(--text-2);margin-top:10px}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <!-- 侧边导航 -->
+  <aside class="sidenav">
+    <div class="logo">
+      <div class="mark">幻</div>
+      <div class="txt">幻彩教育</div>
+    </div>
+    <div class="navlist" id="navlist"></div>
+    <div class="nav-foot"><span class="dot-online"></span>版本 v1.0</div>
+  </aside>
+
+  <div class="main">
+    <!-- 顶部 -->
+    <header class="topbar">
+      <div class="collapse" title="收起导航">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8">
+          <path d="M4 6h16M4 12h16M4 18h16"/></svg>
+      </div>
+      <div class="tabstrip" id="tabstrip"></div>
+      <div class="topright">
+        <div class="org">
+          <span>幻彩教育</span>
+          <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6">
+            <path d="M3 4.5L6 7.5L9 4.5"/></svg>
+        </div>
+        <div class="icobtn" title="搜索">
+          <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+        </div>
+        <div class="icobtn" title="消息">
+          <svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"/>
+          <path d="M13.7 21a2 2 0 01-3.4 0"/></svg>
+        </div>
+        <div class="icobtn" title="帮助">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/>
+          <path d="M9.1 9a3 3 0 015.8 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
+        </div>
+        <div class="icobtn" title="设置">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/>
+          <path d="M19.4 15a1.6 1.6 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.6 1.6 0 00-1.8-.3 1.6 1.6 0 00-1 1.5V21a2 2 0 11-4 0v-.1A1.6 1.6 0 008 19.4a1.6 1.6 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.6 1.6 0 00.3-1.8 1.6 1.6 0 00-1.5-1H2a2 2 0 110-4h.1A1.6 1.6 0 004.6 8a1.6 1.6 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.6 1.6 0 001.8.3H9a1.6 1.6 0 001-1.5V2a2 2 0 114 0v.1a1.6 1.6 0 001 1.5 1.6 1.6 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.6 1.6 0 00-.3 1.8V9a1.6 1.6 0 001.5 1H22a2 2 0 110 4h-.1a1.6 1.6 0 00-1.5 1z"/></svg>
+        </div>
+        <div class="avatar">王</div>
+      </div>
+    </header>
+
+    <!-- 内容 -->
+    <div class="content" id="content">
+
+      <!-- 工作台 -->
+      <div class="view on" id="v-dash">
+        <div class="cols">
+          <div>
+            <section class="card">
+              <div class="todos" id="todos"></div>
+            </section>
+            <section class="card">
+              <div class="card-h"><h3>常用功能</h3></div>
+              <div class="quick" id="quick"></div>
+            </section>
+            <section class="card">
+              <div class="card-h"><h3>最近订单</h3><span class="more" onclick="go('orders')">查看全部 ›</span></div>
+              <div id="recent" style="padding:0 0 6px"></div>
+            </section>
+          </div>
+          <div>
+            <section class="card">
+              <div class="card-h"><h3>课时到期提醒</h3><span class="more" onclick="go('expire')">全部 ›</span></div>
+              <div id="dashExpire"></div>
+            </section>
+            <section class="card">
+              <div class="card-h"><h3>使用提示</h3></div>
+              <div class="card-b" style="font-size:13px;line-height:2;color:var(--text-2)">
+                · 记上课会实时扣减剩余课时<br>
+                · 退费试算按「实收 ÷ 总课时」计单价<br>
+                · 数据保存在本机 data.db 文件<br>
+                · 家长查询页：<span class="link" onclick="window.open('/parent','_blank')">/parent</span>
+              </div>
+            </section>
+          </div>
+        </div>
+      </div>
+
+      <!-- 学员 -->
+      <div class="view" id="v-students">
+        <section class="card">
+          <div class="subnav">
+            <div class="si on">花名册</div>
+            <div class="si" onclick="go('expire')">到期学员</div>
+          </div>
+          <div class="toolbar">
+            <div class="searchbox">
+              <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+              <input id="q" placeholder="搜索学员姓名 / 手机号" oninput="loadStudents()">
+            </div>
+            <button class="btn pri" onclick="openStu()">＋ 新增学员</button>
+            <span style="flex:1"></span>
+            <span class="hint" id="stuCount" style="margin:0"></span>
+          </div>
+          <div id="stuTable"></div>
+        </section>
+      </div>
+
+      <!-- 订单 -->
+      <div class="view" id="v-orders">
+        <section class="card">
+          <div class="subnav"><div class="si on">订单流水</div></div>
+          <div class="toolbar">
+            <span class="hint" id="orderCount" style="margin:0"></span>
+          </div>
+          <div id="orderTable"></div>
+        </section>
+      </div>
+
+      <!-- 到期 -->
+      <div class="view" id="v-expire">
+        <section class="card">
+          <div class="subnav"><div class="si on">课时到期预警</div></div>
+          <div class="toolbar">
+            <select id="expDays" onchange="loadExpire()" style="width:130px">
+              <option value="30">30 天内</option>
+              <option value="60">60 天内</option>
+              <option value="90">90 天内</option>
+              <option value="9999">全部</option>
+            </select>
+            <span class="hint" id="expCount" style="margin:0"></span>
+          </div>
+          <div id="expTable"></div>
+        </section>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div class="mask" id="mask" onclick="closeAll()"></div>
+<div class="drawer" id="drawer">
+  <div class="dh">
+    <h3 id="drawerTitle">学员详情</h3>
+    <div class="x" onclick="closeAll()">×</div>
+  </div>
+  <div class="db" id="drawerBody"></div>
+</div>
+<div class="modal" id="modal">
+  <div class="mh"><h3 id="modalTitle">新增</h3><div class="x" onclick="closeAll()">×</div></div>
+  <div class="mb" id="modalBody"></div>
+  <div class="mf" id="modalFoot"></div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+const fmt = (n,d=0) => Number(n||0).toLocaleString('zh-CN',{minimumFractionDigits:d,maximumFractionDigits:d});
+const money = n => '¥' + fmt(n,2);
+function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('on');
+  clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('on'),1900);}
+async function api(u){const r=await fetch(u);if(!r.ok)throw new Error('err');return r.json();}
+function post(u,b){return fetch(u,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}).then(r=>r.json());}
+
+/* ---------------- 导航与标签 ---------------- */
+const NAV = [
+  {k:'dash',     t:'工作台', icon:'<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>'},
+  {k:'students', t:'学员',   icon:'<circle cx="12" cy="8" r="4"/><path d="M4 21v-2a6 6 0 016-6h4a6 6 0 016 6v2"/>'},
+  {k:'orders',   t:'订单',   icon:'<path d="M6 3h12a1 1 0 011 1v17l-3-2-2 2-2-2-2 2-3-2V4a1 1 0 011-1z"/><path d="M9 8h6M9 12h6"/>'},
+  {k:'expire',   t:'到期预警', icon:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'},
+];
+let tabs = [{k:'dash', t:'工作台', closeable:false}];
+let active = 'dash';
+
+function renderNav(){
+  $('#navlist').innerHTML = NAV.map(n=>`
+    <div class="nav-item ${n.k===active?'on':''}" onclick="go('${n.k}')">
+      <svg viewBox="0 0 24 24">${n.icon}</svg><span>${n.t}</span>
+    </div>`).join('');
+}
+function renderTabs(){
+  $('#tabstrip').innerHTML = tabs.map(t=>`
+    <div class="tab ${t.k===active?'on':''}" onclick="go('${t.k}')">
+      <span class="tdot"></span><span>${t.t}</span>
+      ${t.closeable!==false?`<span class="tclose" onclick="event.stopPropagation();closeTab('${t.k}')">×</span>`:''}
+    </div>`).join('');
+}
+function go(k){
+  const n = NAV.find(x=>x.k===k); if(!n) return;
+  active = k;
+  if(!tabs.find(t=>t.k===k)) tabs.push({k, t:n.t});
+  renderNav(); renderTabs();
+  ['dash','students','orders','expire'].forEach(v=>{
+    $('#v-'+v).classList.toggle('on', v===k);
+  });
+  if(k==='dash') loadDash();
+  if(k==='students') loadStudents();
+  if(k==='orders') loadOrders();
+  if(k==='expire') loadExpire();
+  $('#content').scrollTop = 0;
+}
+function closeTab(k){
+  if(tabs.length<=1) return;
+  const i = tabs.findIndex(t=>t.k===k);
+  tabs.splice(i,1);
+  if(active===k) go(tabs[Math.max(0,i-1)].k);
+  else renderTabs();
+}
+
+/* ---------------- 看板 ---------------- */
+async function loadDash(){
+  const d = await api('/api/summary');
+
+  $('#todos').innerHTML = [
+    {n:d.students, u:'人', l:'在读学员', c:'#007aff', b:'#e6f4ff',
+     ic:'<circle cx="12" cy="8" r="4"/><path d="M4 21v-2a6 6 0 016-6h4a6 6 0 016 6v2"/>', go:'students'},
+    {n:fmt(d.hours_left,1), u:'课时', l:'剩余课时合计', c:'#52c41a', b:'#f6ffed',
+     ic:'<path d="M4 5h16v14H4z"/><path d="M8 3v4M16 3v4M4 10h16"/>', go:'students'},
+    {n:d.expiring, u:'份', l:'30 天内到期', c:'#fa8c16', b:'#fff7e6',
+     ic:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>', go:'expire'},
+    {n:money(d.month_paid), u:'', l:'本月实收', c:'#722ed1', b:'#f9f0ff',
+     ic:'<path d="M12 2v20M17 6H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/>', go:'orders'},
+    {n:money(d.outstanding), u:'', l:'应收未收', c:'#f5222d', b:'#fff1f0',
+     ic:'<path d="M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z"/><path d="M12 9v4M12 17h.01"/>', go:'orders'},
+  ].map(x=>`
+    <div class="todo" onclick="go('${x.go}')">
+      <div class="ico" style="background:${x.b}">
+        <svg viewBox="0 0 24 24" stroke="${x.c}">${x.ic}</svg>
+      </div>
+      <div>
+        <div class="n">${x.n}${x.u?`<i>${x.u}</i>`:''}</div>
+        <div class="l">${x.l}</div>
+      </div>
+    </div>`).join('');
+
+  $('#quick').innerHTML = [
+    {t:'新增学员', c:'#007aff', b:'#e6f4ff', f:"openStu()",
+     ic:'<circle cx="12" cy="8" r="4"/><path d="M4 21v-2a6 6 0 016-6h4a6 6 0 016 6v2"/><path d="M19 6v6M22 9h-6"/>'},
+    {t:'记上课', c:'#52c41a', b:'#f6ffed', f:"go('students')",
+     ic:'<path d="M9 11l3 3 8-8"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>'},
+    {t:'查看订单', c:'#fa8c16', b:'#fff7e6', f:"go('orders')",
+     ic:'<path d="M6 3h12a1 1 0 011 1v17l-3-2-2 2-2-2-2 2-3-2V4a1 1 0 011-1z"/><path d="M9 8h6M9 12h6"/>'},
+    {t:'到期预警', c:'#f5222d', b:'#fff1f0', f:"go('expire')",
+     ic:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'},
+  ].map(q=>`
+    <div class="qitem" onclick="${q.f}">
+      <div class="qi" style="background:${q.b}"><svg viewBox="0 0 24 24" stroke="${q.c}">${q.ic}</svg></div>
+      <span>${q.t}</span>
+    </div>`).join('');
+
+  const rows = d.recent_orders;
+  $('#recent').innerHTML = rows.length ? `<table>
+    <thead><tr><th>经办日期</th><th>学员</th><th>交易内容</th><th>应收</th><th>实收</th><th>方式</th></tr></thead>
+    <tbody>${rows.map(o=>`<tr>
+      <td>${(o.created_at||'').slice(0,16)}</td>
+      <td class="strong">${o.student_name||'-'}</td>
+      <td>${o.note||'-'}</td>
+      <td class="num">${money(o.amount_due)}</td>
+      <td class="num strong">${money(o.amount_paid)}</td>
+      <td>${o.pay_method||'-'}</td>
+    </tr>`).join('')}</tbody></table>` : `<div class="empty">
+      <svg viewBox="0 0 24 24"><path d="M6 3h12a1 1 0 011 1v17l-3-2-2 2-2-2-2 2-3-2V4a1 1 0 011-1z"/></svg>
+      <div>还没有订单</div></div>`;
+
+  const ex = await api('/api/expiring?days=30');
+  $('#dashExpire').innerHTML = ex.length ? ex.slice(0,6).map(e=>`
+    <div class="li" onclick="go('students')" style="cursor:pointer">
+      <div class="lt">${e.student_name} · ${e.course}</div>
+      <div class="ld">剩 ${e.days_left} 天</div>
+    </div>`).join('') : `<div class="empty" style="padding:32px 20px">30 天内没有到期学员</div>`;
+}
+
+/* ---------------- 学员 ---------------- */
+async function loadStudents(){
+  const q = $('#q') ? $('#q').value.trim() : '';
+  const list = await api('/api/students?q=' + encodeURIComponent(q));
+  $('#stuCount').textContent = `共计 ${list.length} 名学员`;
+  if(!list.length){
+    $('#stuTable').innerHTML = `<div class="empty">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21v-2a6 6 0 016-6h4a6 6 0 016 6v2"/></svg>
+      <div>还没有学员，点右上角「新增学员」</div></div>`;
+    return;
+  }
+  const details = await Promise.all(list.map(s=>api('/api/student?id='+s.id)));
+  $('#stuTable').innerHTML = `<table>
+    <thead><tr>
+      <th>学员姓名</th><th>联系方式</th><th>报读校区</th><th>在读报读</th><th>剩余课时</th><th>状态</th><th style="width:150px">操作</th>
+    </tr></thead><tbody>${details.map(d=>{
+      const s = d.student;
+      const n = d.enrollments.filter(e=>e.status==='在读').length;
+      const h = d.enrollments.reduce((a,e)=>a+(e.remaining>0?e.remaining:0),0);
+      return `<tr>
+        <td class="strong">${s.name}</td>
+        <td>${s.phone||'-'}</td>
+        <td>${s.campus||'-'}</td>
+        <td>${n} 份</td>
+        <td class="num ${h>0?'strong':''}">${fmt(h,1)}</td>
+        <td><span class="tag ${s.status==='在读'?'ok':''}">${s.status}</span></td>
+        <td>
+          <button class="btn ghost sm" onclick="openDetail(${s.id})">查看</button>
+          <button class="btn ghost sm" onclick="openEnroll(${s.id})">报读</button>
+        </td>
+      </tr>`;
+    }).join('')}</tbody></table>`;
+}
+
+let curStu = null;
+async function openDetail(id){
+  curStu = id;
+  const d = await api('/api/student?id=' + id);
+  const s = d.student;
+  $('#drawerTitle').innerHTML = `${s.name} <span class="tag ${s.status==='在读'?'ok':''}" style="margin-left:8px">${s.status}</span>`;
+  $('#drawerBody').innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px">
+      <div style="font-size:13px;color:var(--text-2)">
+        ${s.phone||'无手机号'} · ${s.campus||'未分校区'} · 加入于 ${(s.created_at||'').slice(0,10)}
+      </div>
+      <button class="btn sm" onclick="openEnroll(${s.id})">＋ 报读 / 充值课时</button>
+    </div>
+
+    <div style="font-size:14px;font-weight:500;margin:0 0 12px">报读与课时</div>
+    ${d.enrollments.length ? d.enrollments.map(e=>`
+      <div class="enr">
+        <div class="top">
+          <div>
+            <div class="cn">${e.course}</div>
+            <div class="mt">
+              总 ${fmt(e.total_hours,1)} 课时${e.gift_hours>0?`（含赠送 ${fmt(e.gift_hours,1)}）`:''}<br>
+              实收 ${money(e.paid)} · 折后单价 ${money(e.unit_price)}/课时<br>
+              ${e.start_date?'开课 '+e.start_date:''}${e.expire_date?' · 到期 '+e.expire_date:''}
+              ${e.days_left!==undefined?`<span class="tag ${e.days_left<0?'bad':(e.days_left<=30?'warn':'')}" style="margin-left:6px">
+                ${e.days_left<0?'已过期':'剩 '+e.days_left+' 天'}</span>`:''}
+            </div>
+          </div>
+          <div>
+            <div class="big">${fmt(e.remaining,1)}<small>课时</small></div>
+            <div class="rl">剩余</div>
+          </div>
+        </div>
+        <div class="acts">
+          <button class="btn pri sm" onclick="lesson(${e.id},1)">记 1 课时</button>
+          <button class="btn sm" onclick="lesson(${e.id},0.5)">记 0.5</button>
+          <button class="btn sm" onclick="lesson(${e.id},2)">记 2</button>
+          <button class="btn sm" onclick="refund(${e.id})">退费试算</button>
+        </div>
+      </div>`).join('') : `<div class="empty" style="padding:32px">还没有报读记录</div>`}
+
+    <div style="font-size:14px;font-weight:500;margin:22px 0 12px">课时流水</div>
+    ${d.txns.length ? `<table>
+      <thead><tr><th>时间</th><th>课程</th><th>类型</th><th>变动</th></tr></thead>
+      <tbody>${d.txns.map(t=>`<tr>
+        <td>${(t.created_at||'').slice(5,16)}</td>
+        <td>${t.course}</td>
+        <td><span class="tag ${t.hours>0?'ok':'blue'}">${t.type}</span></td>
+        <td class="num" style="color:${t.hours>0?'#389e0d':'#cf1322'}">${t.hours>0?'+':''}${fmt(t.hours,1)}</td>
+      </tr>`).join('')}</tbody></table>` : `<div class="empty" style="padding:28px">暂无流水</div>`}
+  `;
+  $('#mask').classList.add('on');
+  $('#drawer').classList.add('on');
+}
+
+async function lesson(eid, hours){
+  const r = await post('/api/lesson', {enrollment_id:eid, hours:-hours, type:'上课', note:'记上课'});
+  toast(`已记 ${hours} 课时，剩余 ${fmt(r.remaining,1)}`);
+  openDetail(curStu);
+}
+
+async function refund(eid){
+  const r = await post('/api/refund_calc', {enrollment_id:eid});
+  if(!r.ok) return toast(r.msg);
+  const d = r.data;
+  $('#modalTitle').textContent = '退费试算 · ' + d.student_name;
+  $('#modalBody').innerHTML = `
+    <div class="calc">
+      <div class="ln"><span>课程</span><b>${d.course}</b></div>
+      <div class="ln"><span>实收金额</span><b>${money(d.paid)}</b></div>
+      <div class="ln"><span>总课时（不含赠送）</span><b>${fmt(d.total_hours,1)}</b></div>
+      <div class="ln"><span>折后单价</span><b>${money(d.unit_price)} / 课时</b></div>
+      <div class="ln"><span>已消耗课时</span><b>${fmt(d.used_hours,1)}</b></div>
+      <div class="ln"><span>已消耗金额</span><b>${money(d.used_amount)}</b></div>
+      <div class="ln total"><span>应退金额</span><span>${money(d.refund_amount)}</span></div>
+    </div>
+    <div class="note">口径：折后单价 = 实收 ÷ 总课时（赠送课时不计入分母）；已消耗金额 = 已消耗课时 × 折后单价；应退 = 实收 − 已消耗金额。若有手续费或优惠分摊，以此为基础人工调整。</div>`;
+  $('#modalFoot').innerHTML = `<button class="btn" onclick="closeAll()">关闭</button>`;
+  $('#mask').classList.add('on');
+  $('#modal').classList.add('on');
+}
+
+function openStu(){
+  $('#modalTitle').textContent = '新增学员';
+  $('#modalBody').innerHTML = `
+    <div class="field"><label><em>*</em>学员姓名</label><input id="f_name" placeholder="如：张小明"></div>
+    <div class="f2">
+      <div class="field"><label>家长手机号</label><input id="f_phone" placeholder="用于家长端查询"></div>
+      <div class="field"><label>报读校区</label>
+        <select id="f_campus">
+          <option>鲅鱼圈幻彩国学堂</option>
+          <option>新民幻彩国学堂</option>
+        </select>
+      </div>
+    </div>
+    <div class="field"><label>备注</label><input id="f_note" placeholder="选填"></div>`;
+  $('#modalFoot').innerHTML = `
+    <button class="btn" onclick="closeAll()">取消</button>
+    <button class="btn pri" onclick="saveStu()">保存</button>`;
+  $('#mask').classList.add('on');
+  $('#modal').classList.add('on');
+  setTimeout(()=>$('#f_name').focus(),80);
+}
+
+async function saveStu(){
+  const name = $('#f_name').value.trim();
+  if(!name) return toast('请填写学员姓名');
+  await post('/api/student', {name, phone:$('#f_phone').value.trim(),
+    campus:$('#f_campus').value, note:$('#f_note').value.trim()});
+  closeAll(); toast('学员已添加'); loadStudents();
+}
+
+function openEnroll(sid){
+  const today = new Date().toISOString().slice(0,10);
+  const exp = new Date(Date.now()+365*864e5).toISOString().slice(0,10);
+  $('#modalTitle').textContent = '报读 / 充值课时';
+  $('#modalBody').innerHTML = `
+    <div class="field"><label><em>*</em>课程名称</label><input id="e_course" placeholder="如：【语文】3年级 周六10:10"></div>
+    <div class="f2">
+      <div class="field"><label><em>*</em>课时数</label><input id="e_total" type="number" step="0.5" value="20"></div>
+      <div class="field"><label>赠送课时</label><input id="e_gift" type="number" step="0.5" value="0"></div>
+    </div>
+    <div class="f2">
+      <div class="field"><label><em>*</em>实收金额</label><input id="e_paid" type="number" step="0.01" value="2000"></div>
+      <div class="field"><label>优惠金额</label><input id="e_discount" type="number" step="0.01" value="0"></div>
+    </div>
+    <div class="f2">
+      <div class="field"><label>开课日期</label><input id="e_start" type="date" value="${today}"></div>
+      <div class="field"><label>到期日期</label><input id="e_exp" type="date" value="${exp}"></div>
+    </div>
+    <div class="f2">
+      <div class="field"><label>收款方式</label>
+        <select id="e_pay"><option>微信</option><option>支付宝</option><option>现金</option><option>银行转账</option><option>POS</option></select>
+      </div>
+      <div class="field"><label>经办人</label><input id="e_op" placeholder="如：王博"></div>
+    </div>
+    <div class="note" style="margin-top:0">保存后自动生成一条报名课时流水和一笔订单。</div>`;
+  $('#modalFoot').innerHTML = `
+    <button class="btn" onclick="closeAll()">取消</button>
+    <button class="btn pri" onclick="saveEnroll(${sid})">保存</button>`;
+  $('#mask').classList.add('on');
+  $('#modal').classList.add('on');
+}
+
+async function saveEnroll(sid){
+  const course = $('#e_course').value.trim();
+  if(!course) return toast('请填写课程名称');
+  await post('/api/enroll', {
+    student_id:sid, course,
+    total_hours:+$('#e_total').value, gift_hours:+$('#e_gift').value,
+    paid:+$('#e_paid').value, discount:+$('#e_discount').value,
+    start_date:$('#e_start').value, expire_date:$('#e_exp').value,
+    pay_method:$('#e_pay').value, operator:$('#e_op').value.trim()
+  });
+  closeAll(); toast('报读已保存');
+  if(active==='students') loadStudents();
+  if(curStu===sid) openDetail(sid);
+}
+
+/* ---------------- 订单 ---------------- */
+async function loadOrders(){
+  const list = await api('/api/orders');
+  $('#orderCount').textContent = `共 ${list.length} 条记录`;
+  $('#orderTable').innerHTML = list.length ? `<table>
+    <thead><tr>
+      <th>经办日期</th><th>学员姓名</th><th>交易内容</th><th>应收/应退</th><th>实收/实退</th><th>优惠</th><th>收款方式</th><th>经办人</th>
+    </tr></thead><tbody>${list.map(o=>`<tr>
+      <td>${(o.created_at||'').slice(0,16)}</td>
+      <td class="strong">${o.student_name||'-'}</td>
+      <td>${o.note||'-'}</td>
+      <td class="num">${money(o.amount_due)}</td>
+      <td class="num strong">${money(o.amount_paid)}</td>
+      <td class="num">${o.discount>0?money(o.discount):'-'}</td>
+      <td>${o.pay_method||'-'}</td>
+      <td>${o.operator||'-'}</td>
+    </tr>`).join('')}</tbody></table>` : `<div class="empty">
+      <svg viewBox="0 0 24 24"><path d="M6 3h12a1 1 0 011 1v17l-3-2-2 2-2-2-2 2-3-2V4a1 1 0 011-1z"/></svg>
+      <div>还没有订单</div></div>`;
+}
+
+/* ---------------- 到期 ---------------- */
+async function loadExpire(){
+  const days = $('#expDays').value;
+  const list = await api('/api/expiring?days=' + days);
+  $('#expCount').textContent = `共 ${list.length} 份报读`;
+  $('#expTable').innerHTML = list.length ? `<table>
+    <thead><tr>
+      <th>学员姓名</th><th>联系方式</th><th>课程</th><th>剩余课时</th><th>到期日期</th><th>剩余天数</th><th style="width:110px">操作</th>
+    </tr></thead><tbody>${list.map(e=>`<tr>
+      <td class="strong">${e.student_name}</td>
+      <td>${e.phone||'-'}</td>
+      <td>${e.course}</td>
+      <td class="num strong">${fmt(e.remaining,1)}</td>
+      <td>${e.expire_date||'-'}</td>
+      <td><span class="tag ${e.days_left<0?'bad':(e.days_left<=30?'warn':'ok')}">
+        ${e.days_left<0?'已过期 '+Math.abs(e.days_left)+' 天':'剩 '+e.days_left+' 天'}</span></td>
+      <td><button class="btn ghost sm" onclick="openDetail(${e.student_id})">查看</button></td>
+    </tr>`).join('')}</tbody></table>` : `<div class="empty">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+      <div>该时间段内没有到期学员</div></div>`;
+}
+
+function closeAll(){
+  $('#mask').classList.remove('on');
+  $('#drawer').classList.remove('on');
+  $('#modal').classList.remove('on');
+}
+
+renderNav(); renderTabs(); loadDash();
+</script>
+</body>
+</html>

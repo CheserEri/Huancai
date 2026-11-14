@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>升班工作台 · 拖拽分班</title>
+<link rel="stylesheet" href="assets/style.css" />
+<style>
+  .board-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+  .board-head .class-pick { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-2); }
+  .board-head .class-pick select { min-width: 210px; height: 34px; font-weight: 500; }
+  .board-head .spacer { flex: 1; }
+
+  .board { display: flex; gap: 14px; align-items: stretch; }
+  .pool {
+    flex: 0 0 320px;
+    background: #fff; border: 1px solid var(--border); border-radius: 12px;
+    display: flex; flex-direction: column; min-height: 560px;
+  }
+  .col-head { padding: 12px 14px; border-bottom: 1px solid var(--border); }
+  .col-head .title { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+  .col-head .meta { color: var(--text-3); font-size: 12px; margin-top: 2px; }
+  .list { padding: 10px; overflow-y: auto; flex: 1; max-height: 600px; }
+  .list.drop-active { background: #f0f7ff; }
+
+  .right-area { flex: 1; min-width: 0; display: flex; gap: 14px; overflow-x: auto; padding-bottom: 4px; }
+  .class-col {
+    flex: 1 1 260px; min-width: 250px;
+    background: #fff; border: 1px solid var(--border); border-radius: 12px;
+    display: flex; flex-direction: column; min-height: 560px;
+    transition: all .15s;
+  }
+  .class-col.drop-active { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(22,119,255,.12); }
+  .class-col.quit-col { border-style: dashed; background: #fcfcfd; }
+
+  .student-card {
+    display: flex; align-items: flex-start; gap: 8px;
+    padding: 9px 10px; margin-bottom: 8px;
+    border: 1px solid var(--border); border-radius: 9px; background: #fff;
+    cursor: grab; user-select: none; transition: all .12s;
+  }
+  .student-card:hover { border-color: #91caff; box-shadow: 0 2px 8px rgba(22,119,255,.08); }
+  .student-card.selected { border-color: var(--primary); background: #f0f7ff; box-shadow: 0 0 0 2px rgba(22,119,255,.15); }
+  .student-card.dragging { opacity: .5; }
+  .student-card .avatar {
+    width: 28px; height: 28px; border-radius: 50%; flex: none;
+    background: #e6f0ff; color: var(--primary); font-size: 12px;
+    display: grid; place-items: center; font-weight: 600;
+  }
+  .student-card .info { flex: 1; min-width: 0; }
+  .student-card .name { font-size: 13px; font-weight: 500; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .student-card .meta { color: var(--text-3); font-size: 11.5px; margin-top: 1px; }
+  .student-card .debt-line { color: var(--red); font-size: 11.5px; margin-top: 1px; }
+  .student-card input[type="checkbox"] { margin-top: 7px; }
+
+  .empty-drop {
+    border: 1px dashed #d9d9d9; border-radius: 9px; color: var(--text-3);
+    font-size: 12.5px; padding: 26px 12px; text-align: center; margin-top: 4px;
+  }
+
+  .add-col {
+    flex: 0 0 170px; display: grid; place-items: center;
+    border: 1px dashed var(--border); border-radius: 12px;
+    color: var(--text-3); cursor: pointer; background: #fcfcfd;
+  }
+  .add-col:hover { border-color: var(--primary); color: var(--primary); }
+
+  .col-foot { padding: 10px 14px; border-top: 1px solid var(--border); display: flex; align-items: center; gap: 8px; }
+  .col-foot .spacer { flex: 1; }
+
+  .float-bar {
+    position: sticky; bottom: 12px; z-index: 15;
+    margin-top: 14px;
+    display: none; align-items: center; gap: 12px;
+    background: #1f2329; color: #fff; border-radius: 10px;
+    padding: 10px 14px; box-shadow: 0 10px 30px rgba(0,0,0,.18);
+  }
+  .float-bar.show { display: flex; }
+  .float-bar .btn { height: 28px; background: rgba(255,255,255,.12); border-color: rgba(255,255,255,.25); color: #fff; }
+  .float-bar .btn:hover { background: rgba(255,255,255,.2); border-color: #fff; color: #fff; }
+  .float-bar .spacer { flex: 1; }
+
+  .modal-mask {
+    position: fixed; inset: 0; background: rgba(0,0,0,.35);
+    display: none; align-items: center; justify-content: center; z-index: 50;
+  }
+  .modal-mask.show { display: flex; }
+  .modal-box {
+    width: 640px; max-width: calc(100vw - 48px); max-height: 80vh; overflow: auto;
+    background: #fff; border-radius: 12px; padding: 20px 22px;
+  }
+  .modal-box h3 { margin: 0 0 4px; font-size: 16px; }
+  .modal-box .sub { color: var(--text-3); font-size: 12.5px; margin-bottom: 14px; }
+  .modal-box .actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }
+
+  .success-board { display: none; }
+  .success-board.show { display: block; }
+  .success-board .icon {
+    width: 56px; height: 56px; border-radius: 50%; margin: 6px auto 12px;
+    background: var(--green-bg); border: 1px solid var(--green-border); color: var(--green);
+    display: grid; place-items: center; font-size: 28px;
+  }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="brand"><span class="logo">幻</span> 幻彩教育管理系统</div>
+  <div class="crumb">班级管理 / 班级列表 / <b>升班工作台</b></div>
+  <div class="spacer"></div>
+  <div class="user">教务管理员</div>
+</div>
+
+<div class="page">
+  <div class="page-head">
+    <h1>升班工作台</h1>
+    <div class="sub">左侧旧班级学员 → 勾选后拖到右侧新班级；分多批拖入不同的新班级</div>
+    <div class="spacer"></div>
+    <a class="btn" href="class-list.html">取消返回</a>
+  </div>
+
+  <div id="boardView">
+    <div class="board-head">
+      <div class="class-pick">
+        旧班级
+        <select id="sourceClass"></select>
+      </div>
+      <span class="tag blue" id="srcCourse">课程</span>
+      <span class="tag gray" id="srcTerm">学期</span>
+      <div class="spacer"></div>
+      <button class="btn small" id="loadDemo">载入示例分配</button>
+      <button class="btn small" id="resetAll">重置</button>
+    </div>
+
+    <div class="hint">
+      <span>🖱</span>
+      <div>
+        勾选多名学员后，拖动其中任意一人即可<b>整批移动</b>；也可以点击目标班级底部的「移入选中」。
+        留在左侧 = 留在原班；拖入右侧班级 = 升入该班；拖入「不念留档」= 不进入新班、保留原班记录。
+      </div>
+    </div>
+
+    <div class="board">
+      <!-- 左侧：旧班级学员 -->
+      <div class="pool">
+        <div class="col-head">
+          <div class="title"><span id="poolTitle">旧班级</span> <span class="tag gray" id="poolCount">0 人</span></div>
+          <div class="meta" id="poolMeta"></div>
+        </div>
+        <div class="list" id="pool" data-target="POOL"></div>
+        <div class="col-foot">
+          <button class="btn small" id="selectAll">全选</button>
+          <button class="btn small" id="clearSel">取消选择</button>
+          <div class="spacer"></div>
+          <span class="small muted" id="poolHint">已选 0 人</span>
+        </div>
+      </div>
+
+      <!-- 右侧：目标班级（按所选旧班级动态生成） -->
+      <div class="right-area" id="rightArea"></div>
+    </div>
+
+    <div class="float-bar" id="floatBar">
+      <span>已选 <b id="selCount">0</b> 人</span>
+      <span class="small" style="opacity:.7">拖动已选卡片，或点击右侧移入</span>
+      <div class="spacer"></div>
+      <div id="floatActions" style="display:flex;gap:8px"></div>
+    </div>
+
+    <div class="card" style="margin-top:14px">
+      <div class="summary-bar">
+        <span>留在原班 <b id="sumStay">0</b> 人</span>
+        <span id="sumTargets" style="display:flex;gap:18px"></span>
+        <span>不念留档 <b id="sumQuit">0</b> 人</span>
+        <span style="color:var(--orange)">欠费保留原班在读 <b id="sumDebt">0</b> 人</span>
+        <div class="spacer" style="flex:1"></div>
+        <button class="btn primary" id="submitBtn" disabled>执行升班</button>
+      </div>
+      <div class="small muted" style="margin-top:8px" id="submitHint">请至少把一名学员拖入新班级</div>
+    </div>
+  </div>
+
+  <!-- 执行成功 -->
+  <div class="success-board" id="successView">
+    <div class="card" style="text-align:center;padding:36px 20px">
+      <div class="icon">✓</div>
+      <h2 style="font-size:18px;margin:0">升班完成</h2>
+      <p class="muted" style="margin:8px 0 18px">
+        批次号 <b>SB20261114001</b> · 已为 <b id="doneCount">0</b> 名学员写入新班记录，原班记录按规则保留。
+      </p>
+      <div class="toolbar" style="justify-content:center">
+        <a class="btn ghost" href="graph.html">查看升班关系图</a>
+        <a class="btn" href="records.html">查看升班批次</a>
+        <a class="btn" href="class-list.html">返回班级列表</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-mask" id="modal">
+    <div class="modal-box">
+      <h3>确认执行升班？</h3>
+      <div class="sub">执行后会在所选新班级中新增学员记录，并按下列规则处理原班记录。</div>
+      <table>
+        <thead><tr><th>去向</th><th class="num">人数</th><th>原班记录处理</th></tr></thead>
+        <tbody id="confirmRows"></tbody>
+      </table>
+      <div class="hint warn" style="margin-top:12px" id="debtWarn">
+        <span>⚠</span><div>欠费学员升班后原班仍保留「在读」，需要继续催缴。</div>
+      </div>
+      <div class="actions">
+        <button class="btn" id="cancelExec">再想想</button>
+        <button class="btn primary" id="confirmExec">确认升班</button>
+      </div>
+    </div>
+  </div>
+
+  <footer>幻彩教育管理系统 · 升班功能原型</footer>
+</div>
+
+<script>
+  const CLASSES = [
+    {
+      name: '三年级语文A班',
+      course: '三年级语文',
+      term: '2026 春季',
+      targets: [
+        { code: 'T1', short: 'A班', name: '四年级语文A班', teacher: '王芳', time: '周六 09:00', cap: 16 },
+        { code: 'T2', short: 'B班', name: '四年级语文B班', teacher: '李静', time: '周日 14:00', cap: 16 }
+      ],
+      students: [
+        { name: '赵明轩', no: 'HC2024010312', remain: 12, debt: 0, debtLessons: 0 },
+        { name: '陈嘉怡', no: 'HC2024010315', remain: 8, debt: 0, debtLessons: 0 },
+        { name: '周雨桐', no: 'HC2024010318', remain: 6, debt: 320, debtLessons: 2 },
+        { name: '孙浩然', no: 'HC2024010321', remain: 5, debt: 0, debtLessons: 0 },
+        { name: '李明泽', no: 'HC2024010325', remain: 10, debt: 0, debtLessons: 0 },
+        { name: '王欣怡', no: 'HC2024010328', remain: 7, debt: 0, debtLessons: 1 },
+        { name: '张子涵', no: 'HC2024010331', remain: 7, debt: 0, debtLessons: 0 },
+        { name: '刘思彤', no: 'HC2024010336', remain: 9, debt: 0, debtLessons: 0 },
+        { name: '郑雨萱', no: 'HC2024010339', remain: 11, debt: 0, debtLessons: 0 },
+        { name: '何雨欣', no: 'HC2024010342', remain: 4, debt: 180, debtLessons: 0 },
+        { name: '徐若曦', no: 'HC2024010345', remain: 6, debt: 0, debtLessons: 0 },
+        { name: '高梓涵', no: 'HC2024010348', remain: 4, debt: 0, debtLessons: 0 },
+        { name: '吴俊熙', no: 'HC2024010351', remain: 3, debt: 0, debtLessons: 0 },
+        { name: '林子轩', no: 'HC2024010354', remain: 0, debt: 0, debtLessons: 0 }
+      ]
+    },
+    {
+      name: '三年级语文B班',
+      course: '三年级语文',
+      term: '2026 春季',
+      targets: [
+        { code: 'T1', short: 'B班', name: '四年级语文B班', teacher: '李静', time: '周日 14:00', cap: 16 },
+        { code: 'T2', short: 'C班', name: '四年级语文C班', teacher: '张伟', time: '周日 09:00', cap: 16 }
+      ],
+      students: [
+        { name: '蒋雨辰', no: 'HC2024010402', remain: 9, debt: 0, debtLessons: 0 },
+        { name: '冯可欣', no: 'HC2024010405', remain: 7, debt: 0, debtLessons: 0 },
+        { name: '许安然', no: 'HC2024010408', remain: 5, debt: 260, debtLessons: 0 },
+        { name: '唐嘉豪', no: 'HC2024010411', remain: 12, debt: 0, debtLessons: 0 },
+        { name: '曹梦琪', no: 'HC2024010414', remain: 6, debt: 0, debtLessons: 2 },
+        { name: '邓子豪', no: 'HC2024010417', remain: 8, debt: 0, debtLessons: 0 },
+        { name: '崔思远', no: 'HC2024010420', remain: 4, debt: 0, debtLessons: 0 },
+        { name: '范书瑶', no: 'HC2024010423', remain: 10, debt: 0, debtLessons: 0 },
+        { name: '彭俊杰', no: 'HC2024010426', remain: 3, debt: 0, debtLessons: 0 },
+        { name: '董欣悦', no: 'HC2024010429', remain: 7, debt: 0, debtLessons: 0 },
+        { name: '袁一鸣', no: 'HC2024010432', remain: 5, debt: 0, debtLessons: 0 }
+      ]
+    },
+    {
+      name: '9年级创意美术B班',
+      course: '创意美术',
+      term: '2026 春季',
+      targets: [
+        { code: 'T1', short: 'A班', name: '10年级创意美术A班', teacher: '刘敏', time: '周六 14:00', cap: 14 },
+        { code: 'T2', short: 'B班', name: '10年级创意美术B班', teacher: '陈晨', time: '周日 09:00', cap: 14 }
+      ],
+      students: [
+        { name: '韦芷晴', no: 'HC2024010501', remain: 10, debt: 0, debtLessons: 0 },
+        { name: '马若彤', no: 'HC2024010504', remain: 6, debt: 0, debtLessons: 0 },
+        { name: '邵天佑', no: 'HC2024010507', remain: 8, debt: 0, debtLessons: 1 },
+        { name: '石雨萱', no: 'HC2024010510', remain: 12, debt: 0, debtLessons: 0 },
+        { name: '罗嘉树', no: 'HC2024010513', remain: 4, debt: 0, debtLessons: 0 },
+        { name: '常欣然', no: 'HC2024010516', remain: 5, debt: 220, debtLessons: 0 },
+        { name: '尹诗涵', no: 'HC2024010519', remain: 9, debt: 0, debtLessons: 0 },
+        { name: '江梓宸', no: 'HC2024010522', remain: 7, debt: 0, debtLessons: 0 },
+        { name: '乔以宁', no: 'HC2024010525', remain: 0, debt: 0, debtLessons: 0 }
+      ]
+    }
+  ];
+
+  const POOL = 'POOL';
+  const QUIT = 'QUIT';
+
+  let currentIdx = 0;
+  let state = {};            // 学员姓名 -> POOL / T1 / T2 / QUIT
+  const selected = new Set();
+
+  const isDebt = (s) => s.debt > 0 || s.debtLessons > 0;
+  const cls = () => CLASSES[currentIdx];
+
+  function cardHtml(s) {
+    const debt = isDebt(s);
+    const badge = debt ? '<span class="tag red">欠费</span>' : '';
+    const debtLine = debt
+      ? '<div class="debt-line">' + (s.debt > 0 ? '欠费 ¥' + s.debt : '') +
+        (s.debt > 0 && s.debtLessons > 0 ? ' · ' : '') +
+        (s.debtLessons > 0 ? '欠课时 ' + s.debtLessons : '') + '</div>'
+      : '';
+    const sel = selected.has(s.name);
+    return '<div class="student-card' + (sel ? ' selected' : '') + '" draggable="true" data-name="' + s.name + '">' +
+      '<input type="checkbox" class="pick" ' + (sel ? 'checked' : '') + ' />' +
+      '<div class="avatar">' + s.name.slice(0, 1) + '</div>' +
+      '<div class="info">' +
+        '<div class="name">' + s.name + ' ' + badge + '</div>' +
+        '<div class="meta">' + s.no + ' · 剩余 ' + s.remain + ' 节</div>' +
+        debtLine +
+      '</div>' +
+    '</div>';
+  }
+
+  function columnHtml(t) {
+    const list = cls().students.filter((s) => state[s.name] === t.code);
+    const inner = list.length
+      ? list.map(cardHtml).join('')
+      : '<div class="empty-drop">把学员拖到这里</div>';
+    return '<div class="class-col" data-col="' + t.code + '">' +
+      '<div class="col-head">' +
+        '<div class="title">' + t.name + ' <span class="tag blue">' + list.length + ' 人</span></div>' +
+        '<div class="meta">' + t.teacher + ' · ' + t.time + ' · 容量 ' + t.cap + '</div>' +
+      '</div>' +
+      '<div class="list" data-target="' + t.code + '">' + inner + '</div>' +
+      '<div class="col-foot">' +
+        '<button class="btn small ghost" data-move="' + t.code + '">移入选中</button>' +
+        '<div class="spacer"></div>' +
+        '<span class="small muted">欠费 ' + list.filter(isDebt).length + ' 人</span>' +
+      '</div>' +
+    '</div>';
+  }
+
+  function quitColumnHtml() {
+    const list = cls().students.filter((s) => state[s.name] === QUIT);
+    const inner = list.length
+      ? list.map(cardHtml).join('')
+      : '<div class="empty-drop">把不念的学员拖到这里</div>';
+    return '<div class="class-col quit-col" data-col="' + QUIT + '" style="flex:0 0 250px">' +
+      '<div class="col-head">' +
+        '<div class="title">🚪 不念留档 <span class="tag gray">' + list.length + ' 人</span></div>' +
+        '<div class="meta">保留原班记录与剩余课时，不进入新班</div>' +
+      '</div>' +
+      '<div class="list" data-target="' + QUIT + '">' + inner + '</div>' +
+      '<div class="col-foot">' +
+        '<button class="btn small" data-move="' + QUIT + '">移入选中</button>' +
+      '</div>' +
+    '</div>';
+  }
+
+  function render() {
+    const c = cls();
+
+    // 左侧旧班级
+    const pool = c.students.filter((s) => state[s.name] === POOL);
+    const poolEl = document.getElementById('pool');
+    poolEl.innerHTML = pool.length
+      ? pool.map(cardHtml).join('')
+      : '<div class="empty-drop">全部学员都已分配</div>';
+    document.getElementById('poolTitle').textContent = c.name;
+    document.getElementById('poolCount').textContent = pool.length + ' 人';
+    document.getElementById('poolMeta').textContent = c.course + ' · ' + c.term + ' · 拖走即升班，留下即留原班';
+
+    // 右侧目标班级
+    document.getElementById('rightArea').innerHTML =
+      c.targets.map(columnHtml).join('') +
+      quitColumnHtml() +
+      '<div class="add-col" id="addClass">' +
+        '<div style="text-align:center"><div style="font-size:22px;line-height:1">＋</div>' +
+        '<div class="small" style="margin-top:6px">新增目标班级</div></div>' +
+      '</div>';
+
+    // 统计
+    const countOf = (code) => c.students.filter((s) => state[s.name] === code);
+    const quitList = countOf(QUIT);
+    const inTargets = [];
+    let sumHtml = '';
+    c.targets.forEach((t) => {
+      const list = countOf(t.code);
+      inTargets.push(...list);
+      sumHtml += '<span>升入 ' + t.short + ' <b>' + list.length + '</b> 人</span>';
+    });
+    document.getElementById('sumTargets').innerHTML = sumHtml;
+    document.getElementById('sumStay').textContent = pool.length;
+    document.getElementById('sumQuit').textContent = quitList.length;
+    document.getElementById('sumDebt').textContent = inTargets.filter(isDebt).length;
+
+    // 选中条
+    updateSelectionUi();
+    let floatHtml = c.targets.map((t) =>
+      '<button class="btn" data-move="' + t.code + '">→ ' + t.short + '</button>').join('');
+    floatHtml += '<button class="btn" data-move="' + QUIT + '">→ 不念留档</button>';
+    floatHtml += '<button class="btn" data-move="' + POOL + '">← 放回左侧</button>';
+    document.getElementById('floatActions').innerHTML = floatHtml;
+
+    // 提交态
+    const canSubmit = inTargets.length > 0;
+    document.getElementById('submitBtn').disabled = !canSubmit;
+    document.getElementById('submitHint').textContent = canSubmit
+      ? '确认后会写入新班级记录；留在左侧的 ' + pool.length + ' 人将继续保留在原班'
+      : '请至少把一名学员拖入新班级';
+
+    bindAll();
+  }
+
+  function updateSelectionUi() {
+    document.getElementById('selCount').textContent = selected.size;
+    document.getElementById('poolHint').textContent = '已选 ' + selected.size + ' 人';
+    document.getElementById('floatBar').classList.toggle('show', selected.size > 0);
+  }
+
+  function bindAll() {
+    document.querySelectorAll('.student-card').forEach((card) => {
+      const name = card.dataset.name;
+      card.addEventListener('click', (e) => {
+        if (e.target.classList.contains('pick')) return;
+        if (selected.has(name)) selected.delete(name);
+        else selected.add(name);
+        render();
+      });
+      card.querySelector('.pick').addEventListener('change', (e) => {
+        if (e.target.checked) selected.add(name);
+        else selected.delete(name);
+        render();
+      });
+      card.addEventListener('dragstart', (e) => {
+        if (!selected.has(name)) {
+          selected.clear();
+          selected.add(name);
+          document.querySelectorAll('.student-card').forEach((el) => {
+            const on = selected.has(el.dataset.name);
+            el.classList.toggle('selected', on);
+            const pick = el.querySelector('.pick');
+            if (pick) pick.checked = on;
+          });
+        }
+        const names = [...selected];
+        e.dataTransfer.setData('text/plain', JSON.stringify(names));
+        e.dataTransfer.effectAllowed = 'move';
+        card.classList.add('dragging');
+        updateSelectionUi();
+      });
+      card.addEventListener('dragend', () => card.classList.remove('dragging'));
+    });
+
+    // 拖放区：左侧池 + 右侧每个班级列表
+    setupDropZone(document.getElementById('pool'));
+    document.querySelectorAll('.right-area .list').forEach(setupDropZone);
+
+    document.querySelectorAll('[data-move]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        if (!selected.size) return;
+        move([...selected], btn.dataset.move);
+      });
+    });
+
+    const addBtn = document.getElementById('addClass');
+    if (addBtn) {
+      addBtn.addEventListener('click', () => {
+        alert('原型示意：这里会打开「选择目标班级」弹窗，可再添加一个目标班级列。');
+      });
+    }
+  }
+
+  function setupDropZone(el) {
+    if (!el) return;
+    el.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      el.classList.add('drop-active');
+      const col = el.closest('.class-col');
+      if (col) col.classList.add('drop-active');
+    });
+    el.addEventListener('dragleave', () => {
+      el.classList.remove('drop-active');
+      const col = el.closest('.class-col');
+      if (col) col.classList.remove('drop-active');
+    });
+    el.addEventListener('drop', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      el.classList.remove('drop-active');
+      const col = el.closest('.class-col');
+      if (col) col.classList.remove('drop-active');
+      let names = [];
+      try { names = JSON.parse(e.dataTransfer.getData('text/plain') || '[]'); } catch (_) {}
+      if (names.length) move(names, el.dataset.target);
+    });
+  }
+
+  function move(names, target) {
+    names.forEach((n) => (state[n] = target));
+    selected.clear();
+    render();
+  }
+
+  function initClass(idx) {
+    currentIdx = idx;
+    state = {};
+    selected.clear();
+    cls().students.forEach((s) => (state[s.name] = POOL));
+    document.getElementById('sourceClass').value = String(idx);
+    document.getElementById('srcCourse').textContent = '课程：' + cls().course;
+    document.getElementById('srcTerm').textContent = cls().term;
+    render();
+  }
+
+  // 旧班级下拉
+  const select = document.getElementById('sourceClass');
+  select.innerHTML = CLASSES.map((c, i) =>
+    '<option value="' + i + '">' + c.name + '（' + c.students.length + ' 人）</option>').join('');
+  select.addEventListener('change', () => initClass(Number(select.value)));
+
+  document.getElementById('selectAll').addEventListener('click', () => {
+    cls().students.filter((s) => state[s.name] === POOL).forEach((s) => selected.add(s.name));
+    render();
+  });
+  document.getElementById('clearSel').addEventListener('click', () => {
+    selected.clear();
+    render();
+  });
+  document.getElementById('resetAll').addEventListener('click', () => initClass(currentIdx));
+  document.getElementById('loadDemo').addEventListener('click', () => {
+    const c = cls();
+    const names = c.students.map((s) => s.name);
+    const n1 = Math.round(names.length * 0.55);
+    const n2 = Math.round(names.length * 0.3);
+    names.forEach((n, i) => {
+      state[n] = i < n1 ? 'T1' : i < n1 + n2 ? 'T2' : QUIT;
+    });
+    selected.clear();
+    render();
+  });
+
+  document.getElementById('submitBtn').addEventListener('click', () => {
+    const c = cls();
+    const countOf = (code) => c.students.filter((s) => state[s.name] === code);
+    const inTargets = [];
+    const rows = c.targets.map((t) => {
+      const list = countOf(t.code);
+      inTargets.push(...list);
+      return { label: t.name, list, note: targetNote(list) };
+    });
+    const quitList = countOf(QUIT);
+    const stayList = countOf(POOL);
+    rows.push({ label: '不念留档', list: quitList, note: '<span class="tag gray">保留原班记录</span>' });
+    rows.push({ label: '留在原班', list: stayList, note: '<span class="tag gray">保持原班在读</span>' });
+
+    document.getElementById('confirmRows').innerHTML = rows.map((r) =>
+      '<tr><td>' + r.label + '</td><td class="num">' + r.list.length + ' 人</td><td>' + r.note + '</td></tr>'
+    ).join('');
+
+    const debt = inTargets.filter(isDebt);
+    const warn = document.getElementById('debtWarn');
+    warn.style.display = debt.length ? 'flex' : 'none';
+    warn.innerHTML = '<span>⚠</span><div>有 <b>' + debt.map((s) => s.name).join('、') +
+      '</b> 存在欠费，升班后其原班记录仍保留「在读」，需继续催缴。</div>';
+    document.getElementById('modal').classList.add('show');
+  });
+
+  function targetNote(list) {
+    if (!list.length) return '<span class="muted">—</span>';
+    const debt = list.filter(isDebt).length;
+    return debt
+      ? '<span class="tag orange">' + debt + ' 人欠费保留原班在读，其余标记已升班</span>'
+      : '<span class="tag blue">原班标记「已升班」</span>';
+  }
+
+  document.getElementById('cancelExec').addEventListener('click', () => {
+    document.getElementById('modal').classList.remove('show');
+  });
+  document.getElementById('confirmExec').addEventListener('click', () => {
+    const c = cls();
+    const done = c.targets.reduce((sum, t) =>
+      sum + c.students.filter((s) => state[s.name] === t.code).length, 0);
+    document.getElementById('doneCount').textContent = done;
+    document.getElementById('modal').classList.remove('show');
+    document.getElementById('boardView').style.display = 'none';
+    document.getElementById('successView').classList.add('show');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+
+  initClass(0);
+</script>
+</body>
+</html>

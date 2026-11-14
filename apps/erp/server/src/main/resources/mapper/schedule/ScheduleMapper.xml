@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.huancai.erp.module.schedule.mapper.ScheduleMapper">
+
+  <sql id="filterWhere">
+    <where>
+      <if test="start != null">AND s.lesson_date &gt;= #{start}</if>
+      <if test="end != null">AND s.lesson_date &lt;= #{end}</if>
+      <if test="campusId != null">AND s.campus_id = #{campusId}</if>
+      <if test="teacher != null and teacher != ''">AND s.teacher_name = #{teacher}</if>
+      <if test="classId != null">AND s.class_id = #{classId}</if>
+      <if test="courseId != null">AND s.course_id = #{courseId}</if>
+      <if test="room != null and room != ''">AND s.room = #{room}</if>
+      <if test="status != null and status != ''">AND s.status = #{status}</if>
+      <if test="lessonMode != null">AND s.lesson_mode = #{lessonMode}</if>
+      <if test="keyword != null and keyword != ''">
+        AND (s.class_name LIKE CONCAT('%', #{keyword}, '%')
+          OR s.course_name LIKE CONCAT('%', #{keyword}, '%')
+          OR s.topic LIKE CONCAT('%', #{keyword}, '%')
+          OR s.teacher_name LIKE CONCAT('%', #{keyword}, '%')
+          OR s.room LIKE CONCAT('%', #{keyword}, '%'))
+      </if>
+    </where>
+  </sql>
+
+  <select id="selectSchedulePage" resultType="cn.huancai.erp.module.schedule.vo.ScheduleVO">
+    SELECT
+      s.id,
+      s.campus_id      AS campusId,
+      cp.name          AS campusName,
+      s.class_id       AS classId,
+      COALESCE(NULLIF(s.class_name, ''), cg.name) AS className,
+      s.course_id      AS courseId,
+      COALESCE(NULLIF(s.course_name, ''), co.name) AS courseName,
+      COALESCE(NULLIF(s.teacher_name, ''), t.name) AS teacherName,
+      s.assistant_name AS assistantName,
+      s.lesson_date    AS lessonDate,
+      s.start_time     AS startTime,
+      s.end_time       AS endTime,
+      s.room,
+      s.topic,
+      s.status,
+      s.lesson_mode    AS lessonMode,
+      s.teaching_log_id AS teachingLogId,
+      s.should_count   AS shouldCount,
+      s.actual_count   AS actualCount
+    FROM schedule s
+    JOIN campus cp ON cp.id = s.campus_id
+    LEFT JOIN class_group cg ON cg.id = s.class_id
+    LEFT JOIN course co ON co.id = s.course_id
+    LEFT JOIN staff t ON t.id = s.teacher_id
+    <include refid="filterWhere"/>
+    ORDER BY s.lesson_date, s.start_time, s.id
+  </select>
+
+  <select id="selectSummary" resultType="cn.huancai.erp.module.schedule.vo.ScheduleSummaryVO">
+    SELECT
+      COUNT(*)                             AS total,
+      COALESCE(SUM(s.status = '已上课'), 0)  AS done,
+      COALESCE(SUM(s.status = '待上课'), 0)  AS pending,
+      COALESCE(SUM(s.should_count), 0)     AS shouldStudents,
+      COALESCE(SUM(s.actual_count), 0)     AS actualStudents,
+      COUNT(DISTINCT s.class_id)           AS classes
+    FROM schedule s
+    <include refid="filterWhere"/>
+  </select>
+
+  <select id="selectClassOptions" resultType="cn.huancai.erp.module.schedule.vo.ScheduleOptionVO">
+    SELECT DISTINCT s.class_id AS id,
+           COALESCE(NULLIF(s.class_name, ''), cg.name) AS name
+    FROM schedule s
+    LEFT JOIN class_group cg ON cg.id = s.class_id
+    WHERE s.class_id IS NOT NULL AND COALESCE(NULLIF(s.class_name, ''), cg.name) IS NOT NULL
+    ORDER BY name
+  </select>
+
+  <select id="selectCourseOptions" resultType="cn.huancai.erp.module.schedule.vo.ScheduleOptionVO">
+    SELECT DISTINCT s.course_id AS id,
+           COALESCE(NULLIF(s.course_name, ''), co.name) AS name
+    FROM schedule s
+    LEFT JOIN course co ON co.id = s.course_id
+    WHERE s.course_id IS NOT NULL AND COALESCE(NULLIF(s.course_name, ''), co.name) IS NOT NULL
+    ORDER BY name
+  </select>
+
+  <select id="selectTeachers" resultType="java.lang.String">
+    SELECT DISTINCT teacher_name FROM schedule
+    WHERE teacher_name IS NOT NULL AND teacher_name &lt;&gt; ''
+    ORDER BY teacher_name
+  </select>
+
+  <select id="selectRooms" resultType="java.lang.String">
+    SELECT DISTINCT room FROM schedule
+    WHERE room IS NOT NULL AND room &lt;&gt; ''
+    ORDER BY room
+  </select>
+</mapper>

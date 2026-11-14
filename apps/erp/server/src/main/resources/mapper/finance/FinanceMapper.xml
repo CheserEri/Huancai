@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.huancai.erp.module.finance.mapper.FinanceMapper">
+
+  <sql id="baseFilter">
+    <if test="campusId != null">AND p.campus_id = #{campusId}</if>
+    <if test="keyword != null and keyword != ''">
+      AND (st.name LIKE CONCAT('%', #{keyword}, '%')
+        OR o.order_no LIKE CONCAT('%', #{keyword}, '%')
+        OR p.voucher_no LIKE CONCAT('%', #{keyword}, '%'))
+    </if>
+  </sql>
+
+  <sql id="whereClause">
+    <where>
+      <include refid="baseFilter"/>
+      <if test="start != null">AND p.paid_at &gt;= #{start}</if>
+      <if test="end != null">AND p.paid_at &lt; DATE_ADD(#{end}, INTERVAL 1 DAY)</if>
+    </where>
+  </sql>
+
+  <sql id="fromClause">
+    FROM payment p
+    JOIN student st ON st.id = p.student_id
+    LEFT JOIN sales_order o ON o.id = p.order_id
+  </sql>
+
+  <select id="selectPaymentPage" resultType="cn.huancai.erp.module.finance.vo.PaymentVO">
+    SELECT
+      p.id,
+      p.campus_id    AS campusId,
+      cp.name        AS campusName,
+      p.student_id   AS studentId,
+      st.name        AS studentName,
+      o.order_no     AS orderNo,
+      p.amount,
+      p.method,
+      p.paid_at      AS paidAt,
+      op.name        AS operatorName,
+      p.voucher_no   AS voucherNo,
+      p.remark
+    <include refid="fromClause"/>
+    JOIN campus cp ON cp.id = p.campus_id
+    LEFT JOIN staff op ON op.id = p.operator_id
+    <include refid="whereClause"/>
+    ORDER BY p.paid_at DESC, p.id DESC
+  </select>
+
+  <select id="selectSummary" resultType="cn.huancai.erp.module.finance.vo.FinanceSummaryVO">
+    SELECT
+      (SELECT COALESCE(SUM(p.amount), 0)
+         <include refid="fromClause"/>
+         <include refid="whereClause"/>)                                   AS totalReceived,
+      (SELECT COALESCE(SUM(p.amount), 0)
+         <include refid="fromClause"/>
+        WHERE p.paid_at &gt;= DATE_FORMAT(CURDATE(), '%Y-%m-01')
+          AND p.paid_at &lt; DATE_ADD(DATE_FORMAT(CURDATE(), '%Y-%m-01'), INTERVAL 1 MONTH)
+          <include refid="baseFilter"/>)                                    AS monthReceived,
+      (SELECT COALESCE(SUM(p.amount), 0)
+         <include refid="fromClause"/>
+        WHERE p.paid_at &gt;= DATE_ADD(DATE_FORMAT(CURDATE(), '%Y-%m-01'), INTERVAL -1 MONTH)
+          AND p.paid_at &lt; DATE_FORMAT(CURDATE(), '%Y-%m-01')
+          <include refid="baseFilter"/>)                                    AS lastMonthReceived,
+      (SELECT COUNT(*)
+         <include refid="fromClause"/>
+         <include refid="whereClause"/>)                                   AS paymentCount,
+      (SELECT COUNT(DISTINCT p.student_id)
+         <include refid="fromClause"/>
+         <include refid="whereClause"/>)                                   AS studentCount,
+      (SELECT COUNT(*) FROM sales_order o
+        <where>
+          <if test="campusId != null">AND o.campus_id = #{campusId}</if>
+        </where>)                                                          AS orderCount,
+      (SELECT COALESCE(SUM(o.debt), 0) FROM sales_order o
+        <where>
+          <if test="campusId != null">AND o.campus_id = #{campusId}</if>
+        </where>)                                                          AS debt
+  </select>
+
+  <select id="selectMonthly" resultType="cn.huancai.erp.module.finance.vo.MonthlyRow">
+    SELECT
+      DATE_FORMAT(p.paid_at, '%Y-%m') AS month,
+      COUNT(*)                        AS count,
+      COALESCE(SUM(p.amount), 0)      AS amount
+    <include refid="fromClause"/>
+    <where>
+      <include refid="baseFilter"/>
+      <if test="from != null">AND p.paid_at &gt;= #{from}</if>
+      <if test="to != null">AND p.paid_at &lt; DATE_ADD(#{to}, INTERVAL 1 DAY)</if>
+    </where>
+    GROUP BY DATE_FORMAT(p.paid_at, '%Y-%m')
+    ORDER BY month
+  </select>
+</mapper>

@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>升班批次 · 历史记录</title>
+<link rel="stylesheet" href="assets/style.css" />
+<style>
+  .batch-id { font-family: ui-monospace, Consolas, monospace; font-size: 12.5px; }
+  .toggle {
+    width: 20px; height: 20px; border-radius: 4px; border: 1px solid var(--border);
+    background: #fff; color: var(--text-2); cursor: pointer; line-height: 1;
+    display: inline-grid; place-items: center; font-size: 11px;
+  }
+  .detail-row td { background: #fafcff; padding: 0; }
+  .detail-inner { padding: 12px 16px; }
+  .detail-inner table { background: #fff; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="brand"><span class="logo">幻</span> 幻彩教育管理系统</div>
+  <div class="crumb">班级管理 / <b>升班批次</b></div>
+  <div class="spacer"></div>
+  <div class="user">教务管理员</div>
+</div>
+
+<div class="page">
+  <div class="page-head">
+    <h1>升班批次</h1>
+    <div class="sub">每次升班生成一个批次，记录谁从哪个班升到哪里、原班如何处理</div>
+    <div class="spacer"></div>
+    <a class="btn" href="graph.html">升班关系图</a>
+    <a class="btn" href="wizard.html">+ 新建升班</a>
+  </div>
+
+  <div class="card" style="padding:0">
+    <div class="toolbar" style="padding:12px 16px;border-bottom:1px solid var(--border)">
+      <input type="text" placeholder="搜索批次号 / 班级 / 学员" style="width:240px" />
+      <select><option>全部学期</option><option>2026 秋季</option><option>2026 春季</option></select>
+      <select><option>全部状态</option><option>已完成</option><option>已撤销</option></select>
+      <div class="spacer"></div>
+      <button class="btn small">导出明细</button>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th style="width:40px"></th>
+          <th style="width:150px">批次号</th>
+          <th style="width:140px">升班时间</th>
+          <th>原班级</th>
+          <th>目标班级（人数）</th>
+          <th class="num">原班人数</th>
+          <th class="num">升班人数</th>
+          <th class="num">不念留档</th>
+          <th class="num">欠费保留</th>
+          <th>操作人</th>
+          <th>状态</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><button class="toggle" data-row="d1">+</button></td>
+          <td class="batch-id">SB20261114001</td>
+          <td>2026-11-14 09:52</td>
+          <td>三年级语文A班</td>
+          <td>四年级语文A班（8）· 四年级语文B班（4）</td>
+          <td class="num">14</td>
+          <td class="num">12</td>
+          <td class="num">2</td>
+          <td class="num" style="color:var(--orange)">3</td>
+          <td>教务管理员</td>
+          <td><span class="tag green">已完成</span></td>
+        </tr>
+        <tr class="detail-row hidden" id="d1">
+          <td colspan="11">
+            <div class="detail-inner">
+              <div class="hint" style="margin-bottom:10px">
+                <span>ℹ</span>
+                <div>3 名欠费学员升班后保留原班在读，需继续催缴；2 名不念学员仅保留原班记录。</div>
+              </div>
+              <table>
+                <thead><tr><th>学员</th><th>原班级</th><th>新班级</th><th>原班记录处理</th><th>欠费情况</th></tr></thead>
+                <tbody>
+                  <tr><td><b>赵明轩</b></td><td>三年级语文A班</td><td>四年级语文A班</td><td><span class="tag blue">已升班</span></td><td class="muted">—</td></tr>
+                  <tr><td><b>陈嘉怡</b></td><td>三年级语文A班</td><td>四年级语文A班</td><td><span class="tag blue">已升班</span></td><td class="muted">—</td></tr>
+                  <tr><td><b>周雨桐</b></td><td>三年级语文A班</td><td>四年级语文A班</td><td><span class="tag orange">保留原班在读</span></td><td style="color:var(--red)">欠费 ¥320 / 2 节</td></tr>
+                  <tr><td><b>王欣怡</b></td><td>三年级语文A班</td><td>四年级语文A班</td><td><span class="tag orange">保留原班在读</span></td><td style="color:var(--red)">欠课时 1</td></tr>
+                  <tr><td><b>郑雨萱</b></td><td>三年级语文A班</td><td>四年级语文B班</td><td><span class="tag blue">已升班</span></td><td class="muted">—</td></tr>
+                  <tr><td><b>何雨欣</b></td><td>三年级语文A班</td><td>四年级语文B班</td><td><span class="tag orange">保留原班在读</span></td><td style="color:var(--red)">欠费 ¥180</td></tr>
+                  <tr><td><b>吴俊熙</b></td><td>三年级语文A班</td><td>不进入新班</td><td><span class="tag gray">保留原班记录（不念）</span></td><td class="muted">剩余 3 节</td></tr>
+                  <tr><td><b>林子轩</b></td><td>三年级语文A班</td><td>不进入新班</td><td><span class="tag gray">保留原班记录（不念）</span></td><td class="muted">剩余 0 节</td></tr>
+                  <tr><td colspan="5" class="muted small">其余 6 名正常升班学员已省略…</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </td>
+        </tr>
+
+        <tr>
+          <td><button class="toggle" data-row="d2">+</button></td>
+          <td class="batch-id">SB20260901002</td>
+          <td>2026-09-01 10:20</td>
+          <td>三年级语文B班</td>
+          <td>四年级语文A班（9）· 四年级语文B班（2）</td>
+          <td class="num">11</td>
+          <td class="num">11</td>
+          <td class="num">0</td>
+          <td class="num" style="color:var(--orange)">1</td>
+          <td>王芳</td>
+          <td><span class="tag green">已完成</span></td>
+        </tr>
+        <tr class="detail-row hidden" id="d2">
+          <td colspan="11">
+            <div class="detail-inner">
+              <table>
+                <thead><tr><th>学员</th><th>原班级</th><th>新班级</th><th>原班记录处理</th><th>欠费情况</th></tr></thead>
+                <tbody>
+                  <tr><td><b>刘思彤</b></td><td>三年级语文B班</td><td>四年级语文A班</td><td><span class="tag blue">已升班</span></td><td class="muted">—</td></tr>
+                  <tr><td><b>徐若曦</b></td><td>三年级语文B班</td><td>四年级语文A班</td><td><span class="tag orange">保留原班在读</span></td><td style="color:var(--red)">欠课时 2</td></tr>
+                  <tr><td><b>高梓涵</b></td><td>三年级语文B班</td><td>四年级语文B班</td><td><span class="tag blue">已升班</span></td><td class="muted">—</td></tr>
+                  <tr><td colspan="5" class="muted small">其余 8 名正常升班学员已省略…</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </td>
+        </tr>
+
+        <tr>
+          <td><button class="toggle" data-row="d3">+</button></td>
+          <td class="batch-id">SB20260828001</td>
+          <td>2026-08-28 18:05</td>
+          <td>2025 三年级语文班</td>
+          <td>三年级语文A班（14）· 三年级语文B班（11）</td>
+          <td class="num">27</td>
+          <td class="num">25</td>
+          <td class="num">2</td>
+          <td class="num" style="color:var(--orange)">2</td>
+          <td>系统导入</td>
+          <td><span class="tag green">已完成</span></td>
+        </tr>
+        <tr class="detail-row hidden" id="d3">
+          <td colspan="11">
+            <div class="detail-inner">
+              <p class="muted small" style="margin:0 0 8px">该批次由开班导入生成，明细与 001 批次结构一致，此处省略。</p>
+              <a href="graph.html">→ 查看该批次的升班流向图</a>
+            </div>
+          </td>
+        </tr>
+
+        <tr>
+          <td><button class="toggle" data-row="d4">+</button></td>
+          <td class="batch-id">SB20260620003</td>
+          <td>2026-06-20 15:40</td>
+          <td>素描基础A班</td>
+          <td>素描进阶A班（6）</td>
+          <td class="num">8</td>
+          <td class="num">6</td>
+          <td class="num">2</td>
+          <td class="num" style="color:var(--orange)">0</td>
+          <td>陈老师</td>
+          <td><span class="tag gray">已撤销</span></td>
+        </tr>
+        <tr class="detail-row hidden" id="d4">
+          <td colspan="11">
+            <div class="detail-inner">
+              <div class="hint warn" style="margin:0">
+                <span>⚠</span>
+                <div>该批次已被撤销：目标班调整，学员记录已回滚到升班前状态。</div>
+              </div>
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>批次规则</h2>
+    <ul class="rule-list">
+      <li>一个批次只从<b>一个原班级</b>发起，可包含多个目标班级。</li>
+      <li>批次未执行前可撤销；已执行后如需回滚，需在批次详情中「撤销本次升班」，系统会恢复原班状态并移除目标班记录。</li>
+      <li>撤销不会影响已产生的升班提醒与欠费记录，避免误删财务数据。</li>
+      <li>批次明细支持导出 Excel，便于与家长确认、与财务对账。</li>
+    </ul>
+  </div>
+
+  <footer>幻彩教育管理系统 · 升班功能原型</footer>
+</div>
+
+<script>
+  document.querySelectorAll('.toggle').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const row = document.getElementById(btn.dataset.row);
+      const hidden = row.classList.toggle('hidden');
+      btn.textContent = hidden ? '+' : '−';
+    });
+  });
+</script>
+</body>
+</html>

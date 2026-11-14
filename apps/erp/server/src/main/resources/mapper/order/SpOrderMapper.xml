@@ -1,0 +1,172 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.huancai.erp.module.order.mapper.SpOrderMapper">
+
+    <sql id="listColumns">
+        id, sp_id, order_no, campus_id, school_id, campus_name, student_id, stu_name, stu_tel,
+        stu_name_pinyin, type_code, content, should_pay, real_pay, remain, arrearage, credit,
+        source_type, salesman, creator, sales_source, tags, is_return, status_code,
+        contract_status, pay_method, comment, comment_outer, has_confirmed_detail, has_textbook,
+        is_online_payment, has_multi_lesson_enroll, deal_date, created_time, expiry_date,
+        void_reason, void_at
+    </sql>
+
+    <sql id="filters">
+        <where>
+            <if test="q.dealStart != null and q.dealStart != ''">
+                AND deal_date &gt;= #{q.dealStart}
+            </if>
+            <if test="q.dealEnd != null and q.dealEnd != ''">
+                AND deal_date &lt; DATE_ADD(#{q.dealEnd}, INTERVAL 1 DAY)
+            </if>
+            <if test="q.statuses != null and q.statuses.size() > 0">
+                AND status_code IN
+                <foreach collection="q.statuses" item="item" open="(" separator="," close=")">
+                    #{item}
+                </foreach>
+            </if>
+            <if test="q.types != null and q.types.size() > 0">
+                AND type_code IN
+                <foreach collection="q.types" item="item" open="(" separator="," close=")">
+                    #{item}
+                </foreach>
+            </if>
+            <if test="q.sourceType != null">
+                AND source_type = #{q.sourceType}
+            </if>
+            <if test="q.contractStatus != null">
+                AND contract_status = #{q.contractStatus}
+            </if>
+            <if test="q.campusIds != null and q.campusIds.size() > 0">
+                AND campus_id IN
+                <foreach collection="q.campusIds" item="item" open="(" separator="," close=")">
+                    #{item}
+                </foreach>
+            </if>
+            <if test="q.creators != null and q.creators.size() > 0">
+                AND creator IN
+                <foreach collection="q.creators" item="item" open="(" separator="," close=")">
+                    #{item}
+                </foreach>
+            </if>
+            <if test="q.salesmen != null and q.salesmen.size() > 0">
+                AND salesman IN
+                <foreach collection="q.salesmen" item="item" open="(" separator="," close=")">
+                    #{item}
+                </foreach>
+            </if>
+            <if test="q.tags != null and q.tags.size() > 0">
+                AND
+                <foreach collection="q.tags" item="item" open="(" separator=" OR " close=")">
+                    tags LIKE CONCAT('%', #{item}, '%')
+                </foreach>
+            </if>
+            <if test="q.courses != null and q.courses.size() > 0">
+                AND
+                <foreach collection="q.courses" item="item" open="(" separator=" OR " close=")">
+                    content LIKE CONCAT('%', #{item}, '%')
+                </foreach>
+            </if>
+            <if test="q.items != null and q.items.size() > 0">
+                AND
+                <foreach collection="q.items" item="item" open="(" separator=" OR " close=")">
+                    content LIKE CONCAT('%', #{item}, '%')
+                </foreach>
+            </if>
+            <if test='q.isArrearage == "1"'>
+                AND arrearage &gt; 0
+            </if>
+            <if test='q.isArrearage == "0"'>
+                AND arrearage &lt;= 0
+            </if>
+            <if test="q.followUpType != null and q.followUpType != ''">
+                AND raw_json LIKE CONCAT('%"hrStatus":"', #{q.followUpType}, '"%')
+            </if>
+            <if test="q.studentId != null">
+                AND student_id = #{q.studentId}
+            </if>
+            <if test="q.keyword != null and q.keyword != ''">
+                <choose>
+                    <when test="q.keywordType == 'orderNo'">
+                        AND order_no LIKE CONCAT('%', #{q.keyword}, '%')
+                    </when>
+                    <when test="q.keywordType == 'content' or q.keywordType == 'lessonName'">
+                        AND content LIKE CONCAT('%', #{q.keyword}, '%')
+                    </when>
+                    <when test="q.keywordType == 'studentName'">
+                        AND (stu_name LIKE CONCAT('%', #{q.keyword}, '%')
+                            OR stu_name_pinyin LIKE CONCAT('%', LOWER(#{q.keyword}), '%'))
+                    </when>
+                    <when test="q.keywordType == 'studentPhone'">
+                        AND stu_tel LIKE CONCAT('%', #{q.keyword}, '%')
+                    </when>
+                    <otherwise>
+                        AND (order_no LIKE CONCAT('%', #{q.keyword}, '%')
+                            OR stu_name LIKE CONCAT('%', #{q.keyword}, '%')
+                            OR stu_name_pinyin LIKE CONCAT('%', LOWER(#{q.keyword}), '%')
+                            OR content LIKE CONCAT('%', #{q.keyword}, '%'))
+                    </otherwise>
+                </choose>
+            </if>
+        </where>
+    </sql>
+
+    <select id="countByQuery" resultType="long">
+        SELECT COUNT(*) FROM sp_order
+        <include refid="filters"/>
+    </select>
+
+    <select id="selectPageByQuery" resultType="cn.huancai.erp.module.order.vo.SpOrderVO">
+        SELECT <include refid="listColumns"/>
+        FROM sp_order
+        <include refid="filters"/>
+        ORDER BY
+        <choose>
+            <when test="q.sortField == 'stuName'">stu_name</when>
+            <when test="q.sortField == 'dealDate'">deal_date</when>
+            <otherwise>order_no_num</otherwise>
+        </choose>
+        <choose>
+            <when test="q.sortOrder == 'asc'">ASC</when>
+            <otherwise>DESC</otherwise>
+        </choose>
+        , id DESC
+        LIMIT #{offset}, #{limit}
+    </select>
+
+    <select id="selectSummary" resultType="cn.huancai.erp.module.order.vo.SpOrderSummaryVO">
+        SELECT COUNT(*) AS count,
+               COALESCE(SUM(CASE WHEN type_code = 2 THEN 0 ELSE should_pay END), 0) AS should_pay,
+               COALESCE(SUM(real_pay), 0) AS real_pay,
+               COALESCE(SUM(remain), 0) AS remain,
+               COALESCE(SUM(arrearage), 0) AS arrearage,
+               COALESCE(SUM(credit), 0) AS credit
+        FROM sp_order
+        <include refid="filters"/>
+    </select>
+
+    <select id="selectDetail" resultType="cn.huancai.erp.module.order.vo.SpOrderVO">
+        SELECT <include refid="listColumns"/>, raw_json
+        FROM sp_order
+        WHERE id = #{id}
+    </select>
+
+    <select id="selectCreators" resultType="string">
+        SELECT DISTINCT creator FROM sp_order
+        WHERE creator IS NOT NULL AND creator &lt;&gt; ''
+        ORDER BY creator
+    </select>
+
+    <select id="selectSalesmen" resultType="string">
+        SELECT DISTINCT salesman FROM sp_order
+        WHERE salesman IS NOT NULL AND salesman &lt;&gt; ''
+        ORDER BY salesman
+    </select>
+
+    <select id="selectTags" resultType="string">
+        SELECT DISTINCT tags FROM sp_order
+        WHERE tags IS NOT NULL AND tags &lt;&gt; ''
+        ORDER BY tags
+    </select>
+
+</mapper>

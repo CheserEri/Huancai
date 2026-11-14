@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>升班功能原型 · 幻彩教育管理系统</title>
+<link rel="stylesheet" href="assets/style.css" />
+<style>
+  .hero {
+    background: linear-gradient(135deg, #1677ff, #4096ff 55%, #69b1ff);
+    color: #fff; border-radius: 12px; padding: 24px 26px; margin-bottom: 18px;
+    display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
+  }
+  .hero h1 { margin: 0 0 6px; font-size: 22px; }
+  .hero p { margin: 0; opacity: .9; font-size: 13px; max-width: 720px; }
+  .hero .badge { margin-left: auto; background: rgba(255,255,255,.18); border: 1px solid rgba(255,255,255,.35); border-radius: 999px; padding: 6px 14px; font-size: 12px; }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="brand"><span class="logo">幻</span> 幻彩教育管理系统</div>
+  <div class="crumb">系统原型 / <b>班级升班</b></div>
+  <div class="spacer"></div>
+  <div class="user">教务管理员</div>
+</div>
+
+<div class="page">
+  <div class="hero">
+    <div>
+      <h1>班级升班 · 功能原型</h1>
+      <p>面向新学期「三年级班 → 四年级班」的整班升级：支持一带多分流（4年级A班 / 4年级B班）、欠费学员原班保留、不念学员留档，并提供升班流向关系图与批次追溯。</p>
+    </div>
+    <div class="badge">可直接点击进入各页面体验</div>
+  </div>
+
+  <div class="entry-grid" style="margin-bottom:18px">
+    <a class="entry" href="class-list.html">
+      <div class="no">01</div>
+      <div class="title">班级列表 · 升班入口</div>
+      <div class="desc">在班级行操作中加入「升班」，并展示升班人数、班级状态与结班限制。</div>
+    </a>
+    <a class="entry" href="wizard.html">
+      <div class="no">02</div>
+      <div class="title">升班工作台 · 拖拽分班</div>
+      <div class="desc">左右两栏：左侧旧班学员多选后拖入右侧不同新班级，可分批拖入多个新班，自动处理欠费与不念学员。</div>
+    </a>
+    <a class="entry" href="graph.html">
+      <div class="no">03</div>
+      <div class="title">升班关系图 · 流向可下钻</div>
+      <div class="desc">查看班级间的升班流向与人数，点击任意连线或班级查看该批学员明细。</div>
+    </a>
+    <a class="entry" href="records.html">
+      <div class="no">04</div>
+      <div class="title">升班批次 · 历史记录</div>
+      <div class="desc">按批次追溯谁升到了哪个班、原班记录如何处理，便于对账与回查。</div>
+    </a>
+  </div>
+
+  <div class="card">
+    <h2>操作主线</h2>
+    <p class="desc">升班只新增目标班记录，原班记录按学员情况保留，全程可追溯。</p>
+    <div class="flow">
+      <div class="node"><b>班级列表</b><span>选中三年级班</span></div>
+      <span class="arrow">→</span>
+      <div class="node"><b>升班工作台</b><span>左侧旧班 · 右侧新班</span></div>
+      <span class="arrow">→</span>
+      <div class="node"><b>拖拽分班</b><span>多选学员 · 分批拖入</span></div>
+      <span class="arrow">→</span>
+      <div class="node"><b>确认执行</b><span>写入新班 · 原班留档</span></div>
+      <span class="arrow">→</span>
+      <div class="node"><b>关系图 / 批次</b><span>流向与明细可查</span></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>已确认的业务规则</h2>
+    <p class="desc">以下规则在原型页面中均已体现，可直接对照查看。</p>
+    <ul class="rule-list">
+      <li><b>一带多分流</b>：一次升班可选择多个目标班（如 4年级A班、4年级B班），每名学员单独指定去向。</li>
+      <li><b>欠费学员</b>：学员「欠费金额 &gt; 0」或「欠课时 &gt; 0」时自动标红，升班后<b>同时保留原班在读记录</b>，不删除原班数据。</li>
+      <li><b>不念学员</b>：选择「不念（留档）」后仅保留原班记录，不进入任何新班，也不影响退费流程。</li>
+      <li><b>升走学员</b>：原班记录标记为「已升班」，不再是原班在读，原班可继续走结班流程。</li>
+      <li><b>结班联动</b>：原班若仍存在「在读」学员（含欠费保留），结班校验会拦截并提示具体人数。</li>
+      <li><b>全程留痕</b>：每次升班生成一个批次，记录来源班、目标班、学员去向、操作人与时间。</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2>与现有数据的关系</h2>
+    <p class="desc">不改变现有「班级-学员」多对多结构，学员可同时存在于旧班与新班。</p>
+    <table>
+      <thead>
+        <tr><th style="width:180px">数据对象</th><th>本方案中的变化</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>班级-学员（class_student）</td><td>新增目标班记录；原班记录标记「已升班 / 在读（欠费） / 不念留档」</td></tr>
+        <tr><td>升班批次（新增）</td><td>一次升班一行：来源班、目标班列表、人数、操作人、时间</td></tr>
+        <tr><td>升班明细（新增）</td><td>每名学员一行：原班、目标班、处理方式、是否欠费保留</td></tr>
+        <tr><td>课程升期关系（已有）</td><td>作为目标班推荐依据，升班时自动带出同课程下一学段班级</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <footer>幻彩教育管理系统 · 升班功能原型 · 仅供方案评审</footer>
+</div>
+</body>
+</html>

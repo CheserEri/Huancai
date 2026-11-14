@@ -1,0 +1,182 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.huancai.erp.module.material.mapper.MaterialMapper">
+
+  <sql id="stockWhere">
+    <where>
+      m.source IN ('校宝教材设置', '本地录入')
+      <if test="keyword != null and keyword != ''">
+        AND m.name LIKE CONCAT('%', #{keyword}, '%')
+      </if>
+      <if test="category != null and category != ''">
+        AND m.category = #{category}
+      </if>
+      <if test="status != null and status != ''">
+        AND m.status = #{status}
+      </if>
+      <if test="lowStock != null and lowStock">
+        AND m.qty_total &lt;= 0
+      </if>
+    </where>
+  </sql>
+
+  <select id="selectStockPage" resultType="cn.huancai.erp.module.material.vo.MaterialStockVO">
+    SELECT
+      m.id,
+      m.name,
+      m.category,
+      m.status,
+      m.qty_warehouse  AS warehouse,
+      m.qty_bayuquan   AS bayuquan,
+      m.qty_xinmin     AS xinmin,
+      m.qty_total      AS total
+    FROM material m
+    <include refid="stockWhere"/>
+    ORDER BY m.id ASC
+  </select>
+
+  <select id="selectStockSummary" resultType="cn.huancai.erp.module.material.vo.MaterialStockSummaryVO">
+    SELECT
+      COUNT(*)                             AS count,
+      COALESCE(SUM(m.qty_warehouse), 0)    AS warehouse,
+      COALESCE(SUM(m.qty_bayuquan), 0)     AS bayuquan,
+      COALESCE(SUM(m.qty_xinmin), 0)       AS xinmin,
+      COALESCE(SUM(m.qty_total), 0)        AS total,
+      COALESCE(SUM(m.qty_total &lt;= 0), 0)  AS lowStock
+    FROM material m
+    <include refid="stockWhere"/>
+  </select>
+
+  <sql id="settingWhere">
+    <where>
+      m.source IN ('校宝教材设置', '本地录入')
+      <if test="keyword != null and keyword != ''">
+        AND m.name LIKE CONCAT('%', #{keyword}, '%')
+      </if>
+      <if test="category != null and category != ''">
+        AND m.category = #{category}
+      </if>
+      <if test="status != null and status != ''">
+        AND m.status = #{status}
+      </if>
+    </where>
+  </sql>
+
+  <select id="selectSettingPage" resultType="cn.huancai.erp.module.material.vo.MaterialSettingVO">
+    SELECT
+      m.id,
+      m.name,
+      m.cost_price  AS costPrice,
+      m.sale_price  AS salePrice,
+      m.points,
+      m.category,
+      m.status
+    FROM material m
+    <include refid="settingWhere"/>
+    ORDER BY m.id ASC
+  </select>
+
+  <sql id="incidentalWhere">
+    <where>
+      m.source = '校宝杂费设置'
+      <if test="keyword != null and keyword != ''">
+        AND m.name LIKE CONCAT('%', #{keyword}, '%')
+      </if>
+      <if test="category != null and category != ''">
+        AND m.category = #{category}
+      </if>
+      <if test="status != null and status != ''">
+        AND m.status = #{status}
+      </if>
+    </where>
+  </sql>
+
+  <select id="selectIncidentalPage" resultType="cn.huancai.erp.module.material.vo.IncidentalVO">
+    SELECT
+      m.id,
+      m.name,
+      m.price,
+      m.points,
+      m.category,
+      m.status
+    FROM incidental m
+    <include refid="incidentalWhere"/>
+    ORDER BY m.id ASC
+  </select>
+
+  <select id="selectCategories" resultType="java.lang.String">
+    SELECT category FROM material
+    WHERE source IN ('校宝教材设置', '本地录入') AND category IS NOT NULL AND category != ''
+    GROUP BY category
+    ORDER BY MIN(id)
+  </select>
+
+  <sql id="changeWhere">
+    <where>
+      c.source IN ('校宝库存变动', '本地录入')
+      <if test="keyword != null and keyword != ''">
+        AND (c.material_name LIKE CONCAT('%', #{keyword}, '%')
+             OR c.student_name LIKE CONCAT('%', #{keyword}, '%')
+             OR c.ext_order_no LIKE CONCAT('%', #{keyword}, '%')
+             OR c.handler LIKE CONCAT('%', #{keyword}, '%'))
+      </if>
+      <if test="room != null and room != ''">
+        AND c.room_name = #{room}
+      </if>
+      <if test="bizType != null and bizType != ''">
+        AND c.biz_type = #{bizType}
+      </if>
+      <if test="materialName != null and materialName != ''">
+        AND c.material_name = #{materialName}
+      </if>
+      <if test="start != null and start != ''">
+        AND c.change_date &gt;= #{start}
+      </if>
+      <if test="end != null and end != ''">
+        AND c.change_date &lt;= #{end}
+      </if>
+    </where>
+  </sql>
+
+  <select id="selectChangePage" resultType="cn.huancai.erp.module.material.vo.MaterialStockChangeVO">
+    SELECT
+      c.id,
+      c.room_name      AS roomName,
+      c.material_name  AS materialName,
+      c.biz_type       AS bizType,
+      c.quantity,
+      c.unit_price     AS unitPrice,
+      CONCAT(YEAR(c.change_date), '-', MONTH(c.change_date), '-', DAY(c.change_date)) AS changeDate,
+      c.handler,
+      c.student_name   AS studentName,
+      c.ext_order_no   AS extOrderNo,
+      c.remark
+    FROM material_stock_change c
+    <include refid="changeWhere"/>
+    ORDER BY c.change_date DESC, c.seq ASC
+  </select>
+
+  <select id="selectChangeSummary" resultType="cn.huancai.erp.module.material.vo.MaterialChangeSummaryVO">
+    SELECT
+      COUNT(*)                                                AS count,
+      COALESCE(SUM(CASE WHEN c.quantity > 0 THEN c.quantity ELSE 0 END), 0)  AS inSum,
+      COALESCE(SUM(CASE WHEN c.quantity &lt; 0 THEN -c.quantity ELSE 0 END), 0) AS outSum,
+      COALESCE(SUM(c.quantity), 0)                            AS total
+    FROM material_stock_change c
+    <include refid="changeWhere"/>
+  </select>
+
+  <select id="selectChangeRooms" resultType="java.lang.String">
+    SELECT room_name FROM material_stock_change
+    WHERE source IN ('校宝库存变动', '本地录入')
+    GROUP BY room_name
+    ORDER BY MIN(id)
+  </select>
+
+  <select id="selectChangeMaterials" resultType="java.lang.String">
+    SELECT material_name FROM material_stock_change
+    WHERE source IN ('校宝库存变动', '本地录入')
+    GROUP BY material_name
+    ORDER BY MIN(id)
+  </select>
+</mapper>

@@ -1,0 +1,262 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.huancai.erp.module.report.mapper.ReportMapper">
+
+  <!-- 订单的校区/期间过滤（别名 o） -->
+  <sql id="orderFilter">
+    <if test="campusId != null">AND o.campus_id = #{campusId}</if>
+    <if test="start != null">AND o.paid_at &gt;= #{start}</if>
+    <if test="end != null">AND o.paid_at &lt; DATE_ADD(#{end}, INTERVAL 1 DAY)</if>
+  </sql>
+
+  <!-- 收款的校区/期间过滤（别名 p） -->
+  <sql id="paymentFilter">
+    <if test="campusId != null">AND p.campus_id = #{campusId}</if>
+    <if test="start != null">AND p.paid_at &gt;= #{start}</if>
+    <if test="end != null">AND p.paid_at &lt; DATE_ADD(#{end}, INTERVAL 1 DAY)</if>
+  </sql>
+
+  <!-- 上课记录的校区/期间过滤（别名 a） -->
+  <sql id="attendanceFilter">
+    <if test="campusId != null">AND a.campus_id = #{campusId}</if>
+    <if test="start != null">AND a.lesson_date &gt;= #{start}</if>
+    <if test="end != null">AND a.lesson_date &lt;= #{end}</if>
+  </sql>
+
+  <select id="selectBusiness" resultType="cn.huancai.erp.module.report.vo.BusinessReportVO">
+    SELECT
+      (SELECT COUNT(*) FROM consult c
+        <where>
+          <if test="campusId != null">AND c.campus_id = #{campusId}</if>
+          <if test="start != null">AND c.last_follow_at &gt;= #{start}</if>
+          <if test="end != null">AND c.last_follow_at &lt; DATE_ADD(#{end}, INTERVAL 1 DAY)</if>
+        </where>)                                                          AS consults,
+      (SELECT COUNT(*) FROM sales_order o
+        WHERE o.status &lt;&gt; '已作废'
+        <include refid="orderFilter"/>)                                    AS deals,
+      (SELECT COALESCE(SUM(o.receivable), 0) FROM sales_order o
+        WHERE o.status &lt;&gt; '已作废'
+        <include refid="orderFilter"/>)                                    AS receivable,
+      (SELECT COALESCE(SUM(o.received), 0) FROM sales_order o
+        WHERE o.status &lt;&gt; '已作废'
+        <include refid="orderFilter"/>)                                    AS received,
+      (SELECT COALESCE(SUM(o.discount), 0) FROM sales_order o
+        WHERE o.status &lt;&gt; '已作废'
+        <include refid="orderFilter"/>)                                    AS discount,
+      (SELECT COALESCE(SUM(-p.amount), 0) FROM payment p
+        WHERE p.amount &lt; 0
+        <include refid="paymentFilter"/>)                                  AS refund,
+      (SELECT COALESCE(SUM(p.amount), 0) FROM payment p
+        WHERE 1 = 1
+        <include refid="paymentFilter"/>)                                  AS periodPayments,
+      (SELECT COALESCE(SUM(s.balance), 0) FROM student s
+        <where><if test="campusId != null">AND s.campus_id = #{campusId}</if></where>) AS balance,
+      (SELECT COUNT(*) FROM student s
+        WHERE s.status = '在读'
+        <if test="campusId != null">AND s.campus_id = #{campusId}</if>)     AS activeStudents,
+      (SELECT COUNT(*) FROM enrollment e
+        WHERE e.status = '生效'
+        <if test="campusId != null">AND e.campus_id = #{campusId}</if>)     AS enrollmentCount,
+      (SELECT COALESCE(SUM(e.remain_lessons), 0) FROM enrollment e
+        WHERE e.status = '生效'
+        <if test="campusId != null">AND e.campus_id = #{campusId}</if>)     AS remainLessons,
+      (SELECT COALESCE(SUM(a.lessons), 0) FROM attendance a
+        <where><include refid="attendanceFilter"/></where>)                 AS periodLessons,
+      (SELECT COALESCE(SUM(o.debt), 0) FROM sales_order o
+        WHERE o.status &lt;&gt; '已作废'
+        <if test="campusId != null">AND o.campus_id = #{campusId}</if>)     AS debt,
+      (SELECT COALESCE(SUM(o.received), 0) FROM sales_order o
+        WHERE (o.content LIKE '%资料%' OR o.content LIKE '%教材%'
+               OR o.content LIKE '%杂费%' OR o.content LIKE '%材料%')
+        <include refid="orderFilter"/>)                                    AS materialIncome
+  </select>
+
+  <select id="selectCampusCompare" resultType="cn.huancai.erp.module.report.vo.CampusCompareVO">
+    SELECT
+      cp.name                                                              AS campusName,
+      (SELECT COALESCE(SUM(o.receivable), 0) FROM sales_order o
+        WHERE o.campus_id = cp.id AND o.status &lt;&gt; '已作废'
+        <if test="start != null">AND o.paid_at &gt;= #{start}</if>
+        <if test="end != null">AND o.paid_at &lt; DATE_ADD(#{end}, INTERVAL 1 DAY)</if>) AS receivable,
+      (SELECT COALESCE(SUM(o.received), 0) FROM sales_order o
+        WHERE o.campus_id = cp.id AND o.status &lt;&gt; '已作废'
+        <if test="start != null">AND o.paid_at &gt;= #{start}</if>
+        <if test="end != null">AND o.paid_at &lt; DATE_ADD(#{end}, INTERVAL 1 DAY)</if>) AS received,
+      (SELECT COALESCE(SUM(p.amount), 0) FROM payment p
+        WHERE p.campus_id = cp.id
+        <if test="start != null">AND p.paid_at &gt;= #{start}</if>
+        <if test="end != null">AND p.paid_at &lt; DATE_ADD(#{end}, INTERVAL 1 DAY)</if>) AS payments,
+      (SELECT COALESCE(SUM(a.lessons), 0) FROM attendance a
+        WHERE a.campus_id = cp.id
+        <if test="start != null">AND a.lesson_date &gt;= #{start}</if>
+        <if test="end != null">AND a.lesson_date &lt;= #{end}</if>)          AS lessons,
+      (SELECT COUNT(*) FROM student s
+        WHERE s.campus_id = cp.id AND s.status = '在读')                    AS activeStudents
+    FROM campus cp
+    WHERE cp.status = 1
+    ORDER BY cp.id
+  </select>
+
+  <select id="selectTeaching" resultType="cn.huancai.erp.module.report.vo.TeachingReportVO">
+    SELECT
+      COUNT(*)                                                             AS records,
+      COALESCE(SUM(a.lessons), 0)                                          AS lessons,
+      COUNT(DISTINCT a.student_id)                                         AS students,
+      COUNT(DISTINCT a.teacher_id)                                         AS teacherCount,
+      COALESCE(SUM(CASE WHEN a.status = '出勤' THEN 1 ELSE 0 END), 0)       AS present,
+      COALESCE(ROUND(SUM(CASE WHEN a.status = '出勤' THEN 1 ELSE 0 END)
+             / NULLIF(COUNT(*), 0) * 100, 1), 0)                           AS attendRate
+    FROM attendance a
+    <where><include refid="attendanceFilter"/></where>
+  </select>
+
+  <select id="selectTeacherWorkload" resultType="cn.huancai.erp.module.report.vo.TeacherWorkloadVO">
+    SELECT
+      COALESCE(sf.name, '未分配')                                          AS teacherName,
+      COALESCE(cp.name, '—')                                               AS campusName,
+      COUNT(*)                                                             AS records,
+      COUNT(DISTINCT a.schedule_id)                                        AS schedules,
+      COALESCE(SUM(a.lessons), 0)                                          AS lessons,
+      COUNT(DISTINCT a.class_id)                                           AS classes,
+      COALESCE(ROUND(SUM(CASE WHEN a.status = '出勤' THEN 1 ELSE 0 END)
+             / NULLIF(COUNT(*), 0) * 100, 1), 0)                           AS attendRate
+    FROM attendance a
+    LEFT JOIN staff sf ON sf.id = a.teacher_id
+    LEFT JOIN campus cp ON cp.id = a.campus_id
+    <where><include refid="attendanceFilter"/></where>
+    GROUP BY a.teacher_id, sf.name, a.campus_id, cp.name
+    ORDER BY lessons DESC
+  </select>
+
+  <select id="selectCourseConsume" resultType="cn.huancai.erp.module.report.vo.CourseConsumeVO">
+    SELECT
+      COALESCE(co.name, '未知课程')                                        AS courseName,
+      COUNT(DISTINCT a.student_id)                                         AS students,
+      COUNT(*)                                                             AS records,
+      COALESCE(SUM(a.lessons), 0)                                          AS lessons
+    FROM attendance a
+    LEFT JOIN class_group cg ON cg.id = a.class_id
+    LEFT JOIN course co ON co.id = cg.course_id
+    <where><include refid="attendanceFilter"/></where>
+    GROUP BY co.id, co.name
+    ORDER BY lessons DESC
+  </select>
+
+  <select id="selectFinance" resultType="cn.huancai.erp.module.report.vo.FinanceReportVO">
+    SELECT
+      (SELECT COALESCE(SUM(o.receivable), 0) FROM sales_order o
+        WHERE o.status &lt;&gt; '已作废'
+        <include refid="orderFilter"/>)                                    AS receivable,
+      (SELECT COALESCE(SUM(o.received), 0) FROM sales_order o
+        WHERE o.status &lt;&gt; '已作废'
+        <include refid="orderFilter"/>)                                    AS received,
+      (SELECT COALESCE(SUM(-p.amount), 0) FROM payment p
+        WHERE p.amount &lt; 0
+        <include refid="paymentFilter"/>)                                  AS refund,
+      (SELECT COALESCE(SUM(o.debt), 0) FROM sales_order o
+        WHERE o.status &lt;&gt; '已作废'
+        <include refid="orderFilter"/>)                                    AS debt,
+      (SELECT COUNT(*) FROM sales_order o
+        WHERE o.status &lt;&gt; '已作废'
+        <include refid="orderFilter"/>)                                    AS orderCount,
+      (SELECT COUNT(*) FROM payment p
+        WHERE 1 = 1
+        <include refid="paymentFilter"/>)                                  AS paymentCount
+  </select>
+
+  <select id="selectDailyFinance" resultType="cn.huancai.erp.module.report.vo.DailyFinanceVO">
+    SELECT
+      DATE_FORMAT(t.d, '%Y-%m-%d')                                         AS date,
+      COALESCE(SUM(t.recv), 0)                                             AS receivable,
+      COALESCE(SUM(t.got), 0)                                              AS received,
+      COALESCE(SUM(t.ref), 0)                                              AS refund,
+      COALESCE(SUM(t.dbt), 0)                                              AS debt
+    FROM (
+      SELECT DATE(o.paid_at) AS d,
+             o.receivable    AS recv,
+             o.received      AS got,
+             0               AS ref,
+             o.debt          AS dbt
+      FROM sales_order o
+      <where>
+        o.status &lt;&gt; '已作废'
+        <include refid="orderFilter"/>
+      </where>
+      UNION ALL
+      SELECT DATE(p.paid_at) AS d,
+             0,
+             IF(p.amount &gt; 0, p.amount, 0),
+             IF(p.amount &lt; 0, -p.amount, 0),
+             0
+      FROM payment p
+      <where><include refid="paymentFilter"/></where>
+    ) t
+    GROUP BY t.d
+    ORDER BY t.d DESC
+  </select>
+
+  <select id="selectMaterialRows" resultType="cn.huancai.erp.module.report.vo.MaterialRowVO">
+    SELECT
+      o.content                                                            AS name,
+      COUNT(*)                                                             AS count,
+      COALESCE(SUM(o.receivable), 0)                                       AS receivable,
+      COALESCE(SUM(o.received), 0)                                         AS received
+    FROM sales_order o
+    <where>
+      (o.content LIKE '%资料%' OR o.content LIKE '%教材%'
+       OR o.content LIKE '%杂费%' OR o.content LIKE '%材料%')
+      <include refid="orderFilter"/>
+    </where>
+    GROUP BY o.content
+    ORDER BY received DESC, count DESC
+  </select>
+
+  <select id="selectScreen" resultType="cn.huancai.erp.module.report.vo.ScreenReportVO">
+    SELECT
+      (SELECT COUNT(*) FROM student s
+        <where><if test="campusId != null">AND s.campus_id = #{campusId}</if></where>) AS studentsTotal,
+      (SELECT COUNT(*) FROM student s
+        WHERE s.status = '在读'
+        <if test="campusId != null">AND s.campus_id = #{campusId}</if>)     AS activeStudents,
+      (SELECT COUNT(*) FROM class_group cg
+        <where><if test="campusId != null">AND cg.campus_id = #{campusId}</if></where>) AS classes,
+      (SELECT COUNT(*) FROM schedule sc
+        WHERE sc.lesson_date = CURDATE()
+        <if test="campusId != null">AND sc.campus_id = #{campusId}</if>)     AS todayClasses,
+      (SELECT COUNT(*) FROM sales_order o
+        WHERE o.status &lt;&gt; '已作废'
+          AND o.paid_at &gt;= DATE_FORMAT(CURDATE(), '%Y-%m-01')
+          AND o.paid_at &lt; DATE_ADD(DATE_FORMAT(CURDATE(), '%Y-%m-01'), INTERVAL 1 MONTH)
+        <if test="campusId != null">AND o.campus_id = #{campusId}</if>)      AS monthOrders,
+      (SELECT COUNT(*) FROM consult c
+        WHERE c.last_follow_at &gt;= DATE_FORMAT(CURDATE(), '%Y-%m-01')
+        <if test="campusId != null">AND c.campus_id = #{campusId}</if>)      AS monthConsults,
+      (SELECT COALESCE(SUM(p.amount), 0) FROM payment p
+        WHERE p.paid_at &gt;= DATE_FORMAT(CURDATE(), '%Y-%m-01')
+          AND p.paid_at &lt; DATE_ADD(DATE_FORMAT(CURDATE(), '%Y-%m-01'), INTERVAL 1 MONTH)
+        <if test="campusId != null">AND p.campus_id = #{campusId}</if>)      AS monthRevenue,
+      (SELECT COALESCE(SUM(a.lessons), 0) FROM attendance a
+        WHERE a.lesson_date &gt;= DATE_FORMAT(CURDATE(), '%Y-%m-01')
+        <if test="campusId != null">AND a.campus_id = #{campusId}</if>)      AS monthLessons,
+      (SELECT COALESCE(SUM(o.debt), 0) FROM sales_order o
+        WHERE o.status &lt;&gt; '已作废'
+        <if test="campusId != null">AND o.campus_id = #{campusId}</if>)      AS debt,
+      (SELECT COALESCE(SUM(e.remain_lessons), 0) FROM enrollment e
+        WHERE e.status = '生效'
+        <if test="campusId != null">AND e.campus_id = #{campusId}</if>)      AS remainLessons
+  </select>
+
+  <select id="selectTopCourses" resultType="cn.huancai.erp.module.report.vo.TopCourseVO">
+    SELECT
+      co.name                                                              AS courseName,
+      COUNT(*)                                                             AS students,
+      COALESCE(SUM(e.remain_lessons), 0)                                   AS remainLessons
+    FROM enrollment e
+    JOIN course co ON co.id = e.course_id
+    WHERE e.status = '生效'
+    <if test="campusId != null">AND e.campus_id = #{campusId}</if>
+    GROUP BY co.name
+    ORDER BY students DESC
+    LIMIT 6
+  </select>
+</mapper>

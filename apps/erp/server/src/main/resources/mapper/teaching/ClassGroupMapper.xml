@@ -1,0 +1,334 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.huancai.erp.module.teaching.mapper.ClassGroupMapper">
+
+  <sql id="whereClause">
+    <where>
+      <if test="campusId != null">AND cg.campus_id = #{campusId}</if>
+      <if test="teacher != null and teacher != ''">
+        AND COALESCE(t.name, cg.teacher_text) = #{teacher}
+      </if>
+      <if test="status != null and status != ''">AND cg.status = #{status}</if>
+      <if test="(status == null or status == '') and includeClosed != true">AND cg.status &lt;&gt; '已结班'</if>
+      <if test="source != null and source != ''">AND cg.source = #{source}</if>
+      <if test="enrolling != null">AND cg.enrolling = #{enrolling}</if>
+      <if test="lessonClass != null and lessonClass != ''">AND cg.lesson_class_name = #{lessonClass}</if>
+      <if test="room != null and room != ''">AND cg.room = #{room}</if>
+      <if test="courseCategory != null and courseCategory != ''">AND c.category = #{courseCategory}</if>
+      <if test="courseName != null and courseName != ''">AND c.name = #{courseName}</if>
+      <if test="weekday != null and weekday != ''">
+        AND COALESCE(cg.class_time_desc, cg.schedule_text) LIKE CONCAT('%', #{weekday}, '%')
+      </if>
+      <if test="timePeriod != null and timePeriod != ''">
+        AND CASE
+          WHEN #{timePeriod} = '上午' THEN
+            HOUR(TIME(STR_TO_DATE(REGEXP_SUBSTR(COALESCE(cg.class_time_desc, cg.schedule_text), '[0-9]{1,2}:[0-9]{2}'), '%H:%i'))) &lt; 12
+          WHEN #{timePeriod} = '下午' THEN
+            HOUR(TIME(STR_TO_DATE(REGEXP_SUBSTR(COALESCE(cg.class_time_desc, cg.schedule_text), '[0-9]{1,2}:[0-9]{2}'), '%H:%i'))) &gt;= 12
+            AND HOUR(TIME(STR_TO_DATE(REGEXP_SUBSTR(COALESCE(cg.class_time_desc, cg.schedule_text), '[0-9]{1,2}:[0-9]{2}'), '%H:%i'))) &lt; 18
+          WHEN #{timePeriod} = '晚上' THEN
+            HOUR(TIME(STR_TO_DATE(REGEXP_SUBSTR(COALESCE(cg.class_time_desc, cg.schedule_text), '[0-9]{1,2}:[0-9]{2}'), '%H:%i'))) &gt;= 18
+          ELSE TRUE
+        END
+      </if>
+      <if test="keyword != null and keyword != ''">
+        AND cg.name LIKE CONCAT('%', #{keyword}, '%')
+      </if>
+    </where>
+  </sql>
+
+  <sql id="classColumns">
+      cg.id,
+      cg.campus_id          AS campusId,
+      cp.name               AS campusName,
+      cg.course_id          AS courseId,
+      c.name                AS courseName,
+      c.category            AS courseCategory,
+      cg.teacher_id         AS teacherId,
+      COALESCE(t.name, cg.teacher_text) AS teacherName,
+      cg.assist_name        AS assistName,
+      cg.name,
+      cg.lesson_class_name  AS lessonClassName,
+      cg.room,
+      cg.schedule_text      AS scheduleText,
+      cg.start_date         AS startDate,
+      cg.end_date           AS endDate,
+      cg.status,
+      cg.capacity,
+      cg.enrolled_count     AS enrolledCount,
+      cg.stu_rate           AS stuRate,
+      cg.up_rate            AS upRate,
+      cg.schedule_count     AS scheduleCount,
+      cg.enrolling,
+      cg.create_by          AS createBy,
+      cg.created_at         AS createdAt,
+      cg.fee_standard       AS feeStandard,
+      cg.source,
+      cg.sp_class_id        AS spClassId,
+      (SELECT COUNT(*) FROM class_student cs WHERE cs.class_id = cg.id) AS studentCount,
+      (SELECT COUNT(*) FROM schedule s WHERE s.class_id = cg.id) AS lessonCount,
+      (SELECT MAX(s2.lesson_date) FROM schedule s2 WHERE s2.class_id = cg.id) AS lastLessonDate
+  </sql>
+
+  <select id="selectClassPage" resultType="cn.huancai.erp.module.teaching.vo.ClassVO">
+    SELECT
+    <include refid="classColumns"/>
+    FROM class_group cg
+    JOIN campus cp ON cp.id = cg.campus_id
+    LEFT JOIN course c ON c.id = cg.course_id
+    LEFT JOIN staff t ON t.id = cg.teacher_id
+    <include refid="whereClause"/>
+    <choose>
+      <when test="sortField == 'name'">ORDER BY cg.name ${sortOrder}</when>
+      <when test="sortField == 'enrolledCount'">ORDER BY cg.enrolled_count ${sortOrder}</when>
+      <when test="sortField == 'startDate'">ORDER BY cg.start_date ${sortOrder}</when>
+      <otherwise>ORDER BY cg.created_at DESC, cg.id DESC</otherwise>
+    </choose>
+  </select>
+
+  <select id="selectClassById" resultType="cn.huancai.erp.module.teaching.vo.ClassVO">
+    SELECT
+    <include refid="classColumns"/>
+    FROM class_group cg
+    JOIN campus cp ON cp.id = cg.campus_id
+    LEFT JOIN course c ON c.id = cg.course_id
+    LEFT JOIN staff t ON t.id = cg.teacher_id
+    WHERE cg.id = #{id}
+  </select>
+
+  <select id="selectSummary" resultType="cn.huancai.erp.module.teaching.vo.ClassSummaryVO">
+    SELECT
+      COUNT(*)                                        AS total,
+      COALESCE(SUM(cg.status = '已开班'), 0)           AS active
+    FROM class_group cg
+    LEFT JOIN course c ON c.id = cg.course_id
+    LEFT JOIN staff t ON t.id = cg.teacher_id
+    <include refid="whereClause"/>
+  </select>
+
+  <select id="selectStudentSummary" resultType="cn.huancai.erp.module.teaching.vo.ClassSummaryVO">
+    SELECT
+      COUNT(DISTINCT cs.student_id) AS studentCount,
+      COUNT(*)                      AS memberCount
+    FROM class_student cs
+    JOIN student st ON st.id = cs.student_id AND st.status = '在读'
+    JOIN class_group cg ON cg.id = cs.class_id
+    LEFT JOIN course c ON c.id = cg.course_id
+    LEFT JOIN staff t ON t.id = cg.teacher_id
+    <include refid="whereClause"/>
+  </select>
+
+  <select id="selectClassStudents" resultType="cn.huancai.erp.module.teaching.vo.ClassStudentVO">
+    SELECT
+      cs.id,
+      cs.student_id     AS studentId,
+      st.name           AS studentName,
+      st.phone,
+      st.primary_relation AS relation,
+      st.follow_status  AS followStatus,
+      st.gender,
+      cs.status,
+      cs.join_date      AS joinDate,
+      cs.total_lessons  AS totalLessons,
+      cs.used_lessons   AS usedLessons,
+      cs.remain_lessons AS remainLessons,
+      st.student_no     AS studentNo,
+      st.debt,
+      cs.remark
+    FROM class_student cs
+    JOIN student st ON st.id = cs.student_id
+    WHERE cs.class_id = #{classId}
+    ORDER BY cs.status = '在读' DESC, st.name
+  </select>
+
+  <select id="selectClassSchedules" resultType="cn.huancai.erp.module.teaching.vo.ClassScheduleVO">
+    SELECT
+      s.id,
+      s.lesson_date   AS lessonDate,
+      s.start_time    AS startTime,
+      s.end_time      AS endTime,
+      COALESCE(NULLIF(s.course_name, ''), c.name) AS courseName,
+      s.room,
+      s.topic,
+      s.status,
+      COALESCE(NULLIF(s.teacher_name, ''), t.name) AS teacherName,
+      s.assistant_name AS assistantName,
+      s.should_count  AS shouldCount,
+      s.actual_count  AS actualCount,
+      COALESCE(a.cnt, 0)          AS attendanceCount,
+      COALESCE(a.present_cnt, 0)  AS presentCount,
+      COALESCE(a.leave_cnt, 0)    AS leaveCount,
+      COALESCE(a.absent_cnt, 0)   AS absentCount,
+      COALESCE(a.late_cnt, 0)     AS lateCount,
+      COALESCE(a.lesson_sum, 0)   AS lessonCount,
+      CASE WHEN COALESCE(a.cnt, 0) = 0 THEN NULL
+           ELSE ROUND(a.present_cnt * 100 / a.cnt, 2) END AS attendanceRate,
+      COALESCE(cc.cnt, 0) AS commentCount,
+      s.created_at    AS createdAt
+    FROM schedule s
+    LEFT JOIN course c ON c.id = s.course_id
+    LEFT JOIN staff t ON t.id = s.teacher_id
+    LEFT JOIN (
+      SELECT schedule_id,
+        COUNT(*)                            AS cnt,
+        SUM(status = '出勤')                AS present_cnt,
+        SUM(status = '请假')                AS leave_cnt,
+        SUM(status IN ('缺席', '旷课'))     AS absent_cnt,
+        SUM(status = '迟到')                AS late_cnt,
+        SUM(lessons)                        AS lesson_sum
+      FROM attendance
+      GROUP BY schedule_id
+    ) a ON a.schedule_id = s.id
+    LEFT JOIN (SELECT schedule_id, COUNT(*) AS cnt FROM class_comment GROUP BY schedule_id) cc
+      ON cc.schedule_id = s.id
+    WHERE s.class_id = #{classId}
+    <if test="doneOnly">AND s.status = '已上课'</if>
+    ORDER BY s.lesson_date DESC, s.start_time DESC, s.id DESC
+  </select>
+
+  <select id="selectClassAttendance" resultType="cn.huancai.erp.module.teaching.vo.ClassAttendanceVO">
+    SELECT
+      a.id,
+      a.schedule_id  AS scheduleId,
+      a.student_id   AS studentId,
+      st.name        AS studentName,
+      a.lesson_date  AS lessonDate,
+      s.topic,
+      COALESCE(NULLIF(s.teacher_name, ''), t.name) AS teacherName,
+      a.status,
+      a.lessons,
+      a.remark
+    FROM attendance a
+    JOIN student st ON st.id = a.student_id
+    LEFT JOIN schedule s ON s.id = a.schedule_id
+    LEFT JOIN staff t ON t.id = a.teacher_id
+    WHERE a.class_id = #{classId}
+    <if test="scheduleId != null">AND a.schedule_id = #{scheduleId}</if>
+    ORDER BY a.lesson_date DESC, a.id, st.name
+  </select>
+
+  <select id="selectClassComments" resultType="cn.huancai.erp.module.teaching.vo.ClassCommentItemVO">
+    SELECT
+      cc.id,
+      cc.student_id  AS studentId,
+      st.name        AS studentName,
+      COALESCE(NULLIF(t.name, ''), NULLIF(s.teacher_name, '')) AS teacherName,
+      COALESCE(s.lesson_date, DATE(cc.created_at)) AS lessonDate,
+      cc.content,
+      cc.rating,
+      cc.read_at     AS readAt,
+      cc.created_at  AS createdAt
+    FROM class_comment cc
+    JOIN student st ON st.id = cc.student_id
+    LEFT JOIN schedule s ON s.id = cc.schedule_id
+    LEFT JOIN staff t ON t.id = cc.teacher_id
+    WHERE cc.class_id = #{classId}
+    ORDER BY lessonDate DESC, cc.id DESC
+  </select>
+
+  <select id="selectAttendanceRate" resultType="java.math.BigDecimal">
+    SELECT CASE WHEN COUNT(*) = 0 THEN NULL
+                ELSE ROUND(SUM(a.status = '出勤') * 100 / COUNT(*), 2) END
+    FROM attendance a
+    WHERE a.class_id = #{classId} AND a.status &lt;&gt; '未记录'
+  </select>
+
+  <select id="selectTeachers" resultType="java.lang.String">
+    SELECT DISTINCT name FROM (
+      SELECT COALESCE(t.name, cg.teacher_text) AS name
+      FROM class_group cg
+      LEFT JOIN staff t ON t.id = cg.teacher_id
+      WHERE cg.source = '校宝班级列表'
+    ) x
+    WHERE name IS NOT NULL AND name &lt;&gt; ''
+    ORDER BY name
+  </select>
+
+  <select id="selectLessonClasses" resultType="java.lang.String">
+    SELECT DISTINCT lesson_class_name
+    FROM class_group
+    WHERE source = '校宝班级列表' AND lesson_class_name IS NOT NULL AND lesson_class_name &lt;&gt; ''
+    ORDER BY lesson_class_name
+  </select>
+
+  <select id="selectCourseNames" resultType="java.lang.String">
+    SELECT DISTINCT c.name
+    FROM class_group cg
+    JOIN course c ON c.id = cg.course_id
+    WHERE cg.source = '校宝班级列表' AND c.name IS NOT NULL AND c.name &lt;&gt; ''
+    ORDER BY c.name
+  </select>
+
+  <select id="selectCategories" resultType="java.lang.String">
+    SELECT DISTINCT c.category
+    FROM class_group cg
+    JOIN course c ON c.id = cg.course_id
+    WHERE cg.source = '校宝班级列表' AND c.category IS NOT NULL AND c.category &lt;&gt; ''
+    ORDER BY c.category
+  </select>
+
+  <select id="selectRooms" resultType="java.lang.String">
+    SELECT DISTINCT room
+    FROM class_group
+    WHERE source = '校宝班级列表' AND room IS NOT NULL AND room &lt;&gt; ''
+    ORDER BY room
+  </select>
+
+  <!-- 分班弹窗：同课程可选班级 -->
+  <select id="selectCourseClasses" resultType="cn.huancai.erp.module.teaching.vo.ClassVO">
+    SELECT
+      cg.id,
+      cg.campus_id      AS campusId,
+      cp.name           AS campusName,
+      cg.course_id      AS courseId,
+      c.name            AS courseName,
+      cg.teacher_id     AS teacherId,
+      COALESCE(t.name, cg.teacher_text) AS teacherName,
+      cg.name,
+      cg.room,
+      cg.schedule_text  AS scheduleText,
+      cg.start_date     AS startDate,
+      cg.end_date       AS endDate,
+      cg.status,
+      cg.capacity,
+      cg.enrolled_count AS enrolledCount
+    FROM class_group cg
+    LEFT JOIN campus cp ON cp.id = cg.campus_id
+    LEFT JOIN course c ON c.id = cg.course_id
+    LEFT JOIN staff t ON t.id = cg.teacher_id
+    WHERE cg.course_id = #{courseId}
+      AND cg.status &lt;&gt; '已结班'
+    ORDER BY cg.start_date DESC, cg.id DESC
+  </select>
+
+  <!-- 分班弹窗：该课程下的候选学员，班级优先取班级成员关系 -->
+  <select id="selectCourseStudents" resultType="cn.huancai.erp.module.teaching.vo.ClassAssignStudentVO">
+    SELECT
+      s.id             AS studentId,
+      s.name           AS studentName,
+      s.phone,
+      COALESCE(cur.class_id, e.class_id) AS classId,
+      COALESCE(cur.class_name, cg.name)  AS className,
+      e.total_lessons  AS totalLessons,
+      e.remain_lessons AS remainLessons,
+      e.status         AS enrollStatus
+    FROM enrollment e
+    JOIN student s ON s.id = e.student_id
+    LEFT JOIN class_group cg ON cg.id = e.class_id
+    LEFT JOIN LATERAL (
+      SELECT cg2.id AS class_id, cg2.name AS class_name
+      FROM class_student cs
+      JOIN class_group cg2 ON cg2.id = cs.class_id
+      WHERE cs.student_id = s.id AND cg2.course_id = #{courseId}
+      ORDER BY (cs.status = '在读') DESC, cs.id DESC
+      LIMIT 1
+    ) cur ON TRUE
+    WHERE e.course_id = #{courseId}
+      AND e.status = '生效'
+      AND e.id = (
+        SELECT MAX(e2.id) FROM enrollment e2
+        WHERE e2.student_id = e.student_id AND e2.course_id = e.course_id AND e2.status = '生效'
+      )
+    ORDER BY (COALESCE(cur.class_id, e.class_id) IS NULL) DESC, s.name
+  </select>
+</mapper>

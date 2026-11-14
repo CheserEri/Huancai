@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.huancai.erp.module.homeservice.mapper.WxMessageMapper">
+
+  <select id="selectMessagePage" resultType="cn.huancai.erp.module.homeservice.vo.MessageVO">
+    SELECT m.id,
+           m.title,
+           m.content,
+           m.msg_type        AS msgType,
+           m.audience_type   AS audienceType,
+           m.class_name_text AS classNameText,
+           m.target_count    AS targetCount,
+           m.receiver_count  AS receiverCount,
+           (SELECT COUNT(*) FROM wx_message_receiver r
+             WHERE r.message_id = m.id AND r.read_flag = 1) AS readCount,
+           m.sender,
+           m.sent_at         AS sentAt,
+           m.created_at      AS createdAt
+    FROM wx_message m
+    <where>
+      <if test="keyword != null and keyword != ''">
+        AND (m.title LIKE CONCAT('%', #{keyword}, '%') OR m.content LIKE CONCAT('%', #{keyword}, '%'))
+      </if>
+      <if test="msgType != null and msgType != ''">AND m.msg_type = #{msgType}</if>
+      <if test="start != null">AND m.sent_at &gt;= #{start}</if>
+      <if test="end != null">AND m.sent_at &lt; DATE_ADD(#{end}, INTERVAL 1 DAY)</if>
+    </where>
+    ORDER BY m.sent_at DESC, m.id DESC
+  </select>
+
+  <select id="selectReceiverPage" resultType="cn.huancai.erp.module.homeservice.vo.MessageReceiverVO">
+    SELECT r.id,
+           r.student_name AS studentName,
+           COALESCE(NULLIF(p.nickname, ''), p.phone, '未设置昵称') AS parentName,
+           p.phone        AS parentPhone,
+           r.read_flag    AS readFlag,
+           r.read_at      AS readAt,
+           r.created_at   AS createdAt
+    FROM wx_message_receiver r
+    LEFT JOIN wx_parent p ON p.id = r.parent_id
+    WHERE r.message_id = #{messageId}
+    <if test="readFlag != null">AND r.read_flag = #{readFlag}</if>
+    ORDER BY r.read_flag ASC, r.id ASC
+  </select>
+
+  <select id="selectClassNames" resultType="java.lang.String">
+    SELECT name FROM class_group
+    WHERE id IN
+    <foreach collection="classIds" item="id" open="(" separator="," close=")">#{id}</foreach>
+    ORDER BY name
+  </select>
+
+  <select id="selectClassStudents" resultType="cn.huancai.erp.module.homeservice.vo.MessageStudentVO">
+    SELECT DISTINCT s.id, s.name
+    FROM class_student cs
+    JOIN student s ON s.id = cs.student_id
+    WHERE cs.status = '在读'
+      AND cs.class_id IN
+      <foreach collection="classIds" item="id" open="(" separator="," close=")">#{id}</foreach>
+    ORDER BY s.name
+  </select>
+
+  <select id="selectAllBoundStudents" resultType="cn.huancai.erp.module.homeservice.vo.MessageStudentVO">
+    SELECT DISTINCT s.id, s.name
+    FROM wx_parent_student ps
+    JOIN student s ON s.id = ps.student_id
+    ORDER BY s.name
+  </select>
+
+  <select id="selectStudentsByIds" resultType="cn.huancai.erp.module.homeservice.vo.MessageStudentVO">
+    SELECT id, name FROM student
+    WHERE id IN
+    <foreach collection="ids" item="id" open="(" separator="," close=")">#{id}</foreach>
+    ORDER BY name
+  </select>
+
+  <select id="selectParentsByStudentIds" resultType="cn.huancai.erp.module.homeservice.vo.MessageParentVO">
+    SELECT student_id AS studentId, parent_id AS parentId
+    FROM wx_parent_student
+    WHERE student_id IN
+    <foreach collection="ids" item="id" open="(" separator="," close=")">#{id}</foreach>
+  </select>
+
+</mapper>

@@ -1,0 +1,207 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.huancai.erp.module.comment.mapper.CommentMapper">
+
+  <sql id="whereClause">
+    <where>
+      <if test="campusId != null">AND cc.campus_id = #{campusId}</if>
+      <if test="classId != null">AND cc.class_id = #{classId}</if>
+      <if test="courseId != null">AND s.course_id = #{courseId}</if>
+      <if test="teacher != null and teacher != ''">
+        AND COALESCE(NULLIF(t.name, ''), NULLIF(s.teacher_name, '')) = #{teacher}
+      </if>
+      <if test="rating != null and rating != ''">AND cc.rating = #{rating}</if>
+      <if test="readStatus == 'read'">AND cc.read_at IS NOT NULL</if>
+      <if test="readStatus == 'unread'">AND cc.read_at IS NULL</if>
+      <if test="start != null">AND s.lesson_date &gt;= #{start}</if>
+      <if test="end != null">AND s.lesson_date &lt;= #{end}</if>
+      <if test="keyword != null and keyword != ''">
+        AND (st.name LIKE CONCAT('%', #{keyword}, '%')
+          OR cg.name LIKE CONCAT('%', #{keyword}, '%')
+          OR cc.content LIKE CONCAT('%', #{keyword}, '%'))
+      </if>
+    </where>
+  </sql>
+
+  <sql id="lessonWhere">
+    <where>
+      s.status = '已上课'
+      <if test="campusId != null">AND s.campus_id = #{campusId}</if>
+      <if test="classId != null">AND s.class_id = #{classId}</if>
+      <if test="courseId != null">AND s.course_id = #{courseId}</if>
+      <if test="teacher != null and teacher != ''">
+        AND COALESCE(NULLIF(s.teacher_name, ''), t.name) = #{teacher}
+      </if>
+      <if test="start != null">AND s.lesson_date &gt;= #{start}</if>
+      <if test="end != null">AND s.lesson_date &lt;= #{end}</if>
+      <if test="commented == 'yes'">AND COALESCE(x.cnt, 0) &gt; 0</if>
+      <if test="commented == 'no'">AND COALESCE(x.cnt, 0) = 0</if>
+      <if test="keyword != null and keyword != ''">
+        AND (COALESCE(NULLIF(s.class_name, ''), cg.name) LIKE CONCAT('%', #{keyword}, '%')
+          OR COALESCE(NULLIF(s.course_name, ''), co.name) LIKE CONCAT('%', #{keyword}, '%')
+          OR COALESCE(NULLIF(s.teacher_name, ''), t.name) LIKE CONCAT('%', #{keyword}, '%')
+          OR s.topic LIKE CONCAT('%', #{keyword}, '%'))
+      </if>
+    </where>
+  </sql>
+
+  <sql id="lessonJoins">
+    FROM schedule s
+    JOIN campus cp ON cp.id = s.campus_id
+    LEFT JOIN class_group cg ON cg.id = s.class_id
+    LEFT JOIN course co ON co.id = s.course_id
+    LEFT JOIN staff t ON t.id = s.teacher_id
+    LEFT JOIN (
+      SELECT schedule_id, COUNT(*) AS cnt, SUM(read_at IS NOT NULL) AS read_cnt
+      FROM class_comment
+      GROUP BY schedule_id
+    ) x ON x.schedule_id = s.id
+  </sql>
+
+  <select id="selectCommentPage" resultType="cn.huancai.erp.module.comment.vo.CommentVO">
+    SELECT
+      cc.id,
+      cc.campus_id      AS campusId,
+      cp.name           AS campusName,
+      cc.class_id       AS classId,
+      COALESCE(NULLIF(s.class_name, ''), cg.name) AS className,
+      s.course_id       AS courseId,
+      co.name           AS courseName,
+      cc.student_id     AS studentId,
+      st.name           AS studentName,
+      COALESCE(NULLIF(t.name, ''), NULLIF(s.teacher_name, '')) AS teacherName,
+      cc.schedule_id    AS scheduleId,
+      s.lesson_date     AS lessonDate,
+      s.start_time      AS startTime,
+      cc.content,
+      cc.rating,
+      cc.read_at        AS readAt,
+      cc.created_at     AS createdAt
+    FROM class_comment cc
+    JOIN campus cp ON cp.id = cc.campus_id
+    JOIN student st ON st.id = cc.student_id
+    LEFT JOIN schedule s ON s.id = cc.schedule_id
+    LEFT JOIN course co ON co.id = s.course_id
+    LEFT JOIN class_group cg ON cg.id = cc.class_id
+    LEFT JOIN staff t ON t.id = cc.teacher_id
+    <include refid="whereClause"/>
+    ORDER BY COALESCE(s.lesson_date, DATE(cc.created_at)) DESC, cc.id DESC
+  </select>
+
+  <select id="selectSummary" resultType="cn.huancai.erp.module.comment.vo.CommentSummaryVO">
+    SELECT
+      COUNT(*)                          AS total,
+      COUNT(DISTINCT cc.student_id)     AS students,
+      COUNT(DISTINCT cc.class_id)       AS classes,
+      COALESCE(SUM(cc.read_at IS NULL), 0) AS unread,
+      COALESCE(SUM(cc.read_at IS NOT NULL), 0) AS readCount
+    FROM class_comment cc
+    JOIN student st ON st.id = cc.student_id
+    LEFT JOIN schedule s ON s.id = cc.schedule_id
+    LEFT JOIN class_group cg ON cg.id = cc.class_id
+    LEFT JOIN staff t ON t.id = cc.teacher_id
+    <include refid="whereClause"/>
+  </select>
+
+  <select id="selectLessonPage" resultType="cn.huancai.erp.module.comment.vo.CommentLessonVO">
+    SELECT
+      s.id             AS scheduleId,
+      s.campus_id      AS campusId,
+      cp.name          AS campusName,
+      s.class_id       AS classId,
+      COALESCE(NULLIF(s.class_name, ''), cg.name) AS className,
+      s.course_id      AS courseId,
+      COALESCE(NULLIF(s.course_name, ''), co.name) AS courseName,
+      COALESCE(NULLIF(s.teacher_name, ''), t.name) AS teacherName,
+      s.lesson_date    AS lessonDate,
+      s.start_time     AS startTime,
+      s.end_time       AS endTime,
+      s.should_count   AS shouldCount,
+      s.actual_count   AS actualCount,
+      COALESCE(x.cnt, 0)      AS commentCount,
+      COALESCE(x.read_cnt, 0) AS readCount
+    <include refid="lessonJoins"/>
+    <include refid="lessonWhere"/>
+    ORDER BY s.lesson_date DESC, s.start_time DESC, s.id DESC
+  </select>
+
+  <select id="selectLessonSummary" resultType="cn.huancai.erp.module.comment.vo.CommentLessonSummaryVO">
+    SELECT
+      COUNT(*)                                    AS lessons,
+      COALESCE(SUM(COALESCE(x.cnt, 0) &gt; 0), 0)   AS commentedLessons,
+      COALESCE(SUM(x.cnt), 0)                     AS comments,
+      COALESCE(SUM(x.read_cnt), 0)                AS readComments,
+      COALESCE(SUM(s.should_count), 0)            AS shouldStudents,
+      COALESCE(SUM(s.actual_count), 0)            AS actualStudents
+    <include refid="lessonJoins"/>
+    <include refid="lessonWhere"/>
+  </select>
+
+  <select id="selectTeacherStats" resultType="cn.huancai.erp.module.comment.vo.CommentTeacherStatVO">
+    SELECT
+      COALESCE(NULLIF(t.name, ''), '未归属点评教师') AS teacherName,
+      COUNT(*)                              AS comments,
+      COUNT(DISTINCT cc.student_id)         AS students,
+      COUNT(DISTINCT cc.schedule_id)        AS lessons,
+      COALESCE(SUM(cc.read_at IS NOT NULL), 0) AS readComments
+    FROM class_comment cc
+    JOIN student st ON st.id = cc.student_id
+    LEFT JOIN schedule s ON s.id = cc.schedule_id
+    LEFT JOIN class_group cg ON cg.id = cc.class_id
+    LEFT JOIN staff t ON t.id = cc.teacher_id
+    <include refid="whereClause"/>
+    GROUP BY cc.teacher_id, t.name
+    ORDER BY comments DESC
+  </select>
+
+  <select id="selectTeachers" resultType="java.lang.String">
+    SELECT DISTINCT COALESCE(NULLIF(t.name, ''), NULLIF(s.teacher_name, ''))
+    FROM class_comment cc
+    LEFT JOIN schedule s ON s.id = cc.schedule_id
+    LEFT JOIN staff t ON t.id = cc.teacher_id
+    WHERE COALESCE(NULLIF(t.name, ''), NULLIF(s.teacher_name, '')) IS NOT NULL
+    ORDER BY 1
+  </select>
+
+  <select id="selectClassCommentRows" resultType="cn.huancai.erp.module.comment.vo.ClassCommentRowVO">
+    SELECT cc.id,
+           cc.class_id    AS classId,
+           cc.student_id  AS studentId,
+           st.name        AS studentName,
+           cc.schedule_id AS scheduleId,
+           s.lesson_date  AS lessonDate,
+           s.start_time   AS startTime,
+           s.end_time     AS endTime,
+           cc.teacher_id  AS teacherId,
+           COALESCE(NULLIF(t.name, ''), NULLIF(s.teacher_name, '')) AS teacherName,
+           cc.content,
+           cc.rating,
+           cc.read_at     AS readAt,
+           cc.created_at  AS createdAt
+    FROM class_comment cc
+    LEFT JOIN student st ON st.id = cc.student_id
+    LEFT JOIN schedule s ON s.id = cc.schedule_id
+    LEFT JOIN staff t ON t.id = cc.teacher_id
+    WHERE cc.class_id = #{classId}
+    <if test="start != null">AND s.lesson_date &gt;= #{start}</if>
+    <if test="end != null">AND s.lesson_date &lt;= #{end}</if>
+    ORDER BY s.lesson_date DESC, cc.id DESC
+    LIMIT 1000
+  </select>
+
+  <select id="selectRoster" resultType="cn.huancai.erp.module.comment.vo.CommentRosterVO">
+    SELECT cs.student_id AS studentId,
+           st.name       AS studentName,
+           cc.id         AS commentId,
+           cc.rating,
+           cc.content
+    FROM class_student cs
+    JOIN student st ON st.id = cs.student_id
+    LEFT JOIN class_comment cc
+           ON cc.class_id = cs.class_id
+          AND cc.student_id = cs.student_id
+          AND cc.schedule_id = #{scheduleId}
+    WHERE cs.class_id = #{classId} AND cs.status = '在读'
+    ORDER BY st.name
+  </select>
+</mapper>

@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.huancai.erp.module.homeservice.mapper.ClassSuspendMapper">
+
+  <select id="selectCandidates" resultType="cn.huancai.erp.module.homeservice.vo.SuspendCandidateVO">
+    SELECT s.id,
+           s.class_id   AS classId,
+           COALESCE(NULLIF(s.class_name, ''), cg.name)     AS className,
+           COALESCE(NULLIF(s.course_name, ''), co.name)    AS courseName,
+           COALESCE(NULLIF(s.teacher_name, ''), t.name)    AS teacherName,
+           s.lesson_date AS lessonDate,
+           s.start_time  AS startTime,
+           s.end_time    AS endTime,
+           s.room,
+           s.status,
+           (SELECT cs.id FROM class_suspend cs
+             WHERE cs.schedule_id = s.id AND cs.status = '已休课' LIMIT 1) AS suspendId
+    FROM schedule s
+    LEFT JOIN class_group cg ON cg.id = s.class_id
+    LEFT JOIN course co ON co.id = s.course_id
+    LEFT JOIN staff t ON t.id = s.teacher_id
+    WHERE s.lesson_date &gt;= #{start}
+      AND s.lesson_date &lt;= #{end}
+      AND s.class_id IN
+      <foreach collection="classIds" item="id" open="(" separator="," close=")">#{id}</foreach>
+      AND s.status = '待上课'
+      <if test="keyword != null and keyword != ''">
+        AND (COALESCE(NULLIF(s.class_name, ''), cg.name) LIKE CONCAT('%', #{keyword}, '%')
+          OR COALESCE(NULLIF(s.course_name, ''), co.name) LIKE CONCAT('%', #{keyword}, '%')
+          OR COALESCE(NULLIF(s.teacher_name, ''), t.name) LIKE CONCAT('%', #{keyword}, '%'))
+      </if>
+    ORDER BY s.lesson_date, s.start_time, s.id
+  </select>
+
+  <select id="selectSuspendPage" resultType="cn.huancai.erp.module.homeservice.vo.SuspendVO">
+    SELECT cs.id,
+           cs.schedule_id   AS scheduleId,
+           cs.class_id      AS classId,
+           cs.class_name    AS className,
+           cs.course_name   AS courseName,
+           cs.teacher_name  AS teacherName,
+           cs.lesson_date   AS lessonDate,
+           cs.start_time    AS startTime,
+           cs.end_time      AS endTime,
+           cs.reason,
+           cs.status,
+           cs.notify_flag   AS notifyFlag,
+           cs.message_id    AS messageId,
+           cs.operator_name AS operatorName,
+           cs.suspended_at  AS suspendedAt,
+           cs.restored_at   AS restoredAt,
+           cs.restored_by   AS restoredBy
+    FROM class_suspend cs
+    <where>
+      <if test="start != null">AND cs.lesson_date &gt;= #{start}</if>
+      <if test="end != null">AND cs.lesson_date &lt;= #{end}</if>
+      <if test="classId != null">AND cs.class_id = #{classId}</if>
+      <if test="status != null and status != ''">AND cs.status = #{status}</if>
+    </where>
+    ORDER BY cs.suspended_at DESC, cs.id DESC
+  </select>
+
+</mapper>

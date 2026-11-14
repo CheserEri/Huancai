@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.huancai.erp.module.attendance.mapper.AttendanceMapper">
+
+  <sql id="whereClause">
+    <where>
+      <if test="start != null">AND a.lesson_date &gt;= #{start}</if>
+      <if test="end != null">AND a.lesson_date &lt;= #{end}</if>
+      <if test="campusId != null">AND a.campus_id = #{campusId}</if>
+      <if test="teacher != null and teacher != ''">AND t.name = #{teacher}</if>
+      <if test="status != null and status != ''">AND a.status = #{status}</if>
+      <if test="keyword != null and keyword != ''">
+        AND (st.name LIKE CONCAT('%', #{keyword}, '%')
+          OR COALESCE(NULLIF(s.class_name, ''), cg.name) LIKE CONCAT('%', #{keyword}, '%')
+          OR COALESCE(NULLIF(s.course_name, ''), co.name) LIKE CONCAT('%', #{keyword}, '%')
+          OR t.name LIKE CONCAT('%', #{keyword}, '%'))
+      </if>
+    </where>
+  </sql>
+
+  <select id="selectAttendancePage" resultType="cn.huancai.erp.module.attendance.vo.AttendanceVO">
+    SELECT
+      a.id,
+      a.campus_id      AS campusId,
+      cp.name          AS campusName,
+      a.lesson_date    AS lessonDate,
+      st.name          AS studentName,
+      COALESCE(NULLIF(s.class_name, ''), cg.name)   AS className,
+      COALESCE(NULLIF(s.course_name, ''), co.name)  AS courseName,
+      t.name           AS teacherName,
+      a.status,
+      a.lessons,
+      a.checked_at     AS checkedAt,
+      a.remark
+    FROM attendance a
+    JOIN campus cp ON cp.id = a.campus_id
+    JOIN student st ON st.id = a.student_id
+    LEFT JOIN schedule s ON s.id = a.schedule_id
+    LEFT JOIN class_group cg ON cg.id = a.class_id
+    LEFT JOIN course co ON co.id = cg.course_id
+    LEFT JOIN staff t ON t.id = a.teacher_id
+    <include refid="whereClause"/>
+    ORDER BY a.lesson_date DESC, a.id DESC
+  </select>
+
+  <select id="selectSummary" resultType="cn.huancai.erp.module.attendance.vo.AttendanceSummaryVO">
+    SELECT
+      COUNT(*)                                             AS total,
+      COALESCE(SUM(a.status = '出勤'), 0)                   AS present,
+      COALESCE(SUM(a.status = '请假'), 0)                   AS leaveCount,
+      COALESCE(SUM(a.status = '缺席'), 0)                   AS absent,
+      COALESCE(SUM(CASE WHEN a.status = '出勤' THEN a.lessons ELSE 0 END), 0) AS lessons
+    FROM attendance a
+    JOIN student st ON st.id = a.student_id
+    LEFT JOIN schedule s ON s.id = a.schedule_id
+    LEFT JOIN class_group cg ON cg.id = a.class_id
+    LEFT JOIN course co ON co.id = cg.course_id
+    LEFT JOIN staff t ON t.id = a.teacher_id
+    <include refid="whereClause"/>
+  </select>
+
+  <select id="selectTeachers" resultType="java.lang.String">
+    SELECT DISTINCT t.name
+    FROM attendance a
+    JOIN staff t ON t.id = a.teacher_id
+    WHERE t.name IS NOT NULL AND t.name &lt;&gt; ''
+    ORDER BY t.name
+  </select>
+</mapper>

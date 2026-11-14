@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>班级列表 · 升班入口</title>
+<link rel="stylesheet" href="assets/style.css" />
+<style>
+  .ops { position: relative; display: inline-block; }
+  .ops summary {
+    list-style: none; cursor: pointer; color: var(--primary);
+    font-size: 13px; padding: 2px 6px; border-radius: 4px;
+  }
+  .ops summary::-webkit-details-marker { display: none; }
+  .ops summary:hover { background: var(--primary-weak); }
+  .ops .menu {
+    position: absolute; right: 0; top: 24px; z-index: 10;
+    width: 150px; background: #fff; border: 1px solid var(--border);
+    border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.1); padding: 4px;
+  }
+  .ops .menu a, .ops .menu span {
+    display: block; padding: 7px 10px; border-radius: 5px; font-size: 13px; color: var(--text-2);
+  }
+  .ops .menu a:hover { background: #f5f7fa; text-decoration: none; color: var(--text); }
+  .ops .menu .highlight { color: var(--primary); font-weight: 500; }
+  .ops .menu .disabled { color: #c9cdd4; cursor: not-allowed; }
+  .class-cell { display: flex; align-items: center; gap: 8px; }
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); }
+  .dot.closed { background: #c9cdd4; }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="brand"><span class="logo">幻</span> 幻彩教育管理系统</div>
+  <div class="crumb">教务管理 / 班级管理 / <b>班级列表</b></div>
+  <div class="spacer"></div>
+  <div class="user">教务管理员</div>
+</div>
+
+<div class="page">
+  <div class="page-head">
+    <h1>班级管理</h1>
+    <div class="sub">共 12 个班级，其中 2 个班级建议在新学期升班</div>
+    <div class="spacer"></div>
+    <a class="btn" href="index.html">← 返回原型首页</a>
+    <button class="btn primary">+ 新建班级</button>
+  </div>
+
+  <div class="hint">
+    <span>💡</span>
+    <div>
+      <b>新学期升班提醒</b>：系统检测到「三年级语文A班」在读 14 人，可整班升入「四年级语文A班 / 四年级语文B班」。
+      点击行尾「操作 → 升班」开始批量升班；欠费与不念学员会在向导中单独提示。
+    </div>
+  </div>
+
+  <div class="card" style="padding:0;overflow:visible">
+    <div style="padding:12px 16px;border-bottom:1px solid var(--border)" class="toolbar">
+      <input type="text" placeholder="搜索班级名称 / 教师" style="width:220px" />
+      <select><option>全部课程</option><option>三年级语文</option><option>四年级语文</option></select>
+      <select><option>全部状态</option><option>开班中</option><option>已结班</option></select>
+      <div class="spacer"></div>
+      <button class="btn small">导出</button>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th style="width:200px">班级名称</th>
+          <th>课程</th>
+          <th>班主任</th>
+          <th class="num">在读</th>
+          <th class="num">容量</th>
+          <th>学期</th>
+          <th class="num">升班率</th>
+          <th>状态</th>
+          <th style="width:90px">操作</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><div class="class-cell"><span class="dot"></span><b>三年级语文A班</b></div></td>
+          <td>三年级语文</td>
+          <td>王芳</td>
+          <td class="num">14</td>
+          <td class="num">16</td>
+          <td>2026 春季</td>
+          <td class="num"><span class="tag orange">待升班</span></td>
+          <td><span class="tag green">开班中</span></td>
+          <td>
+            <details class="ops">
+              <summary>操作 ▾</summary>
+              <div class="menu">
+                <a class="highlight" href="wizard.html">升班（推荐）</a>
+                <a href="#" onclick="return false">编辑班级</a>
+                <a href="#" onclick="return false">分配学员</a>
+                <span class="disabled" title="仍有 14 名在读学员">结班</span>
+              </div>
+            </details>
+          </td>
+        </tr>
+        <tr>
+          <td><div class="class-cell"><span class="dot"></span><b>三年级语文B班</b></div></td>
+          <td>三年级语文</td>
+          <td>李静</td>
+          <td class="num">11</td>
+          <td class="num">14</td>
+          <td>2026 春季</td>
+          <td class="num"><span class="tag orange">待升班</span></td>
+          <td><span class="tag green">开班中</span></td>
+          <td>
+            <details class="ops">
+              <summary>操作 ▾</summary>
+              <div class="menu">
+                <a class="highlight" href="wizard.html">升班（推荐）</a>
+                <a href="#" onclick="return false">编辑班级</a>
+                <a href="#" onclick="return false">分配学员</a>
+                <span class="disabled" title="仍有 11 名在读学员">结班</span>
+              </div>
+            </details>
+          </td>
+        </tr>
+        <tr>
+          <td><div class="class-cell"><span class="dot"></span><b>四年级语文A班</b></div></td>
+          <td>四年级语文</td>
+          <td>王芳</td>
+          <td class="num">3</td>
+          <td class="num">16</td>
+          <td>2026 秋季</td>
+          <td class="num muted">—</td>
+          <td><span class="tag green">开班中</span></td>
+          <td>
+            <details class="ops">
+              <summary>操作 ▾</summary>
+              <div class="menu">
+                <a href="#" onclick="return false">编辑班级</a>
+                <a href="#" onclick="return false">分配学员</a>
+                <a href="graph.html">查看升班来源</a>
+              </div>
+            </details>
+          </td>
+        </tr>
+        <tr>
+          <td><div class="class-cell"><span class="dot"></span><b>四年级语文B班</b></div></td>
+          <td>四年级语文</td>
+          <td>李静</td>
+          <td class="num">2</td>
+          <td class="num">16</td>
+          <td>2026 秋季</td>
+          <td class="num muted">—</td>
+          <td><span class="tag green">开班中</span></td>
+          <td>
+            <details class="ops">
+              <summary>操作 ▾</summary>
+              <div class="menu">
+                <a href="#" onclick="return false">编辑班级</a>
+                <a href="#" onclick="return false">分配学员</a>
+                <a href="graph.html">查看升班来源</a>
+              </div>
+            </details>
+          </td>
+        </tr>
+        <tr>
+          <td><div class="class-cell"><span class="dot closed"></span><b>2025 三年级语文班</b></div></td>
+          <td>三年级语文</td>
+          <td>王芳</td>
+          <td class="num">0</td>
+          <td class="num">16</td>
+          <td>2025 秋季</td>
+          <td class="num">92%</td>
+          <td><span class="tag gray">已结班</span></td>
+          <td>
+            <details class="ops">
+              <summary>操作 ▾</summary>
+              <div class="menu">
+                <a href="graph.html">查看升班流向</a>
+                <a href="records.html">升班批次</a>
+              </div>
+            </details>
+          </td>
+        </tr>
+        <tr>
+          <td><div class="class-cell"><span class="dot"></span><b>9年级创意美术B班</b></div></td>
+          <td>创意美术</td>
+          <td>陈老师</td>
+          <td class="num">9</td>
+          <td class="num">12</td>
+          <td>2026 春季</td>
+          <td class="num muted">—</td>
+          <td><span class="tag green">开班中</span></td>
+          <td>
+            <details class="ops">
+              <summary>操作 ▾</summary>
+              <div class="menu">
+                <a class="highlight" href="wizard.html">升班（推荐）</a>
+                <a href="#" onclick="return false">编辑班级</a>
+              </div>
+            </details>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>什么是「升班」</h2>
+    <p class="desc">与「分配学员」的区别：升班是按学期整班迁移，会生成批次记录并处理原班留档。</p>
+    <table>
+      <thead><tr><th style="width:130px">操作</th><th>适用场景</th><th>原班记录</th><th>可追溯</th></tr></thead>
+      <tbody>
+        <tr><td>分配学员</td><td>零散加人、临时调班</td><td>直接移出原班</td><td>无批次</td></tr>
+        <tr><td><b>升班</b></td><td>新学期整班升级、一带多分流</td><td>已升班 / 欠费保留在读 / 不念留档</td><td>有批次与明细</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <footer>幻彩教育管理系统 · 升班功能原型</footer>
+</div>
+</body>
+</html>

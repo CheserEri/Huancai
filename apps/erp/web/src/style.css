@@ -1,0 +1,244 @@
+:root {
+  --brand: #007aff;
+  --brand-weak: #e8f2ff;
+  --nav-bg: #101b2d;
+  --nav-text: #97a6ba;
+  --nav-active: #007aff;
+  --page-bg: #f4f6f9;
+  --card: #ffffff;
+  --line: #eef0f3;
+  --text: #1f2329;
+  --text-2: #646a73;
+  --text-3: #8f959e;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue',
+    Arial, sans-serif;
+  font-size: 14px;
+  color: var(--text);
+  background: var(--page-bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: var(--brand);
+  text-decoration: none;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-thumb {
+  background: #d5d9e0;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* ---------- 通用卡片 ---------- */
+.card {
+  background: var(--card);
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.card + .card {
+  margin-top: 12px;
+}
+
+.card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.card-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.card-extra {
+  font-size: 13px;
+  color: var(--text-3);
+  cursor: pointer;
+}
+
+.card-extra:hover {
+  color: var(--brand);
+}
+
+.muted {
+  color: var(--text-3);
+}
+
+.page {
+  padding: 16px 20px 20px;
+}
+
+/* ---------- 表格页 ---------- */
+.filter-card {
+  background: var(--card);
+  border-radius: 8px;
+  padding: 16px 16px 4px;
+}
+
+.filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 16px;
+  margin-bottom: 12px;
+  align-items: center;
+}
+
+.filter-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-2);
+}
+
+.table-card {
+  background: var(--card);
+  border-radius: 8px;
+  margin-top: 12px;
+  padding: 0 16px 16px;
+}
+
+.table-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 0;
+  gap: 12px;
+}
+
+.table-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.summary-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 28px;
+  background: #fafbfc;
+  border-radius: 6px;
+  padding: 10px 16px;
+  margin-bottom: 4px;
+  font-size: 13px;
+  color: var(--text-2);
+}
+
+.summary-bar b {
+  color: var(--text);
+  font-weight: 600;
+  margin-left: 4px;
+}
+
+.tabs-line {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 12px;
+}
+
+.tabs-line .tab {
+  padding: 8px 16px 10px;
+  font-size: 14px;
+  color: var(--text-2);
+  cursor: pointer;
+  position: relative;
+}
+
+.tabs-line .tab.active {
+  color: var(--brand);
+  font-weight: 500;
+}
+
+.tabs-line .tab.active::after {
+  content: '';
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: -1px;
+  height: 2px;
+  background: var(--brand);
+  border-radius: 1px;
+}
+
+/* ---------- 状态占位 ---------- */
+.state-card {
+  background: var(--card);
+  border-radius: 8px;
+  min-height: 460px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  text-align: center;
+}
+
+.state-icon {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 30px;
+  background: var(--brand-weak);
+  color: var(--brand);
+}
+
+.state-title {
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.state-desc {
+  font-size: 13px;
+  color: var(--text-3);
+  max-width: 460px;
+  line-height: 1.7;
+}
+
+/* ---------- antd 微调 ---------- */
+.ant-table-wrapper .ant-table-thead > tr > th {
+  font-weight: 500;
+  font-size: 13px;
+}
+
+.ant-table-wrapper .ant-table-tbody > tr > td {
+  font-size: 14px;
+}
+
+.ant-table-wrapper .ant-table {
+  font-size: 14px;
+}
+
+/* 弹窗宽度：小窗口或高 DPI 缩放下留出边距，避免弹窗铺满整屏 */
+@media (min-width: 640px) {
+  body .ant-modal {
+    max-width: calc(100vw - 160px);
+  }
+}
+

@@ -1,0 +1,169 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.huancai.erp.module.student.mapper.StudentMapper">
+
+  <sql id="filterWhere">
+    <where>
+      <if test="q.campusId != null">
+        AND s.campus_id = #{q.campusId}
+      </if>
+      <if test="q.status != null and q.status != ''">
+        AND s.status = #{q.status}
+      </if>
+      <if test="q.isStar != null">
+        AND s.is_star = #{q.isStar}
+      </if>
+      <if test="q.followStatus != null">
+        AND s.follow_status = #{q.followStatus}
+      </if>
+      <if test="q.grade != null and q.grade != ''">
+        AND s.grade = #{q.grade}
+      </if>
+      <if test="q.gender != null and q.gender != ''">
+        AND s.gender = #{q.gender}
+      </if>
+      <if test="q.channel != null and q.channel != ''">
+        AND s.channel_name = #{q.channel}
+      </if>
+      <if test="q.cardBound != null and q.cardBound == 1">
+        AND s.card_no IS NOT NULL AND s.card_no &lt;&gt; ''
+      </if>
+      <if test="q.cardBound != null and q.cardBound == 0">
+        AND (s.card_no IS NULL OR s.card_no = '')
+      </if>
+      <if test="q.faceEntered != null and q.faceEntered == 1">
+        AND s.face_status = '已录入'
+      </if>
+      <if test="q.faceEntered != null and q.faceEntered == 0">
+        AND (s.face_status IS NULL OR s.face_status &lt;&gt; '已录入')
+      </if>
+      <if test="q.hasDebt != null and q.hasDebt == 1">
+        AND s.debt &gt; 0
+      </if>
+      <if test="q.hasDebt != null and q.hasDebt == 0">
+        AND s.debt &lt;= 0
+      </if>
+      <if test="q.studentType == 'old'">
+        AND EXISTS (SELECT 1 FROM enrollment e WHERE e.student_id = s.id)
+      </if>
+      <if test="q.studentType == 'new'">
+        AND NOT EXISTS (SELECT 1 FROM enrollment e WHERE e.student_id = s.id)
+      </if>
+      <if test="q.keyword != null and q.keyword != ''">
+        AND (s.name LIKE CONCAT('%', #{q.keyword}, '%')
+             OR s.phone LIKE CONCAT('%', #{q.keyword}, '%')
+             OR s.card_no LIKE CONCAT('%', #{q.keyword}, '%'))
+      </if>
+    </where>
+  </sql>
+
+  <select id="selectStudentPage" resultType="cn.huancai.erp.module.student.vo.StudentListVO">
+    SELECT
+      s.id,
+      s.name,
+      s.gender,
+      s.phone,
+      s.primary_relation    AS primaryRelation,
+      s.secondary_relation  AS secondaryRelation,
+      s.secondary_phone     AS secondaryPhone,
+      s.other_relation      AS otherRelation,
+      s.other_phone         AS otherPhone,
+      s.follow_status       AS followStatus,
+      s.card_no             AS cardNo,
+      s.face_status         AS faceStatus,
+      s.is_star             AS isStar,
+      s.status,
+      s.campus_id           AS campusId,
+      s.campus_text         AS campusText,
+      c.name                AS campusName,
+      s.balance,
+      s.debt,
+      COALESCE((
+        SELECT ROUND(SUM(
+          GREATEST(0,
+            GREATEST(COALESCE(e.total_lessons, 0) * COALESCE(e.unit_price, 0), COALESCE(e.consumed_amount, 0))
+            - COALESCE(e.paid_amount, 0)
+          ) / NULLIF(e.unit_price, 0)
+        ), 1)
+        FROM enrollment e
+        WHERE e.student_id = s.id AND e.status = '生效'
+      ), 0) AS debtLessons,
+      s.course_count        AS courseCount,
+      s.points,
+      s.channel_name        AS channelName,
+      s.age_text            AS ageText,
+      s.grade,
+      s.wechat,
+      s.birthday,
+      s.school,
+      s.public_school_class AS publicSchoolClass,
+      s.address,
+      s.extra_info          AS extraInfo,
+      s.source,
+      s.enroll_date         AS enrollDate
+    FROM student s
+    JOIN campus c ON c.id = s.campus_id
+    <include refid="filterWhere"/>
+    <choose>
+      <when test="q.sort == 'nameAsc'">ORDER BY CONVERT(s.name USING gbk) ASC, s.name ASC, s.id DESC</when>
+      <when test="q.sort == 'nameDesc'">ORDER BY CONVERT(s.name USING gbk) DESC, s.name DESC, s.id DESC</when>
+      <otherwise>ORDER BY s.created_at DESC, s.id DESC</otherwise>
+    </choose>
+  </select>
+
+  <select id="selectStudentSummary" resultType="cn.huancai.erp.module.student.vo.StudentSummaryVO">
+    SELECT
+      COUNT(*)                        AS count,
+      COALESCE(SUM(s.balance), 0)     AS balance,
+      COALESCE(SUM(s.debt), 0)        AS debt,
+      COALESCE(SUM(s.points), 0)      AS points
+    FROM student s
+    <include refid="filterWhere"/>
+  </select>
+
+  <select id="selectEnrollments" resultType="cn.huancai.erp.module.student.vo.EnrollmentVO">
+    SELECT
+      e.id,
+      e.course_id AS courseId,
+      e.class_id AS classId,
+      co.name AS courseName,
+      COALESCE(cg.name, fb.name) AS className,
+      COALESCE(cg.teacher_text, st.name, fb.teacher_text, fst.name) AS teacher,
+      COALESCE(cg.start_date, fb.start_date) AS startDate,
+      e.created_at AS enrollTime,
+      e.total_lessons AS totalLessons,
+      e.gift_lessons AS giftLessons,
+      e.remain_lessons AS remainLessons,
+      e.used_lessons AS usedLessons,
+      e.paid_amount AS paidAmount,
+      e.consumed_amount AS consumedAmount,
+      e.unit_price AS unitPrice,
+      (CASE WHEN e.status = '结课' AND (e.paid_amount - e.consumed_amount) > 0 THEN 0 ELSE e.paid_amount - e.consumed_amount END) AS accountBalance,
+      e.expire_date AS expireDate,
+      e.status,
+      e.remark,
+      (SELECT MAX(dfp.paid_at) FROM data_fee_payment dfp WHERE dfp.enrollment_id = e.id) AS lastDataFeePaidAt
+    FROM enrollment e
+    JOIN course co ON co.id = e.course_id
+    LEFT JOIN class_group cg ON cg.id = e.class_id
+    LEFT JOIN staff st ON st.id = cg.teacher_id
+    LEFT JOIN LATERAL (
+      SELECT cg2.id, cg2.name, cg2.teacher_text, cg2.teacher_id, cg2.start_date
+      FROM class_student cs
+      JOIN class_group cg2 ON cg2.id = cs.class_id
+      WHERE cs.student_id = e.student_id
+        AND cg2.course_id = e.course_id
+      ORDER BY (cs.status = '在读') DESC, cs.id DESC
+      LIMIT 1
+    ) fb ON TRUE
+    LEFT JOIN staff fst ON fst.id = fb.teacher_id
+    WHERE e.student_id = #{studentId}
+    ORDER BY e.created_at DESC, e.id DESC
+  </select>
+
+  <select id="selectChannels" resultType="java.lang.String">
+    SELECT DISTINCT channel_name FROM student
+    WHERE channel_name IS NOT NULL AND channel_name &lt;&gt; ''
+    ORDER BY channel_name
+  </select>
+</mapper>

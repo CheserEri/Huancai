@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.huancai.erp.module.teachinglog.mapper.TeachingLogMapper">
+
+  <select id="selectRows" resultType="cn.huancai.erp.module.teachinglog.vo.TeachingLogRowVO">
+    SELECT
+      s.id,
+      s.class_id     AS classId,
+      s.lesson_date  AS lessonDate,
+      s.start_time   AS startTime,
+      s.end_time     AS endTime,
+      COALESCE(NULLIF(s.class_name, ''), cg.name)   AS className,
+      COALESCE(NULLIF(s.course_name, ''), c.name)   AS courseName,
+      COALESCE(NULLIF(s.teacher_name, ''), t.name)  AS teacherName,
+      s.room,
+      s.lesson_mode  AS lessonMode,
+      s.status,
+      s.campus_id    AS campusId,
+      cp.name        AS campusName,
+      s.should_count AS shouldCount,
+      s.actual_count AS actualCount,
+      (SELECT COUNT(*) FROM attendance a WHERE a.schedule_id = s.id) AS recordCount
+    FROM schedule s
+    LEFT JOIN class_group cg ON cg.id = s.class_id
+    LEFT JOIN course c ON c.id = s.course_id
+    LEFT JOIN staff t ON t.id = s.teacher_id
+    LEFT JOIN campus cp ON cp.id = s.campus_id
+    <where>
+      <if test="date != null">AND s.lesson_date = #{date}</if>
+      <if test="supplement">AND s.lesson_date &lt; #{today}
+        AND NOT EXISTS (SELECT 1 FROM attendance ax WHERE ax.schedule_id = s.id)
+      </if>
+      <if test="campusId != null">AND s.campus_id = #{campusId}</if>
+      <if test="room != null and room != ''">AND s.room = #{room}</if>
+      <if test="lessonMode != null">AND s.lesson_mode = #{lessonMode}</if>
+      <if test="courseId != null">AND s.course_id = #{courseId}</if>
+      <if test="teacher != null and teacher != ''">AND s.teacher_name = #{teacher}</if>
+      <if test="keyword != null and keyword != ''">AND (s.class_name LIKE CONCAT('%', #{keyword}, '%')
+        OR s.course_name LIKE CONCAT('%', #{keyword}, '%')
+        OR s.room LIKE CONCAT('%', #{keyword}, '%')
+        OR s.teacher_name LIKE CONCAT('%', #{keyword}, '%'))</if>
+      <if test="recordStatus == '已记录'">AND EXISTS (SELECT 1 FROM attendance ar WHERE ar.schedule_id = s.id)</if>
+      <if test="recordStatus == '未记录'">AND NOT EXISTS (SELECT 1 FROM attendance an WHERE an.schedule_id = s.id)</if>
+    </where>
+    ORDER BY s.lesson_date DESC, s.start_time ASC
+  </select>
+
+  <select id="selectRoster" resultType="cn.huancai.erp.module.teachinglog.vo.TeachingLogStudentVO">
+    SELECT
+      cs.student_id        AS studentId,
+      st.name              AS studentName,
+      cs.status            AS studentStatus,
+      e.id                 AS enrollmentId,
+      c.name               AS courseName,
+      e.remain_lessons     AS remainLessons,
+      e.unit_price         AS unitPrice,
+      a.status             AS recordStatus,
+      a.lessons            AS recordLessons,
+      a.remark             AS recordRemark
+    FROM class_student cs
+    JOIN student st ON st.id = cs.student_id
+    LEFT JOIN enrollment e ON e.id = (
+      SELECT e2.id FROM enrollment e2
+      WHERE e2.student_id = cs.student_id AND e2.status = '生效'
+      ORDER BY (e2.class_id = #{classId}) DESC, e2.id DESC
+      LIMIT 1
+    )
+    LEFT JOIN course c ON c.id = e.course_id
+    LEFT JOIN attendance a ON a.schedule_id = #{scheduleId} AND a.student_id = cs.student_id
+    WHERE cs.class_id = #{classId} AND cs.status = '在读'
+    ORDER BY st.name
+  </select>
+
+  <select id="countAttendance" resultType="long">
+    SELECT COUNT(*) FROM attendance WHERE schedule_id = #{scheduleId}
+  </select>
+
+  <insert id="insertAttendance">
+    INSERT INTO attendance
+      (campus_id, schedule_id, class_id, student_id, enrollment_id, teacher_id,
+       lesson_date, lessons, status, checked_at, remark)
+    VALUES
+      (#{campusId}, #{scheduleId}, #{classId}, #{studentId}, #{enrollmentId}, #{teacherId},
+       #{lessonDate}, #{lessons}, #{status}, #{checkedAt}, #{remark})
+  </insert>
+
+</mapper>

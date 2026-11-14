@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.huancai.erp.module.teacherhour.mapper.TeacherHourMapper">
+
+    <select id="selectRecords" resultType="cn.huancai.erp.module.teacherhour.vo.TeacherHourRecordVO">
+        SELECT s.id                                                AS scheduleId,
+               s.lesson_date                                        AS lessonDate,
+               s.start_time                                         AS startTime,
+               s.end_time                                           AS endTime,
+               s.teacher_id                                         AS teacherId,
+               s.teacher_name                                       AS teacherName,
+               s.campus_id                                          AS campusId,
+               c.name                                               AS campusName,
+               s.class_id                                           AS classId,
+               s.class_name                                         AS className,
+               s.course_name                                        AS courseName,
+               COALESCE(s.should_count, 0)                          AS shouldCount,
+               COALESCE(s.actual_count,
+                        (SELECT COUNT(*) FROM attendance a
+                          WHERE a.schedule_id = s.id AND a.status IN ('出勤', '迟到')), 0) AS studentCount,
+               COALESCE(
+                   (SELECT st.grade FROM class_student cs
+                      JOIN student st ON st.id = cs.student_id
+                     WHERE cs.class_id = s.class_id AND st.grade IS NOT NULL
+                     GROUP BY st.grade
+                     ORDER BY COUNT(*) DESC, st.grade
+                     LIMIT 1),
+                   (SELECT st2.grade FROM student st2 WHERE st2.id = s.student_id)
+               )                                                    AS grade,
+               adj.amount                                           AS adjustAmount,
+               adj.remark                                           AS adjustRemark
+          FROM schedule s
+          LEFT JOIN campus c ON c.id = s.campus_id
+          LEFT JOIN teacher_hour_adjust adj ON adj.schedule_id = s.id
+         WHERE s.status = '已上课'
+           AND s.lesson_date &gt;= #{start}
+           AND s.lesson_date &lt; #{end}
+        <if test="teacherId != null">
+           AND s.teacher_id = #{teacherId}
+        </if>
+        <if test="campusId != null">
+           AND s.campus_id = #{campusId}
+        </if>
+         ORDER BY s.lesson_date, s.start_time, s.teacher_name, s.class_name
+    </select>
+</mapper>

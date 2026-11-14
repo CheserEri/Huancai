@@ -1,0 +1,177 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.huancai.erp.module.course.mapper.CourseMapper">
+
+  <!-- 课程列表筛选：校区为「全部校区」的课程，在任一校区筛选下都应命中 -->
+  <sql id="whereClause">
+    <where>
+      <if test="campusIds != null and campusIds.size() > 0">
+        AND (c.campus_scope = '全部' OR c.campus_id IN
+        <foreach collection="campusIds" item="cid" open="(" separator="," close=")">#{cid}</foreach>
+        )
+      </if>
+      <if test="categories != null and categories.size() > 0">
+        AND c.category IN
+        <foreach collection="categories" item="item" open="(" separator="," close=")">#{item}</foreach>
+      </if>
+      <if test="subjects != null and subjects.size() > 0">
+        AND c.subject IN
+        <foreach collection="subjects" item="item" open="(" separator="," close=")">#{item}</foreach>
+      </if>
+      <if test="lessonMode != null and lessonMode != ''">AND c.lesson_mode = #{lessonMode}</if>
+      <if test="chargeMode != null and chargeMode != ''">
+        <choose>
+          <when test="chargeMode == '按时间'">AND c.time_charge = 1</when>
+          <when test="chargeMode == '按期'">AND c.period_charge = 1</when>
+          <otherwise>AND c.lesson_charge = 1</otherwise>
+        </choose>
+      </if>
+      <if test="status != null">AND c.status = #{status}</if>
+      <if test="keyword != null and keyword != ''">
+        AND (c.name LIKE CONCAT('%', #{keyword}, '%')
+             OR c.category LIKE CONCAT('%', #{keyword}, '%'))
+      </if>
+    </where>
+  </sql>
+
+  <sql id="orderClause">
+    <choose>
+      <when test="sortField == 'name'">ORDER BY c.name</when>
+      <when test="sortField == 'createdAt'">ORDER BY c.created_at</when>
+      <when test="sortField == 'classCount'">ORDER BY COALESCE(cg.classCount, 0)</when>
+      <otherwise>ORDER BY COALESCE(e.studentCount, 0) DESC, c.id</otherwise>
+    </choose>
+    <if test="sortField != null and sortField != ''">
+      <choose>
+        <when test="sortOrder == 'DESC'">DESC</when>
+        <otherwise>ASC</otherwise>
+      </choose>
+    </if>
+  </sql>
+
+  <select id="selectCoursePage" resultType="cn.huancai.erp.module.course.vo.CourseVO">
+    SELECT
+      c.id,
+      c.name,
+      c.category,
+      c.subject,
+      c.lesson_mode          AS lessonMode,
+      c.campus_scope         AS campusScope,
+      c.campus_id            AS campusId,
+      CASE WHEN c.campus_scope = '全部' THEN '全部校区' ELSE COALESCE(cp.name, '—') END AS campusName,
+      CASE WHEN c.campus_scope = '全部' THEN camp.campusTotal ELSE 1 END AS campusCount,
+      CONCAT_WS('、', IF(c.lesson_charge = 1, '按课时', NULL),
+                    IF(c.time_charge = 1, '按时间', NULL),
+                    IF(c.period_charge = 1, '按期', NULL)) AS chargeMode,
+      COALESCE(e.studentCount, 0)       AS studentCount,
+      COALESCE(e.activeStudentCount, 0) AS activeStudentCount,
+      COALESCE(e.buyLessons, 0)         AS buyLessons,
+      COALESCE(e.usedLessons, 0)        AS usedLessons,
+      COALESCE(e.remainLessons, 0)      AS remainLessons,
+      COALESCE(e.paidAmount, 0)         AS paidAmount,
+      COALESCE(e.debt, 0) + c.report_debt AS debt,
+      COALESCE(cg.classCount, 0)        AS classCount,
+      COALESCE(sc.scheduleCount, 0)     AS scheduleCount,
+      sc.lastLessonDate                AS lastLessonDate,
+      c.material_fee                   AS materialFee,
+      c.created_at                     AS createdAt,
+      c.status,
+      c.remark
+    FROM course c
+    LEFT JOIN (SELECT COUNT(*) AS campusTotal FROM campus) camp ON 1 = 1
+    LEFT JOIN campus cp ON cp.id = c.campus_id
+    LEFT JOIN (
+      SELECT course_id,
+             COUNT(DISTINCT student_id) AS studentCount,
+             COUNT(DISTINCT CASE WHEN status = '生效' THEN student_id END) AS activeStudentCount,
+             SUM(total_lessons + gift_lessons) AS buyLessons,
+             SUM(used_lessons)   AS usedLessons,
+             SUM(remain_lessons) AS remainLessons,
+             SUM(paid_amount)    AS paidAmount,
+             0                   AS debt
+      FROM enrollment
+      GROUP BY course_id
+    ) e ON e.course_id = c.id
+    LEFT JOIN (
+      SELECT course_id, COUNT(*) AS classCount
+      FROM class_group
+      WHERE course_id IS NOT NULL
+      GROUP BY course_id
+    ) cg ON cg.course_id = c.id
+    LEFT JOIN (
+      SELECT course_id, COUNT(*) AS scheduleCount, MAX(lesson_date) AS lastLessonDate
+      FROM schedule
+      WHERE course_id IS NOT NULL
+      GROUP BY course_id
+    ) sc ON sc.course_id = c.id
+    <include refid="whereClause"/>
+    <include refid="orderClause"/>
+  </select>
+
+  <select id="selectSummary" resultType="cn.huancai.erp.module.course.vo.CourseSummaryVO">
+    SELECT
+      COUNT(*)                                AS total,
+      COALESCE(SUM(c.status = 1), 0)          AS active,
+      COALESCE(SUM(CASE WHEN EXISTS (
+        SELECT 1 FROM class_group g WHERE g.course_id = c.id
+      ) THEN 1 ELSE 0 END), 0)                AS opening,
+      COALESCE(SUM(e.studentCount), 0)        AS enrollCount,
+      COALESCE(SUM(e.remainLessons), 0)       AS remainLessons,
+      COALESCE(SUM(e.paidAmount), 0)          AS paidAmount,
+      COALESCE(SUM(c.report_debt), 0)         AS debt
+    FROM course c
+    LEFT JOIN (
+      SELECT course_id,
+             COUNT(DISTINCT student_id) AS studentCount,
+             SUM(remain_lessons) AS remainLessons,
+             SUM(paid_amount) AS paidAmount
+      FROM enrollment
+      GROUP BY course_id
+    ) e ON e.course_id = c.id
+    <include refid="whereClause"/>
+  </select>
+
+  <select id="selectCategoryRows" resultType="cn.huancai.erp.module.course.vo.CourseCategoryVO">
+    SELECT cc.id, cc.name,
+           (SELECT COUNT(*) FROM course c WHERE c.category = cc.name) AS courseCount
+    FROM course_category cc
+    <where>
+      <if test="keyword != null and keyword != ''">AND cc.name LIKE CONCAT('%', #{keyword}, '%')</if>
+    </where>
+    ORDER BY cc.id
+  </select>
+
+  <select id="selectUpgrades" resultType="cn.huancai.erp.module.course.vo.CourseUpgradeVO">
+    SELECT u.id, u.name,
+           u.from_course_id AS fromCourseId, f.name AS fromCourseName,
+           u.to_course_id   AS toCourseId,   t.name AS toCourseName,
+           u.period_count   AS periodCount,
+           CASE WHEN u.to_course_id IS NULL THEN 1 ELSE 2 END AS courseCount,
+           u.created_at     AS createdAt
+    FROM course_upgrade u
+    LEFT JOIN course f ON f.id = u.from_course_id
+    LEFT JOIN course t ON t.id = u.to_course_id
+    <where>
+      <if test="keyword != null and keyword != ''">AND u.name LIKE CONCAT('%', #{keyword}, '%')</if>
+    </where>
+    ORDER BY u.id DESC
+  </select>
+
+  <select id="selectCoursePrices" resultType="cn.huancai.erp.module.course.vo.CoursePriceVO">
+    SELECT p.id, p.campus_id AS campusId, cp.name AS campusName,
+           p.lessons, p.total_price AS totalPrice
+    FROM course_price p
+    LEFT JOIN campus cp ON cp.id = p.campus_id
+    WHERE p.course_id = #{courseId}
+    ORDER BY p.id
+  </select>
+
+  <select id="selectCourseClasses" resultType="cn.huancai.erp.module.course.vo.CourseClassVO">
+    SELECT g.id, g.name, g.teacher_text AS teacherName, g.status,
+           g.enrolled_count AS enrolledCount, g.capacity,
+           g.schedule_text AS scheduleText, g.start_date AS startDate
+    FROM class_group g
+    WHERE g.course_id = #{courseId}
+    ORDER BY g.id DESC
+  </select>
+</mapper>

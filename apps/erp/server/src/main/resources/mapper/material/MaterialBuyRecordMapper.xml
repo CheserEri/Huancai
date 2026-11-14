@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.huancai.erp.module.material.mapper.MaterialBuyRecordMapper">
+
+  <sql id="whereClause">
+    <where>
+      m.source IN ('校宝教材购买记录', '本地录入')
+      <if test="orderNo != null and orderNo != ''">
+        AND m.ext_order_no LIKE CONCAT('%', #{orderNo}, '%')
+      </if>
+      <if test="tradeType != null and tradeType != ''">
+        AND m.trade_type = #{tradeType}
+      </if>
+      <if test="receiveStatus != null and receiveStatus != ''">
+        AND m.receive_status = #{receiveStatus}
+      </if>
+    </where>
+  </sql>
+
+  <select id="selectBuyRecordPage" resultType="cn.huancai.erp.module.material.vo.MaterialBuyRecordVO">
+    SELECT
+      m.id,
+      m.ext_order_no     AS extOrderNo,
+      m.trade_type       AS tradeType,
+      m.student_name     AS studentName,
+      m.item_name        AS itemName,
+      m.quantity,
+      m.paid_text        AS paidText,
+      m.paid_amount      AS paidAmount,
+      m.paid_points      AS paidPoints,
+      m.receive_status   AS receiveStatus,
+      m.campus_name      AS campusName,
+      m.handler,
+      m.handled_date     AS handledDate,
+      m.remark,
+      m.source
+    FROM material_buy_record m
+    <include refid="whereClause"/>
+    ORDER BY m.handled_date DESC, m.ext_order_no DESC, m.id ASC
+  </select>
+
+  <select id="selectSummary" resultType="cn.huancai.erp.module.material.vo.MaterialSummaryVO">
+    SELECT
+      COUNT(*)                                                    AS total,
+      COUNT(DISTINCT m.ext_order_no)                              AS orderCount,
+      COALESCE(SUM(m.paid_amount), 0)                             AS amount,
+      COALESCE(SUM(m.receive_status = '未领用'), 0)                AS unclaimed
+    FROM material_buy_record m
+    <include refid="whereClause"/>
+  </select>
+</mapper>

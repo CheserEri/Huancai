@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.huancai.erp.module.consult.mapper.ConsultMapper">
+
+  <sql id="whereClause">
+    <where>
+      <if test="campusId != null">AND c.campus_id = #{campusId}</if>
+      <if test="source != null and source != ''">AND c.source = #{source}</if>
+      <if test="status != null and status != ''">AND c.status = #{status}</if>
+      <if test="enrolled != null">AND c.enrolled = #{enrolled}</if>
+      <if test="start != null">AND c.created_at &gt;= #{start}</if>
+      <if test="end != null">AND c.created_at &lt; DATE_ADD(#{end}, INTERVAL 1 DAY)</if>
+      <if test="keyword != null and keyword != ''">
+        AND (c.name LIKE CONCAT('%', #{keyword}, '%')
+          OR c.phone LIKE CONCAT('%', #{keyword}, '%')
+          OR c.child_name LIKE CONCAT('%', #{keyword}, '%')
+          OR c.intention_course LIKE CONCAT('%', #{keyword}, '%')
+          OR c.remark LIKE CONCAT('%', #{keyword}, '%'))
+      </if>
+    </where>
+  </sql>
+
+  <select id="selectConsultPage" resultType="cn.huancai.erp.module.consult.vo.ConsultVO">
+    SELECT
+      c.id,
+      c.campus_id          AS campusId,
+      cp.name              AS campusName,
+      c.name,
+      c.phone,
+      c.child_name         AS childName,
+      c.sex,
+      c.parent_name        AS parentName,
+      c.mother_tel         AS motherTel,
+      c.father_tel         AS fatherTel,
+      c.other_tel          AS otherTel,
+      c.source,
+      c.channel,
+      c.scene,
+      c.method,
+      c.salesway,
+      c.salesman_name      AS salesmanName,
+      c.status,
+      c.follow_state_text  AS followStateText,
+      c.enrolled,
+      c.interest,
+      c.intention_course   AS intentionCourse,
+      c.school_name        AS schoolName,
+      c.grade,
+      c.pub_school         AS pubSchool,
+      c.home_address       AS homeAddress,
+      c.birthday,
+      c.arrearage,
+      c.remain_lessons     AS remainLessons,
+      c.remark,
+      c.content,
+      c.next_follow_at     AS nextFollowAt,
+      c.last_follow_at     AS lastFollowAt,
+      c.created_at         AS createdAt
+    FROM consult c
+    LEFT JOIN campus cp ON cp.id = c.campus_id
+    <include refid="whereClause"/>
+    ORDER BY c.created_at DESC, c.id DESC
+  </select>
+
+  <select id="selectSummary" resultType="cn.huancai.erp.module.consult.vo.ConsultSummaryVO">
+    SELECT
+      COUNT(*)                                                           AS total,
+      COALESCE(SUM(c.enrolled = 1), 0)                                   AS enrolled,
+      COALESCE(SUM(c.enrolled = 0), 0)                                   AS following,
+      COALESCE(SUM(c.created_at &gt;= DATE_FORMAT(CURDATE(), '%Y-%m-01')), 0) AS thisMonth,
+      COUNT(DISTINCT c.phone)                                            AS phoneCount
+    FROM consult c
+    <include refid="whereClause"/>
+  </select>
+
+  <select id="selectSources" resultType="cn.huancai.erp.module.consult.vo.ConsultSourceVO">
+    SELECT
+      COALESCE(NULLIF(c.source, ''), '未知来源')                            AS source,
+      COUNT(*)                                                           AS count,
+      COALESCE(SUM(c.enrolled = 1), 0)                                   AS enrolled
+    FROM consult c
+    <include refid="whereClause"/>
+    GROUP BY COALESCE(NULLIF(c.source, ''), '未知来源')
+    ORDER BY count DESC
+  </select>
+</mapper>

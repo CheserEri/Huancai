@@ -1,0 +1,35 @@
+# ---------- 本地运行环境 / 运行时数据（体积大且含敏感信息，不入库）----------
+tools/
+tmp/
+backups/
+storage/
+screenshots/
+data/
+
+# ---------- 构建产物与依赖 ----------
+apps/erp/web/node_modules/
+apps/erp/web/dist/
+apps/erp/web/.vscode/
+apps/erp/server/target/
+apps/erp/app/build/
+apps/erp/app/.dart_tool/
+apps/erp/app/.idea/
+apps/erp/app/.flutter-plugins-dependencies
+apps/erp/app/android/.gradle/
+apps/erp/app/android/local.properties
+
+# ---------- 系统与编辑器 ----------
+.DS_Store
+Thumbs.db
+.idea/
+*.iml
+
+# ---------- 环境与密钥 ----------
+.env
+.env.local
+*.local
+
+# ---------- 临时文件与日志 ----------
+*.tmp
+*.bak
+*.log

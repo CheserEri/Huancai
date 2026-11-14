@@ -1,0 +1,198 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.huancai.erp.module.wxapp.mapper.WxAppContentMapper">
+
+  <select id="selectChildren" resultType="cn.huancai.erp.module.wxapp.vo.WxChildVO">
+    SELECT s.id                                        AS studentId,
+           s.name,
+           s.gender,
+           s.age_text                                  AS ageText,
+           s.grade,
+           s.school,
+           s.status,
+           cp.name                                     AS campusName,
+           ps.relation,
+           COALESCE((SELECT SUM(e.remain_lessons) FROM enrollment e
+                      WHERE e.student_id = s.id AND e.status = '生效'), 0) AS remainLessons,
+           s.course_count                              AS courseCount,
+           (SELECT COUNT(*) FROM class_comment cc
+             WHERE cc.student_id = s.id AND cc.read_at IS NULL) AS unreadComments
+    FROM wx_parent_student ps
+    JOIN student s ON s.id = ps.student_id
+    LEFT JOIN campus cp ON cp.id = s.campus_id
+    WHERE ps.parent_id = #{parentId}
+    ORDER BY ps.id
+  </select>
+
+  <select id="selectChild" resultType="cn.huancai.erp.module.wxapp.vo.WxChildVO">
+    SELECT s.id                                        AS studentId,
+           s.name,
+           s.gender,
+           s.age_text                                  AS ageText,
+           s.grade,
+           s.school,
+           s.status,
+           cp.name                                     AS campusName,
+           ps.relation,
+           COALESCE((SELECT SUM(e.remain_lessons) FROM enrollment e
+                      WHERE e.student_id = s.id AND e.status = '生效'), 0) AS remainLessons,
+           s.course_count                              AS courseCount,
+           (SELECT COUNT(*) FROM class_comment cc
+             WHERE cc.student_id = s.id AND cc.read_at IS NULL) AS unreadComments
+    FROM wx_parent_student ps
+    JOIN student s ON s.id = ps.student_id
+    LEFT JOIN campus cp ON cp.id = s.campus_id
+    WHERE ps.parent_id = #{parentId} AND ps.student_id = #{studentId}
+  </select>
+
+  <select id="selectCourses" resultType="cn.huancai.erp.module.wxapp.vo.WxCourseBalanceVO">
+    SELECT e.id              AS enrollmentId,
+           e.course_id       AS courseId,
+           co.name           AS courseName,
+           e.class_id        AS classId,
+           cg.name           AS className,
+           e.total_lessons   AS totalLessons,
+           e.gift_lessons    AS giftLessons,
+           e.used_lessons    AS usedLessons,
+           e.remain_lessons  AS remainLessons,
+           e.unit_price      AS unitPrice,
+           e.expire_date     AS expireDate,
+           e.status
+    FROM enrollment e
+    LEFT JOIN course co ON co.id = e.course_id
+    LEFT JOIN class_group cg ON cg.id = e.class_id
+    WHERE e.student_id = #{studentId} AND e.status = '生效'
+    ORDER BY e.remain_lessons DESC, e.id DESC
+  </select>
+
+  <select id="selectRecentTxns" resultType="cn.huancai.erp.module.wxapp.vo.WxLessonTxnVO">
+    SELECT t.id,
+           t.type,
+           t.lessons,
+           t.balance_after AS balanceAfter,
+           co.name         AS courseName,
+           t.note,
+           t.created_at    AS createdAt
+    FROM lesson_txn t
+    LEFT JOIN enrollment e ON e.id = t.enrollment_id
+    LEFT JOIN course co ON co.id = e.course_id
+    WHERE t.student_id = #{studentId}
+    ORDER BY t.id DESC
+    LIMIT #{limit}
+  </select>
+
+  <select id="selectComments" resultType="cn.huancai.erp.module.wxapp.vo.WxCommentVO">
+    SELECT cc.id,
+           cc.class_id                                    AS classId,
+           COALESCE(NULLIF(s.class_name, ''), cg.name)    AS className,
+           s.course_id                                    AS courseId,
+           co.name                                        AS courseName,
+           COALESCE(NULLIF(t.name, ''), NULLIF(s.teacher_name, '')) AS teacherName,
+           s.lesson_date                                  AS lessonDate,
+           s.start_time                                   AS startTime,
+           cc.content,
+           cc.rating,
+           cc.read_at                                     AS readAt,
+           cc.created_at                                  AS createdAt
+    FROM class_comment cc
+    LEFT JOIN schedule s ON s.id = cc.schedule_id
+    LEFT JOIN class_group cg ON cg.id = cc.class_id
+    LEFT JOIN course co ON co.id = s.course_id
+    LEFT JOIN staff t ON t.id = cc.teacher_id
+    WHERE cc.student_id = #{studentId}
+    ORDER BY COALESCE(s.lesson_date, DATE(cc.created_at)) DESC, cc.id DESC
+    LIMIT #{limit} OFFSET #{offset}
+  </select>
+
+  <select id="countComments" resultType="long">
+    SELECT COUNT(*) FROM class_comment WHERE student_id = #{studentId}
+  </select>
+
+  <select id="countUnreadComments" resultType="int">
+    SELECT COUNT(*) FROM class_comment WHERE student_id = #{studentId} AND read_at IS NULL
+  </select>
+
+  <update id="markCommentRead">
+    UPDATE class_comment SET read_at = NOW()
+    WHERE id = #{id} AND student_id = #{studentId} AND read_at IS NULL
+  </update>
+
+  <select id="selectGrades" resultType="cn.huancai.erp.module.wxapp.vo.WxGradeVO">
+    SELECT gs.exam_id        AS examId,
+           ge.name           AS examName,
+           ge.type           AS examType,
+           ge.exam_date      AS examDate,
+           ge.full_score     AS fullScore,
+           ge.scoring_mode   AS scoringMode,
+           gs.class_id       AS classId,
+           cg.name           AS className,
+           ge.course_name    AS courseName,
+           gs.total_score    AS totalScore,
+           gs.level,
+           gs.rank_class     AS rankClass,
+           gs.rank_campus    AS rankCampus,
+           gs.status,
+           gs.remark,
+           gs.part_scores    AS partScoresJson
+    FROM grade_score gs
+    JOIN grade_exam ge ON ge.id = gs.exam_id
+    LEFT JOIN class_group cg ON cg.id = gs.class_id
+    WHERE gs.student_id = #{studentId} AND ge.status = '已发布'
+    ORDER BY ge.exam_date DESC, gs.id DESC
+  </select>
+
+  <select id="selectParentMessages" resultType="cn.huancai.erp.module.wxapp.vo.WxParentMessageVO">
+    SELECT r.id,
+           r.message_id   AS messageId,
+           m.title,
+           m.content,
+           m.msg_type     AS msgType,
+           r.student_id   AS studentId,
+           r.student_name AS studentName,
+           r.read_flag    AS readFlag,
+           r.read_at      AS readAt,
+           m.sent_at      AS sentAt
+    FROM wx_message_receiver r
+    JOIN wx_message m ON m.id = r.message_id
+    WHERE r.parent_id = #{parentId}
+    <if test="studentId != null">AND r.student_id = #{studentId}</if>
+    ORDER BY m.sent_at DESC, r.id DESC
+    LIMIT 100
+  </select>
+
+  <select id="countUnreadMessages" resultType="int">
+    SELECT COUNT(*)
+    FROM wx_message_receiver r
+    WHERE r.parent_id = #{parentId} AND r.read_flag = 0
+    <if test="studentId != null">AND r.student_id = #{studentId}</if>
+  </select>
+
+  <update id="markMessageRead">
+    UPDATE wx_message_receiver
+    SET read_flag = 1, read_at = NOW()
+    WHERE id = #{id} AND parent_id = #{parentId}
+  </update>
+
+  <select id="selectUpcoming" resultType="cn.huancai.erp.module.wxapp.vo.WxUpcomingLessonVO">
+    SELECT s.id,
+           s.lesson_date AS lessonDate,
+           s.start_time  AS startTime,
+           s.end_time    AS endTime,
+           COALESCE(NULLIF(s.class_name, ''), cg.name)     AS className,
+           COALESCE(NULLIF(s.course_name, ''), co.name)    AS courseName,
+           COALESCE(NULLIF(s.teacher_name, ''), t.name)    AS teacherName,
+           s.room,
+           s.status
+    FROM schedule s
+    LEFT JOIN class_group cg ON cg.id = s.class_id
+    LEFT JOIN course co ON co.id = s.course_id
+    LEFT JOIN staff t ON t.id = s.teacher_id
+    WHERE s.lesson_date &gt;= CURDATE() AND s.status = '待上课'
+      AND (s.student_id = #{studentId}
+           OR s.class_id IN (SELECT cs.class_id FROM class_student cs
+                              WHERE cs.student_id = #{studentId} AND cs.status = '在读'))
+    ORDER BY s.lesson_date, s.start_time
+    LIMIT 5
+  </select>
+
+</mapper>
