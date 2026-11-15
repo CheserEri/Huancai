@@ -31,7 +31,9 @@ public class ApiPermissionInterceptor implements HandlerInterceptor {
 
     /** 所有登录账号都可访问的共享接口。 */
     private static final List<String> SHARED_PREFIXES = List.of(
-            "/api/auth", "/api/campus", "/api/health", "/api/dashboard", "/api/staff/options");
+            "/api/auth", "/api/campus", "/api/health", "/api/dashboard", "/api/staff/options",
+            // 试用 App 安装包下载：所有登录账号均可见，次数限制由接口自身控制
+            "/api/app");
 
     private static final List<Rule> RULES = List.of(
             new Rule("/api/finance", Set.of("/finance"), false),

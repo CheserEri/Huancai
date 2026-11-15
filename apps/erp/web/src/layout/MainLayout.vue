@@ -22,7 +22,14 @@ import {
   UserOutlined,
 } from '@ant-design/icons-vue'
 import { menuIndex } from '../config/menu'
-import { fetchProfile, logout as logoutRequest } from '../api/client'
+import { message } from 'ant-design-vue'
+import {
+  downloadAppPackage,
+  fetchAppDownloadInfo,
+  fetchProfile,
+  logout as logoutRequest,
+  type AppDownloadInfo,
+} from '../api/client'
 import {
   authState,
   clearLogin,
@@ -122,6 +129,58 @@ function goProfile() {
   router.push('/profile')
 }
 
+/* ---------- 试用手机 App：仅安卓，每个账号每日限下载 5 次 ---------- */
+const appDialogOpen = ref(false)
+const appInfo = ref<AppDownloadInfo | null>(null)
+const appInfoLoading = ref(false)
+const appDownloading = ref(false)
+
+const apkSizeText = computed(() => {
+  const size = appInfo.value?.sizeBytes ?? 0
+  if (!size) return '-'
+  return `${(size / 1024 / 1024).toFixed(1)} MB`
+})
+
+async function loadAppInfo() {
+  appInfoLoading.value = true
+  try {
+    appInfo.value = await fetchAppDownloadInfo()
+  } catch (error) {
+    message.error((error as Error).message)
+  } finally {
+    appInfoLoading.value = false
+  }
+}
+
+async function openAppDialog() {
+  appDialogOpen.value = true
+  await loadAppInfo()
+}
+
+async function downloadApp() {
+  if (appDownloading.value) return
+  appDownloading.value = true
+  try {
+    const { blob, fileName } = await downloadAppPackage()
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = fileName
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    setTimeout(() => URL.revokeObjectURL(url), 10000)
+    message.success('安装包已开始下载，请在手机「文件管理」中打开安装（仅支持安卓）')
+    appDialogOpen.value = false
+  } catch (error) {
+    message.error((error as Error).message)
+  } finally {
+    appDownloading.value = false
+    // 无论成功失败都刷新剩余次数，避免页面显示与实际额度不一致
+    await loadAppInfo()
+  }
+}
+
 /** 当前账号可见的菜单：由登录账号的菜单权限决定。 */
 const groups = computed(() => visibleMenuGroups(authState.permissions))
 const currentUser = computed<AuthUser>(
@@ -186,7 +245,7 @@ onMounted(async () => {
         </nav>
 
         <div class="side-foot">
-          <div class="app-entry">
+          <div class="app-entry" @click="openAppDialog">
             <DesktopOutlined />
             <span>试用手机 App</span>
             <i class="red-dot" />
@@ -258,6 +317,43 @@ onMounted(async () => {
         </div>
       </section>
     </div>
+
+    <a-modal
+      v-model:open="appDialogOpen"
+      :footer="null"
+      :width="460"
+      centered
+      title="试用手机 App"
+      class="app-download-modal"
+    >
+      <div class="app-download">
+        <div class="app-download-tip">
+          <span class="app-download-badge">仅安卓</span>
+          <span>本安装包仅支持安卓手机（Android 7.0 及以上），苹果 iOS 设备无法安装。</span>
+        </div>
+        <ul class="app-download-list">
+          <li>版本：v{{ appInfo?.version ?? '-' }}</li>
+          <li>大小：{{ apkSizeText }}</li>
+          <li>更新时间：{{ appInfo?.updatedAt ?? '-' }}</li>
+          <li>
+            今日剩余下载次数：
+            <b :class="{ danger: (appInfo?.remaining ?? 0) <= 0 }">{{ appInfo?.remaining ?? '-' }}</b>
+            / {{ appInfo?.limit ?? 5 }} 次（每个账号每日限下载 {{ appInfo?.limit ?? 5 }} 次）
+          </li>
+        </ul>
+        <div class="app-download-actions">
+          <a-button @click="appDialogOpen = false">取消</a-button>
+          <a-button
+            type="primary"
+            :loading="appDownloading"
+            :disabled="appInfoLoading || (appInfo?.remaining ?? 0) <= 0"
+            @click="downloadApp"
+          >
+            {{ (appInfo?.remaining ?? 0) <= 0 ? '今日次数已用完' : '立即下载安装包' }}
+          </a-button>
+        </div>
+      </div>
+    </a-modal>
   </div>
 </template>
 
@@ -617,6 +713,54 @@ onMounted(async () => {
   flex: 1;
   min-height: 0;
   overflow: auto;
+}
+
+/* ---------- 试用手机 App 下载弹窗 ---------- */
+.app-download-tip {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid #ffe58f;
+  border-radius: 8px;
+  background: #fffbe6;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #874d00;
+}
+
+.app-download-badge {
+  flex: 0 0 auto;
+  padding: 0 6px;
+  border-radius: 4px;
+  background: #fa8c16;
+  color: #fff;
+  font-size: 12px;
+  line-height: 18px;
+  margin-top: 2px;
+}
+
+.app-download-list {
+  margin: 14px 0 18px;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+  line-height: 2;
+  color: var(--text-2);
+}
+
+.app-download-list b {
+  color: var(--brand);
+}
+
+.app-download-list b.danger {
+  color: #f5222d;
+}
+
+.app-download-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
 }
 </style>
 

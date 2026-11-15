@@ -1,8 +1,8 @@
 /// 全局配置：后端地址固定写死，上线服务器后修改此处并重新打包发版。
 class AppConfig {
-  /// 后端服务固定地址（当前指向局域网内运行的后端）。
-  /// 例：真机访问时须保证手机与电脑处于同一局域网。
-  static const String baseHost = 'http://192.168.0.107:8080';
+  /// 后端服务固定地址（当前指向腾讯云线上服务器，经 Nginx 80 端口反代到后端）。
+  /// 需要重新部署到其他服务器时，修改此处并重新打包。
+  static const String baseHost = 'http://43.143.100.118';
 
   static const String apiBaseUrl = '$baseHost/api';
 

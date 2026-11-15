@@ -3734,3 +3734,42 @@ export function restoreSuspend(id: number) {
   return request<void>(`/class-suspends/${id}/restore`, { method: 'POST' })
 }
 
+/* ------------------------------ 试用手机 App ------------------------------ */
+
+export interface AppDownloadInfo {
+  limit: number
+  used: number
+  remaining: number
+  version: string
+  fileName: string
+  sizeBytes: number
+  updatedAt: string | null
+}
+
+/** 当日剩余下载次数与安装包信息。 */
+export function fetchAppDownloadInfo() {
+  return request<AppDownloadInfo>('/app/info')
+}
+
+/** 下载安卓安装包（需要携带登录令牌，因此走 blob 而不是直接跳转链接）。 */
+export async function downloadAppPackage(): Promise<{ blob: Blob; fileName: string }> {
+  const token = localStorage.getItem(TOKEN_KEY)
+  const res = await fetch('/api/app/download', {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  })
+  if (!res.ok) {
+    let message = `下载失败（HTTP ${res.status}）`
+    try {
+      const body = (await res.json()) as ApiResult<null>
+      if (body?.message) message = body.message
+    } catch {
+      // 非 JSON 响应时保留默认提示
+    }
+    throw new Error(message)
+  }
+  const disposition = res.headers.get('Content-Disposition') ?? ''
+  const matched = /filename\*=UTF-8''([^;]+)/i.exec(disposition)
+  const fileName = matched ? decodeURIComponent(matched[1]) : 'huancai-app.apk'
+  return { blob: await res.blob(), fileName }
+}
+

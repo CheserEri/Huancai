@@ -39,6 +39,9 @@ logging:
 # 班级相册等上传文件的本地存储目录（相对项目根目录启动后端）
 app:
   upload-dir: ./storage/uploads
+  # 安卓试用 App 安装包（管理端左下角「试用手机 App」下载），每日每账号限 5 次
+  apk-path: ./storage/app/huancai-app.apk
+  apk-version: 1.0.0
 
 # 家长端微信小程序
 # AppID / AppSecret 为本地私密配置，写在同目录 application-local.yml（已被 .gitignore 忽略）；

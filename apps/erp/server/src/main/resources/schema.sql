@@ -1116,3 +1116,17 @@ CREATE TABLE IF NOT EXISTS teacher_hour_adjust (
   updated_at   DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (schedule_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='教师课时费-单节调整';
+
+-- ---------------------------------------------------------------
+-- 安卓试用 App 安装包下载记录（每个账号每日限 5 次）
+-- ---------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS app_download_log (
+  id            BIGINT      NOT NULL AUTO_INCREMENT,
+  staff_id      BIGINT      NOT NULL COMMENT '下载账号ID',
+  staff_name    VARCHAR(64) DEFAULT NULL COMMENT '下载人姓名快照',
+  ip            VARCHAR(64) DEFAULT NULL COMMENT '客户端IP',
+  download_date DATE        NOT NULL COMMENT '下载日期（按自然日统计）',
+  created_at    DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_app_download_staff_date (staff_id, download_date)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='安卓试用App安装包下载记录';
