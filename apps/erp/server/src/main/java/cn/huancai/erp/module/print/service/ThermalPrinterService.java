@@ -16,6 +16,7 @@ import java.nio.charset.Charset;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashMap;
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -51,6 +52,9 @@ public class ThermalPrinterService {
     /** 加粗：1 开、0 关。 */
     private static final int[] CMD_BOLD_ON = {ESC, 0x45, 0x01};
     private static final int[] CMD_BOLD_OFF = {ESC, 0x45, 0x00};
+
+    /** kernel32 缓存，只在 Windows 上加载。 */
+    private static volatile Kernel32 KERNEL32;
 
     private final String device;
 
@@ -223,7 +227,11 @@ public class ThermalPrinterService {
         if (device.isEmpty()) {
             throw new IllegalStateException("未配置小票打印机（printer.receipt-device）");
         }
-        Pointer handle = Kernel32.INSTANCE.CreateFileW(
+        Kernel32 kernel32 = kernel32();
+        if (kernel32 == null) {
+            throw new IllegalStateException("小票打印依赖 Windows USB 设备，当前系统不支持");
+        }
+        Pointer handle = kernel32.CreateFileW(
                 new WString(device),
                 GENERIC_WRITE,
                 FILE_SHARE_READ | FILE_SHARE_WRITE,
@@ -241,7 +249,7 @@ public class ThermalPrinterService {
                 int size = Math.min(data.length - offset, 1024);
                 byte[] chunk = new byte[size];
                 System.arraycopy(data, offset, chunk, 0, size);
-                if (!Kernel32.INSTANCE.WriteFile(handle, chunk, size, written, null)) {
+                if (!kernel32.WriteFile(handle, chunk, size, written, null)) {
                     throw new IllegalStateException("写入小票打印机失败，请检查打印机状态");
                 }
                 if (written.getValue() <= 0) {
@@ -250,7 +258,7 @@ public class ThermalPrinterService {
                 offset += size;
             }
         } finally {
-            Kernel32.INSTANCE.CloseHandle(handle);
+            kernel32.CloseHandle(handle);
         }
     }
 
@@ -372,8 +380,6 @@ public class ThermalPrinterService {
     /** kernel32 最小封装：只用于打开 USB 打印设备并写入原始数据。 */
     public interface Kernel32 extends Library {
 
-        Kernel32 INSTANCE = Native.load("kernel32", Kernel32.class);
-
         Pointer CreateFileW(WString fileName, int desiredAccess, int shareMode, Pointer securityAttributes,
                             int creationDisposition, int flagsAndAttributes, Pointer templateFile);
 
@@ -381,5 +387,20 @@ public class ThermalPrinterService {
                           Pointer overlapped);
 
         boolean CloseHandle(Pointer handle);
+    }
+
+    /** kernel32 只在 Windows 上存在，非 Windows 返回 null，避免启动期加载本地库失败。 */
+    private static Kernel32 kernel32() {
+        if (!System.getProperty("os.name", "").toLowerCase(Locale.ROOT).startsWith("windows")) {
+            return null;
+        }
+        if (KERNEL32 == null) {
+            synchronized (ThermalPrinterService.class) {
+                if (KERNEL32 == null) {
+                    KERNEL32 = Native.load("kernel32", Kernel32.class);
+                }
+            }
+        }
+        return KERNEL32;
     }
 }
