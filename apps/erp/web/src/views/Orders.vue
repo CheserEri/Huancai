@@ -11,7 +11,6 @@ import {
   FileTextFilled,
   FileTextOutlined,
   GiftFilled,
-  LinkOutlined,
   PrinterOutlined,
   ReadFilled,
   RollbackOutlined,
@@ -21,7 +20,7 @@ import {
   SwapOutlined,
   WalletFilled,
 } from '@ant-design/icons-vue'
-import OrderFilterPopover from '../components/OrderFilterPopover.vue'
+import FilterBar from '../components/FilterBar.vue'
 import {
   downloadDailySettlement,
   fetchSpOrderDetail,
@@ -60,9 +59,7 @@ interface FilterField {
   type: FilterType
   options: FilterOption[]
   value: Array<string | number>
-  dateValue: [string, string] | null
   searchable?: boolean
-  linked?: boolean
 }
 
 interface Chip {
@@ -116,7 +113,7 @@ const ALL_COLUMNS: OrderColumn[] = [
   { key: 'action', title: '操作', width: 68, fixed: 'right' },
 ]
 
-/** 与校宝默认视图一致：常用列全部展示，只有低频列默认收起。 */
+/** 与原系统默认视图一致：常用列全部展示，只有低频列默认收起。 */
 const DEFAULT_HIDDEN: string[] = [
   'sourceName',
   'salesSource',
@@ -216,7 +213,7 @@ const DATE_PRESETS: Array<{ key: DatePresetKey; label: string }> = [
 const datePreset = ref<DatePresetKey>('30d')
 const dateStartDraft = ref(DEFAULT_RANGE[0])
 const dateEndDraft = ref(DEFAULT_RANGE[1])
-const statuses = ref<number[]>([2, 3])
+const statuses = ref<number[]>([2])
 const types = ref<number[]>([])
 const campusIds = ref<number[]>([])
 const creators = ref<string[]>([])
@@ -256,7 +253,6 @@ const options = ref<SpOrderOptions>({
 
 const hiddenKeys = ref<string[]>(readHiddenColumns())
 const showColumns = ref(false)
-const openFilter = ref<string | null>(null)
 const openMenuId = ref<number | null>(null)
 
 const detailOpen = ref(false)
@@ -298,7 +294,6 @@ const filterGroups = computed<FilterField[]>(() => [
     type: 'single',
     options: ARREARAGE_OPTIONS,
     value: isArrearage.value ? [isArrearage.value] : [],
-    dateValue: null,
   },
   {
     key: 'courses',
@@ -306,9 +301,7 @@ const filterGroups = computed<FilterField[]>(() => [
     type: 'multi',
     options: courseOptions.value,
     value: courses.value,
-    dateValue: null,
     searchable: true,
-    linked: true,
   },
   {
     key: 'items',
@@ -316,7 +309,6 @@ const filterGroups = computed<FilterField[]>(() => [
     type: 'multi',
     options: itemOptions.value,
     value: items.value,
-    dateValue: null,
     searchable: true,
   },
   {
@@ -325,7 +317,6 @@ const filterGroups = computed<FilterField[]>(() => [
     type: 'multi',
     options: TYPE_OPTIONS,
     value: types.value,
-    dateValue: null,
   },
   {
     key: 'creators',
@@ -333,7 +324,6 @@ const filterGroups = computed<FilterField[]>(() => [
     type: 'multi',
     options: creatorOptions.value,
     value: creators.value,
-    dateValue: null,
     searchable: true,
   },
   {
@@ -342,7 +332,6 @@ const filterGroups = computed<FilterField[]>(() => [
     type: 'multi',
     options: campusOptions.value,
     value: campusIds.value,
-    dateValue: null,
     searchable: true,
   },
   {
@@ -351,7 +340,6 @@ const filterGroups = computed<FilterField[]>(() => [
     type: 'multi',
     options: STATUS_OPTIONS,
     value: statuses.value,
-    dateValue: null,
   },
 ])
 
@@ -454,10 +442,6 @@ function optionLabel(list: FilterOption[], value: string | number) {
   return list.find((option) => String(option.value) === String(value))?.label ?? String(value)
 }
 
-function setFilterOpen(key: string, visible: boolean) {
-  openFilter.value = visible ? key : openFilter.value === key ? null : openFilter.value
-}
-
 function resetScope() {
   scope.value = 'all'
 }
@@ -528,12 +512,14 @@ function onFilterApply(field: FilterField, values: Array<string | number>) {
   load()
 }
 
-function onDateApply(value: [string, string] | null) {
-  dateRange.value = value
-  datePreset.value = value ? 'custom' : 'all'
-  pageIndex.value = 1
-  resetScope()
-  load()
+function onFilterChange(field: FilterField, value: unknown) {
+  let values: Array<string | number> = []
+  if (field.type === 'single') {
+    if (value !== undefined && value !== null && value !== '') values = [value as string | number]
+  } else {
+    values = (value as Array<string | number> | undefined) ?? []
+  }
+  onFilterApply(field, values)
 }
 
 function removeChip(groupKey: string, chipKey: string) {
@@ -561,7 +547,7 @@ function removeChip(groupKey: string, chipKey: string) {
 function clearFilters() {
   dateRange.value = [...DEFAULT_RANGE] as [string, string]
   datePreset.value = '30d'
-  statuses.value = [2, 3]
+  statuses.value = [2]
   types.value = []
   campusIds.value = []
   creators.value = []
@@ -594,7 +580,7 @@ function setTodayScope(nextScope: 'mine' | 'school') {
   const today = dateToText(new Date())
   dateRange.value = [today, today]
   datePreset.value = 'today'
-  statuses.value = [2, 3]
+  statuses.value = [2]
   keyword.value = ''
   searchDraft.value = ''
   campusIds.value = []
@@ -608,7 +594,7 @@ function setTodayScope(nextScope: 'mine' | 'school') {
     if (matched) {
       creators.value = [matched]
     } else {
-      message.info(`当前账号「${currentUser.name || '管理员'}」未匹配到校宝经办人，已展示今日全部经办人的订单`)
+      message.info(`当前账号「${currentUser.name || '管理员'}」未匹配到原系统经办人，已展示今日全部经办人的订单`)
     }
   } else if (currentUser.campusId) {
     campusIds.value = [currentUser.campusId]
@@ -982,7 +968,7 @@ async function printReceipt(row: SpOrderRow) {
   setTimeout(() => win.print(), 300)
 }
 
-/** 作废订单：弹窗确认并填写原因，提交后只改本地状态，不写校宝。 */
+/** 作废订单：弹窗确认并填写原因，提交后只改本地状态，不写原系统。 */
 function openVoidModal(row: SpOrderRow) {
   openMenuId.value = null
   voidTarget.value = row
@@ -1101,52 +1087,43 @@ onMounted(() => {
         <span class="date-current">{{ dateRange ? `${dateRange[0]} 至 ${dateRange[1]}` : '全部日期' }}</span>
       </div>
 
-      <div class="filter-zone">
-        <div class="filter-row">
-          <div v-for="field in filterGroups" :key="field.key" class="filter-item">
-            <OrderFilterPopover
-              :label="field.label"
-              :open="openFilter === field.key"
-              :type="field.type"
-              :options="field.options"
-              :model-value="field.value"
-              :date-value="field.dateValue"
-              :searchable="field.searchable"
-              @update:open="(visible) => setFilterOpen(field.key, visible)"
-              @apply="(values) => onFilterApply(field, values)"
-              @apply-date="onDateApply"
-            />
-            <span
-              v-if="field.linked"
-              class="filter-link"
-              title="该筛选项关联学员在校课程 / 售前跟进记录"
-            >
-              <LinkOutlined />
-            </span>
-          </div>
+      <FilterBar @search="applySearch" @reset="clearFilters">
+        <a-select
+          v-for="field in filterGroups"
+          :key="field.key"
+          :value="field.value"
+          :mode="field.type === 'multi' ? 'multiple' : undefined"
+          :options="field.options"
+          :placeholder="`全部${field.label}`"
+          :show-search="field.searchable"
+          :max-tag-count="field.type === 'multi' ? 1 : undefined"
+          allow-clear
+          class="filter-select"
+          :style="{ width: field.type === 'multi' ? '150px' : '116px' }"
+          @change="(value: unknown) => onFilterChange(field, value)"
+        />
 
-          <div class="search-box">
-            <a-select
-              v-model:value="keywordType"
-              :options="SEARCH_OPTIONS"
-              size="small"
-              :bordered="false"
-              class="search-type"
-              @change="onSearchTypeChange"
-            />
-            <span class="search-divider" />
-            <input
-              v-model="searchDraft"
-              class="search-input"
-              :placeholder="searchPlaceholder"
-              @keyup.enter="applySearch"
-            />
-            <button type="button" class="search-btn" title="搜索" @click="applySearch">
-              <SearchOutlined />
-            </button>
-          </div>
-        </div>
-      </div>
+        <template #search>
+          <a-select
+            v-model:value="keywordType"
+            :options="SEARCH_OPTIONS"
+            class="filter-select"
+            style="width: 116px"
+            @change="onSearchTypeChange"
+          />
+          <a-input
+            v-model:value="searchDraft"
+            class="filter-search"
+            :placeholder="searchPlaceholder"
+            allow-clear
+            @press-enter="applySearch"
+          >
+            <template #prefix>
+              <SearchOutlined class="search-icon" />
+            </template>
+          </a-input>
+        </template>
+      </FilterBar>
 
       <div v-if="chipGroups.length" class="chips-row">
         <div class="chips">
@@ -1834,106 +1811,6 @@ onMounted(() => {
   font-size: 12px;
 }
 
-.filter-zone {
-  position: relative;
-  padding-bottom: 2px;
-}
-
-.filter-row {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  min-height: 30px;
-}
-
-.filter-row:first-child {
-  padding-right: 306px;
-}
-
-.filter-item {
-  display: flex;
-  align-items: center;
-}
-
-.filter-link {
-  margin-left: 1px;
-  color: #bfbfbf;
-  font-size: 12px;
-  cursor: help;
-}
-
-.search-box {
-  position: absolute;
-  right: 0;
-  top: 0;
-  display: flex;
-  align-items: center;
-  width: 290px;
-  height: 32px;
-  padding-left: 10px;
-  border: 0.8px solid #d9d9d9;
-  border-radius: 4px;
-  background: #fff;
-  transition: border-color 0.15s;
-}
-
-.search-box:focus-within {
-  border-color: #007aff;
-}
-
-.search-type {
-  width: 88px;
-  flex: 0 0 88px;
-  font-size: 14px;
-  color: #646a73;
-}
-
-.search-type :deep(.ant-select-selector) {
-  padding: 0 !important;
-  background: transparent !important;
-}
-
-.search-type :deep(.ant-select-selection-item) {
-  color: #646a73;
-  font-size: 14px;
-}
-
-.search-divider {
-  width: 1px;
-  height: 14px;
-  background: #e5e6eb;
-  margin-right: 8px;
-}
-
-.search-input {
-  flex: 1;
-  min-width: 0;
-  border: 0;
-  outline: none;
-  color: #1f2329;
-  font-size: 12px;
-  background: transparent;
-}
-
-.search-input::placeholder {
-  color: #bfbfbf;
-}
-
-.search-btn {
-  width: 30px;
-  height: 28px;
-  flex: 0 0 30px;
-  border: 0;
-  background: transparent;
-  color: #8f959e;
-  font-size: 14px;
-  cursor: pointer;
-}
-
-.search-btn:hover {
-  color: #007aff;
-}
-
 .chips-row {
   display: flex;
   align-items: flex-start;
@@ -2513,10 +2390,6 @@ onMounted(() => {
 @media (max-width: 1200px) {
   .quick-actions {
     gap: 24px;
-  }
-
-  .search-box {
-    width: 260px;
   }
 
   .detail-grid {

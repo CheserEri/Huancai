@@ -4,7 +4,7 @@ import lombok.Data;
 
 import java.util.List;
 
-/** 校宝订单列表查询条件。 */
+/** 历史订单列表查询条件。 */
 @Data
 public class SpOrderQuery {
 

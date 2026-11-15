@@ -2,7 +2,7 @@ import json
 import os
 from datetime import datetime
 
-ATT = r"d:\Code\Projects\Huancai\data\schoolpal\attend.json"
+ATT = r"d:\Code\Projects\Huancai\data\legacy\attend.json"
 TMP = os.path.join(os.environ.get("TEMP", "."), "hc-import")
 OUT = os.path.join(TMP, "import_attendance.sql")
 OUT_EXT = os.path.join(TMP, "backfill_student_ext.sql")

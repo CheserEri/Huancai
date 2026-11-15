@@ -41,7 +41,14 @@ export async function request<T>(path: string, options: RequestInit = {}): Promi
     throw new Error(message)
   }
   if (!res.ok) {
-    throw new Error(`请求失败（HTTP ${res.status}）`)
+    let message = `请求失败（HTTP ${res.status}）`
+    try {
+      const body = (await res.json()) as ApiResult<T>
+      if (body?.message) message = body.message
+    } catch {
+      // 响应体不是标准 JSON 时使用默认提示
+    }
+    throw new Error(message)
   }
   const body = (await res.json()) as ApiResult<T>
   if (body.code !== 0) {
@@ -61,8 +68,12 @@ export interface LoginResult {
   token: string
   staffId: number
   name: string
+  phone?: string
+  account?: string
+  title?: string
   role: string
   campusId?: number
+  campusName?: string
   /** 可见菜单路径；["*"] 表示全部菜单。 */
   permissions: string[]
 }
@@ -83,6 +94,14 @@ export function fetchProfile() {
 
 export function logout() {
   return request<null>('/auth/logout', { method: 'POST' })
+}
+
+/** 当前登录账号自行修改密码。 */
+export function changePassword(oldPassword: string, newPassword: string) {
+  return request<null>('/auth/password', {
+    method: 'POST',
+    body: JSON.stringify({ oldPassword, newPassword }),
+  })
 }
 
 export interface StudentRow {
@@ -324,12 +343,17 @@ export function updateEnrollmentExpire(studentId: number, enrollmentId: number, 
 export interface DashboardSummary {
   students: number
   activeStudents: number
+  studyingStudents: number
+  suspendedStudents: number
+  pausedStudents: number
+  arrearsStudents: number
   remainLessons: number
   debt: number
   revenue: number
   classes: number
   todayClasses: number
   todayOrders: number
+  enrollTrend: Array<{ date: string; count: number }>
   topCourses: Array<{ courseName: string; students: number; remainLessons: number }>
 }
 
@@ -732,7 +756,7 @@ export async function downloadTeacherHourReport(
   return res.blob()
 }
 
-/** ---------------- 本地闭环办理（不写校宝） ---------------- */
+/** ---------------- 本地闭环办理（不写原系统） ---------------- */
 
 export type LocalOrderMode =
   | 'enroll'
@@ -1955,6 +1979,8 @@ export interface StaffRow {
   phone: string | null
   account: string | null
   role: string
+  /** 兼任角色，不含主角色。 */
+  extraRoles: string[]
   title: string | null
   status: number
   campusId: number | null
@@ -2003,6 +2029,7 @@ export interface StaffFormPayload {
   account?: string
   password?: string
   role: string
+  extraRoles?: string[]
   title?: string
   permissions?: string[]
   campusId?: number | null
@@ -2033,6 +2060,45 @@ export function updateStaffPermissions(id: number, permissions: string[]) {
     method: 'PUT',
     body: JSON.stringify({ permissions }),
   })
+}
+
+export interface PermissionTemplateRow {
+  id: number
+  name: string
+  /** 适用角色，null 表示通用。 */
+  role: string | null
+  /** 1 内置角色模板，0 自定义模板。 */
+  builtin: number
+  permissions: string[]
+  updatedAt: string
+}
+
+export interface PermissionTemplatePayload {
+  name: string
+  role?: string | null
+  permissions: string[]
+}
+
+export function fetchPermissionTemplates() {
+  return request<PermissionTemplateRow[]>('/permission-templates')
+}
+
+export function createPermissionTemplate(payload: PermissionTemplatePayload) {
+  return request<PermissionTemplateRow>('/permission-templates', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+export function updatePermissionTemplate(id: number, payload: PermissionTemplatePayload) {
+  return request<PermissionTemplateRow>(`/permission-templates/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  })
+}
+
+export function deletePermissionTemplate(id: number) {
+  return request<void>(`/permission-templates/${id}`, { method: 'DELETE' })
 }
 
 export interface PaymentRow {
@@ -3492,6 +3558,83 @@ export function fetchMessageReceivers(
   return request<PageResult<MessageReceiverRow>>(`/messages/${id}/receivers${toQuery({ ...query })}`)
 }
 
+export interface PosterRow {
+  id: number
+  title: string
+  description: string | null
+  audienceType: string
+  gradeText: string | null
+  classNameText: string | null
+  targetCount: number
+  receiverCount: number
+  readCount: number
+  messageId: number | null
+  sender: string | null
+  startDate: string | null
+  endDate: string | null
+  sentAt: string
+  imageCount: number
+  coverUrl: string | null
+}
+
+export interface PosterImageRow {
+  id: number
+  posterId: number | null
+  url: string
+  sortNo: number
+}
+
+export interface PosterQuery {
+  keyword?: string
+  start?: string
+  end?: string
+  page?: number
+  size?: number
+}
+
+export interface PosterCreatePayload {
+  title: string
+  description?: string
+  imageUrls: string[]
+  grades: string[]
+  classIds: number[]
+  studentIds: number[]
+  startDate?: string
+  endDate?: string
+}
+
+export function fetchPosters(query: PosterQuery = {}) {
+  return request<PageResult<PosterRow>>(`/posters${toQuery({ ...query })}`)
+}
+
+export function uploadPosterImage(file: File) {
+  const form = new FormData()
+  form.append('file', file)
+  return request<PosterImageRow>('/posters/images', { method: 'POST', body: form })
+}
+
+export function createPoster(payload: PosterCreatePayload) {
+  return request<PosterRow>('/posters', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+export function deletePoster(id: number) {
+  return request<void>(`/posters/${id}`, { method: 'DELETE' })
+}
+
+export function fetchPosterReceivers(
+  id: number,
+  query: { readFlag?: number; page?: number; size?: number } = {},
+) {
+  return request<PageResult<MessageReceiverRow>>(`/posters/${id}/receivers${toQuery({ ...query })}`)
+}
+
+export function fetchStudentGrades() {
+  return request<string[]>('/students/grades')
+}
+
 export interface SuspendCandidateRow {
   id: number
   classId: number
@@ -3556,6 +3699,21 @@ export function batchSuspend(payload: {
   notify: boolean
 }) {
   return request<SuspendBatchResult>('/class-suspends/batch', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+export interface SuspendNotifyResult {
+  notified: number
+  classCount: number
+  messageId: number | null
+  receiverCount: number
+  notifyMessage: string | null
+}
+
+export function notifySuspends(payload: { ids: number[] }) {
+  return request<SuspendNotifyResult>('/class-suspends/notify', {
     method: 'POST',
     body: JSON.stringify(payload),
   })

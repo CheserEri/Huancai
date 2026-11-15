@@ -1,4 +1,4 @@
-"""把校宝「库存查询」三页 DOM 快照合并成 stock.json（436 行 × 三仓库库存）。
+"""把原系统「库存查询」三页 DOM 快照合并成 stock.json（436 行 × 三仓库库存）。
 
 数据源：TEMP/hc-import/recv/stock_p1.json（每页200的第1页）+ stock200_page2/3.json
 结构：外表格 nest-table = [教材名称, 总计]；内表格 inner-table = [仓库, 鲅鱼圈, 新民]
@@ -7,7 +7,7 @@ import json
 import os
 
 RECV = r"C:\Users\chese\AppData\Local\Temp\hc-import\recv"
-OUT = r"d:\Code\Projects\Huancai\data\schoolpal\stock.json"
+OUT = r"d:\Code\Projects\Huancai\data\legacy\stock.json"
 
 FILES = [
     ("stock_p1.json", 200),

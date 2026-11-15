@@ -29,6 +29,10 @@ const range = ref<string[] | null>(null)
 
 const classOptions = ref<OptionItem[]>([])
 const studentOptions = ref<OptionItem[]>([])
+const studentSearching = ref(false)
+const selectedStudentOptions = ref<OptionItem[]>([])
+let studentSearchTimer: number | undefined
+let studentSearchSeq = 0
 
 const composeOpen = ref(false)
 const sending = ref(false)
@@ -108,20 +112,42 @@ async function load() {
   }
 }
 
-async function loadOptions() {
+async function loadClassOptions() {
   try {
-    const [classes, students] = await Promise.all([
-      fetchClasses({ page: 1, size: 500 }),
-      fetchStudents({ page: 1, size: 500 }),
-    ])
+    const classes = await fetchClasses({ page: 1, size: 200 })
     classOptions.value = classes.records.map((item) => ({ label: item.name, value: item.id }))
-    studentOptions.value = students.records.map((item) => ({
-      label: item.phone ? `${item.name}（${item.phone}）` : item.name,
-      value: item.id,
-    }))
   } catch {
     // 下拉数据加载失败不阻断列表展示
   }
+}
+
+async function searchStudents(keywordText: string) {
+  const seq = ++studentSearchSeq
+  studentSearching.value = true
+  try {
+    const res = await fetchStudents({ keyword: keywordText.trim() || undefined, page: 1, size: 50 })
+    if (seq !== studentSearchSeq) return
+    const found = res.records.map((item) => ({
+      label: item.phone ? `${item.name}（${item.phone}）` : item.name,
+      value: item.id,
+    }))
+    // 已选学员保留在下拉里，避免搜索后标签回退成 id
+    const keep = selectedStudentOptions.value.filter((item) => !found.some((f) => f.value === item.value))
+    studentOptions.value = [...keep, ...found]
+  } catch {
+    // 搜索失败不阻断弹窗填写
+  } finally {
+    if (seq === studentSearchSeq) studentSearching.value = false
+  }
+}
+
+function onStudentSearch(value: string) {
+  window.clearTimeout(studentSearchTimer)
+  studentSearchTimer = window.setTimeout(() => searchStudents(value), 300)
+}
+
+function onStudentChange(values: number[]) {
+  selectedStudentOptions.value = studentOptions.value.filter((item) => values.includes(item.value))
 }
 
 function openCompose() {
@@ -130,7 +156,10 @@ function openCompose() {
   form.audienceType = '全员'
   form.classIds = []
   form.studentIds = []
+  selectedStudentOptions.value = []
+  studentOptions.value = []
   composeOpen.value = true
+  searchStudents('')
 }
 
 async function submitCompose() {
@@ -160,7 +189,9 @@ async function submitCompose() {
       studentIds: form.audienceType === '学员' ? form.studentIds : undefined,
     })
     message.success(
-      `推送完成：目标学员 ${result.targetCount} 人，触达家长 ${result.receiverCount} 人（仅统计已绑定微信小程序的家长）`,
+      result.receiverCount
+        ? `推送完成：目标学员 ${result.targetCount} 人，当前已绑定家长 ${result.receiverCount} 人`
+        : `推送完成：目标学员 ${result.targetCount} 人，暂无已绑定家长，家长绑定后可在小程序查看`,
     )
     composeOpen.value = false
     page.value = 1
@@ -213,7 +244,7 @@ function reset() {
 
 onMounted(() => {
   load()
-  loadOptions()
+  loadClassOptions()
 })
 </script>
 
@@ -256,7 +287,7 @@ onMounted(() => {
     </div>
 
     <div class="summary-line">
-      当前结果：共 {{ total }} 条推送记录；仅已绑定微信小程序的家长可收到消息。
+      当前结果：共 {{ total }} 条推送记录；消息按学员留存，家长绑定后 30 天内的通知可在小程序查看。
     </div>
 
     <a-table
@@ -350,14 +381,18 @@ onMounted(() => {
             mode="multiple"
             show-search
             allow-clear
-            placeholder="请选择推送学员，可多选"
+            placeholder="输入学员姓名或手机号搜索，可多选"
             :options="studentOptions"
-            :filter-option="filterOption"
+            :filter-option="false"
+            :loading="studentSearching"
+            :not-found-content="studentSearching ? '搜索中…' : '未找到匹配学员'"
             :max-tag-count="4"
+            @search="onStudentSearch"
+            @change="onStudentChange"
           />
         </a-form-item>
         <div class="compose-tip">
-          消息将直接进入家长端微信小程序的「消息通知」，仅已绑定孩子的家长可接收；未绑定家长不计入触达人数。
+          消息会保存给所选学员的家长，进入家长端微信小程序的「消息通知」；当前未绑定的家长在绑定孩子后 30 天内可看到这条通知。触达人数仅统计发送时已绑定的家长。
         </div>
       </a-form>
     </a-modal>

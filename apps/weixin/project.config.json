@@ -1,0 +1,40 @@
+{
+  "description": "幻彩学堂家长端小程序",
+  "miniprogramRoot": "幻彩家长端/",
+  "setting": {
+    "urlCheck": false,
+    "es6": true,
+    "postcss": true,
+    "minified": true,
+    "uglifyFileName": false,
+    "enhance": true,
+    "packNpmRelationList": [],
+    "babelSetting": {
+      "ignore": [],
+      "disablePlugins": [],
+      "outputPath": ""
+    },
+    "useCompilerPlugins": false
+  },
+  "compileType": "miniprogram",
+  "simulatorPluginLibVersion": {},
+  "packOptions": {
+    "ignore": [
+      {
+        "type": "folder",
+        "value": "幻彩家长端/.tmp"
+      },
+      {
+        "type": "file",
+        "value": "幻彩家长端/project.config.json"
+      },
+      {
+        "type": "file",
+        "value": "幻彩家长端/project.private.config.json"
+      }
+    ],
+    "include": []
+  },
+  "appid": "wx33c937371bdfb3ae",
+  "editorSetting": {}
+}

@@ -1,0 +1,60 @@
+{
+  "pages": [
+    "pages/index/index",
+    "pages/lessons/lessons",
+    "pages/grades/grades",
+    "pages/activities/activities",
+    "pages/profile/profile",
+    "pages/comments/comments",
+    "pages/bind/bind",
+    "pages/messages/messages",
+    "pages/album/album"
+  ],
+  "window": {
+    "navigationBarBackgroundColor": "#C81E2B",
+    "navigationBarTitleText": "幻彩学堂家长端",
+    "navigationBarTextStyle": "white",
+    "backgroundColor": "#F5F4F2",
+    "backgroundTextStyle": "dark"
+  },
+  "tabBar": {
+    "color": "#8A9099",
+    "selectedColor": "#C81E2B",
+    "backgroundColor": "#FFFFFF",
+    "borderStyle": "white",
+    "list": [
+      {
+        "pagePath": "pages/index/index",
+        "text": "首页",
+        "iconPath": "images/tab-home.png",
+        "selectedIconPath": "images/tab-home-active.png"
+      },
+      {
+        "pagePath": "pages/lessons/lessons",
+        "text": "课时",
+        "iconPath": "images/tab-lesson.png",
+        "selectedIconPath": "images/tab-lesson-active.png"
+      },
+      {
+        "pagePath": "pages/grades/grades",
+        "text": "成绩",
+        "iconPath": "images/tab-grade.png",
+        "selectedIconPath": "images/tab-grade-active.png"
+      },
+      {
+        "pagePath": "pages/activities/activities",
+        "text": "活动",
+        "iconPath": "images/tab-gift.png",
+        "selectedIconPath": "images/tab-gift-active.png"
+      },
+      {
+        "pagePath": "pages/profile/profile",
+        "text": "我的",
+        "iconPath": "images/tab-me.png",
+        "selectedIconPath": "images/tab-me-active.png"
+      }
+    ]
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json"
+}

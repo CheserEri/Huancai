@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import {
-  BellOutlined,
   CheckCircleFilled,
   ClockCircleOutlined,
   DownOutlined,
   EditOutlined,
   FileTextOutlined,
+  PauseCircleOutlined,
   RightOutlined,
   ScheduleOutlined,
   UserAddOutlined,
@@ -14,6 +15,7 @@ import {
 } from '@ant-design/icons-vue'
 import { fetchDashboard, fetchGradeExams, type DashboardSummary, type GradeExamRow } from '../api/client'
 
+const router = useRouter()
 const stepsOpen = ref(false)
 const stats = ref<DashboardSummary | null>(null)
 const gradeExams = ref<GradeExamRow[]>([])
@@ -35,11 +37,39 @@ onMounted(async () => {
 })
 
 const todos = computed(() => [
-  { icon: ClockCircleOutlined, color: '#F5222D', bg: '#FFF1F2', value: String(stats.value?.remainLessons ?? 0), unit: '课时', label: '剩余课时总量', compact: true },
-  { icon: WarningOutlined, color: '#FA8C16', bg: '#FFF7E6', value: `¥${Number(stats.value?.debt ?? 0).toLocaleString('zh-CN')}`, unit: '', label: '待处理欠费', compact: false },
-  { icon: CheckCircleFilled, color: '#007AFF', bg: '#F0F7FF', value: String(stats.value?.activeStudents ?? 0), unit: '', label: '在读学员', compact: false },
-  { icon: BellOutlined, color: '#13C2C2', bg: '#E9FBFB', value: String(stats.value?.todayOrders ?? 0), unit: '', label: '今日报名订单', compact: false },
-  { icon: UserAddOutlined, color: '#722ED1', bg: '#F6F1FE', value: String(stats.value?.students ?? 0), unit: '', label: '学员总数', compact: false },
+  {
+    icon: WarningOutlined,
+    color: '#FA8C16',
+    bg: '#FFF7E6',
+    value: String(stats.value?.arrearsStudents ?? 0),
+    unit: '人',
+    label: '剩余欠费人数',
+    onClick: () => router.push({ path: '/student', query: { debt: '1' } }),
+  },
+  {
+    icon: CheckCircleFilled,
+    color: '#007AFF',
+    bg: '#F0F7FF',
+    value: String(stats.value?.studyingStudents ?? 0),
+    unit: '人',
+    label: '在读人员',
+  },
+  {
+    icon: ClockCircleOutlined,
+    color: '#13C2C2',
+    bg: '#E9FBFB',
+    value: String(stats.value?.suspendedStudents ?? 0),
+    unit: '人',
+    label: '休课人员',
+  },
+  {
+    icon: PauseCircleOutlined,
+    color: '#722ED1',
+    bg: '#F6F1FE',
+    value: String(stats.value?.pausedStudents ?? 0),
+    unit: '人',
+    label: '停课人员',
+  },
 ])
 
 const steps = [
@@ -56,27 +86,52 @@ const quickActions = computed(() => [
   { icon: EditOutlined, color: '#13C2C2', title: '记上课', desc: `在读学员 ${stats.value?.activeStudents ?? 0}` },
 ])
 
-const news = [
-  { title: '功能更新 | 电子合同功能升级', date: '09/18' },
-  { title: '功能更新 | 订单标签必选开关、支持批...', date: '08/08' },
-  { title: '功能更新 | 收款对账升级', date: '07/18' },
-  { title: '功能更新 | 财务账目按校区锁定等', date: '07/04' },
-]
-
-const chartBars = [12, 18, 9, 22, 16, 25, 14, 20, 11, 26, 18, 23]
+const enrollTrend = computed(() => stats.value?.enrollTrend ?? [])
+const trendTotal = computed(() => enrollTrend.value.reduce((sum, item) => sum + item.count, 0))
+const trendMax = computed(() => Math.max(1, ...enrollTrend.value.map((item) => item.count)))
+const trendPoints = computed(() =>
+  enrollTrend.value
+    .map((item, index) => {
+      const x = 10 + (index / Math.max(1, enrollTrend.value.length - 1)) * 620
+      const y = 170 - (item.count / trendMax.value) * 140
+      return `${x.toFixed(1)},${y.toFixed(1)}`
+    })
+    .join(' '),
+)
+const trendArea = computed(() => (trendPoints.value ? `10,170 ${trendPoints.value} 630,170` : ''))
+const trendDots = computed(() =>
+  enrollTrend.value
+    .map((item, index) => ({
+      x: 10 + (index / Math.max(1, enrollTrend.value.length - 1)) * 620,
+      y: 170 - (item.count / trendMax.value) * 140,
+      count: item.count,
+    }))
+    .filter((dot) => dot.count > 0),
+)
+const trendTicks = computed(() => {
+  const list = enrollTrend.value
+  if (!list.length) return []
+  return [0, Math.floor((list.length - 1) / 2), list.length - 1].map((index) => ({
+    x: 10 + (index / Math.max(1, list.length - 1)) * 620,
+    text: list[index].date.slice(5),
+  }))
+})
 </script>
 
 <template>
   <div class="page dash">
     <div class="card todo">
-      <div v-for="item in todos" :key="item.label" class="todo-item">
+      <div
+        v-for="item in todos"
+        :key="item.label"
+        class="todo-item"
+        :class="{ clickable: item.onClick }"
+        @click="item.onClick?.()"
+      >
         <span class="todo-badge" :style="{ background: item.bg }">
           <component :is="item.icon" class="todo-icon" :style="{ color: item.color }" />
         </span>
-        <span v-if="item.compact" class="todo-inline">
-          {{ item.label }} <b>{{ item.value }}</b> <span class="unit">{{ item.unit }}</span>
-        </span>
-        <span v-else class="todo-main">
+        <span class="todo-main">
           <span class="todo-value">{{ item.value }}<i v-if="item.unit" class="todo-unit">{{ item.unit }}</i></span>
           <span class="todo-label">{{ item.label }}</span>
         </span>
@@ -126,39 +181,33 @@ const chartBars = [12, 18, 9, 22, 16, 25, 14, 20, 11, 26, 18, 23]
 
         <div class="card">
           <div class="card-head">
-            <div class="card-title">今日总览</div>
-          </div>
-          <div class="legend">
-            <span><i class="dot" style="background: #007aff" />新生报名</span>
-            <span><i class="dot" style="background: #13c2c2" />老生报名</span>
-            <span><i class="dot" style="background: #f6bd16" />新增咨询</span>
+            <div class="card-title">报名人数趋势</div>
+            <span class="card-extra trend-total">近 30 天 {{ trendTotal }} 人</span>
           </div>
           <svg class="chart" viewBox="0 0 640 190" preserveAspectRatio="none">
+            <defs>
+              <linearGradient id="enrollFill" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#007AFF" stop-opacity="0.16" />
+                <stop offset="100%" stop-color="#007AFF" stop-opacity="0" />
+              </linearGradient>
+            </defs>
             <line v-for="n in 5" :key="n" x1="0" :y1="n * 32" x2="640" :y2="n * 32" stroke="#EEF0F3" />
-            <rect
-              v-for="(bar, index) in chartBars"
+            <polygon v-if="trendArea" :points="trendArea" fill="url(#enrollFill)" />
+            <polyline v-if="trendPoints" :points="trendPoints" fill="none" stroke="#007AFF" stroke-width="2" />
+            <circle
+              v-for="(dot, index) in trendDots"
               :key="index"
-              :x="index * 52 + 12"
-              :y="160 - bar * 5"
-              width="18"
-              :height="bar * 5"
-              rx="2"
+              :cx="dot.x"
+              :cy="dot.y"
+              r="2.5"
               fill="#007AFF"
-              opacity="0.85"
-            />
-            <polyline
-              :points="chartBars.map((bar, index) => `${index * 52 + 21},${150 - bar * 3.2}`).join(' ')"
-              fill="none"
-              stroke="#13C2C2"
-              stroke-width="2"
-            />
-            <polyline
-              :points="chartBars.map((bar, index) => `${index * 52 + 21},${165 - bar * 2.4}`).join(' ')"
-              fill="none"
-              stroke="#F6BD16"
-              stroke-width="2"
             />
           </svg>
+          <div class="axis">
+            <span v-for="tick in trendTicks" :key="tick.text" :style="{ left: `${(tick.x / 640) * 100}%` }">
+              {{ tick.text }}
+            </span>
+          </div>
         </div>
       </div>
 
@@ -180,32 +229,6 @@ const chartBars = [12, 18, 9, 22, 16, 25, 14, 20, 11, 26, 18, 23]
               <span class="grade-summary-value small">{{ latestExam ? latestExam.name : '暂无考试' }}</span>
             </div>
           </div>
-        </div>
-
-        <div class="card">
-          <div class="card-head">
-            <div class="card-title">产品动态</div>
-            <span class="card-extra link-extra">更多 <RightOutlined style="font-size: 10px" /></span>
-          </div>
-          <div v-for="item in news" :key="item.title" class="news-item">
-            <span class="news-title">{{ item.title }}</span>
-            <span class="news-date">{{ item.date }}</span>
-          </div>
-        </div>
-
-        <div class="banner">
-          <div class="banner-tag">双十一招生</div>
-          <div class="banner-title">7 套双十一招生方案<br />助你提前抢占生源</div>
-          <div class="banner-btn">点击查看详情</div>
-        </div>
-
-        <div class="card">
-          <div class="card-head">
-            <div class="card-title">运营指导</div>
-          </div>
-          <div class="guide-item"><span class="guide-icon">优</span>优质案例：县域机构续费提升 12%</div>
-          <div class="guide-item"><span class="guide-icon">学</span>学习最佳实践：课时账户对账</div>
-          <div class="guide-item"><span class="guide-icon">交</span>学习交流：校长经营社群</div>
         </div>
       </div>
     </div>
@@ -274,17 +297,6 @@ const chartBars = [12, 18, 9, 22, 16, 25, 14, 20, 11, 26, 18, 23]
 .todo-inline {
   font-size: 13px;
   color: var(--text-3);
-}
-
-.todo-inline b {
-  font-size: 16px;
-  color: var(--brand);
-  font-weight: 500;
-  margin: 0 2px;
-}
-
-.todo-inline .unit {
-  margin-left: 1px;
 }
 
 .grid {
@@ -420,93 +432,22 @@ const chartBars = [12, 18, 9, 22, 16, 25, 14, 20, 11, 26, 18, 23]
   height: 190px;
 }
 
-.news-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 0;
-  border-bottom: 1px dashed var(--line);
-  font-size: 13px;
-}
-
-.news-item:last-child {
-  border-bottom: none;
-}
-
-.news-title {
-  color: var(--text-2);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 250px;
-}
-
-.news-date {
+.trend-total {
   color: var(--text-3);
-  font-size: 12px;
 }
 
-.banner {
-  margin-top: 12px;
-  border-radius: 8px;
-  padding: 20px 18px;
-  background: linear-gradient(120deg, #ff5f6d, #ff9966 60%, #ffd36e);
-  color: #fff;
+.axis {
   position: relative;
-  overflow: hidden;
-}
-
-.banner-tag {
-  display: inline-block;
-  background: rgba(255, 255, 255, 0.24);
-  border-radius: 10px;
+  height: 18px;
+  margin-top: 2px;
   font-size: 11px;
-  padding: 2px 10px;
+  color: var(--text-3);
 }
 
-.banner-title {
-  font-size: 19px;
-  font-weight: 700;
-  line-height: 1.5;
-  margin: 10px 0 14px;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
-}
-
-.banner-btn {
-  display: inline-block;
-  background: #fff;
-  color: #e8452c;
-  font-size: 12px;
-  font-weight: 600;
-  padding: 5px 14px;
-  border-radius: 14px;
-  cursor: pointer;
-}
-
-.guide-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 0;
-  font-size: 13px;
-  color: var(--text-2);
-  border-bottom: 1px dashed var(--line);
-}
-
-.guide-item:last-child {
-  border-bottom: none;
-}
-
-.guide-icon {
-  width: 22px;
-  height: 22px;
-  border-radius: 4px;
-  background: #e8f2ff;
-  color: var(--brand);
-  font-size: 11px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.axis span {
+  position: absolute;
+  transform: translateX(-50%);
+  white-space: nowrap;
 }
 
 .grade-summary {

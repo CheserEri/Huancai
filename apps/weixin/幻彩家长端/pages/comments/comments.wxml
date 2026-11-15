@@ -1,0 +1,58 @@
+<view class="page">
+  <view class="head">
+    <view class="head-left">
+      <text class="head-title">课堂表现</text>
+      <text class="head-sub" wx:if="{{childName}}">{{childName}} 的课堂点评</text>
+    </view>
+    <view class="head-badge" wx:if="{{unread}}">
+      <text>{{unread}}</text>
+      <text class="badge-label">未读</text>
+    </view>
+  </view>
+
+  <view class="card loading-card" wx:if="{{loading}}">
+    <text class="muted">正在加载课堂表现…</text>
+  </view>
+
+  <view class="card empty" wx:elif="{{error}}">
+    <view class="empty-icon">!</view>
+    <view>{{error}}</view>
+    <button class="btn plain-btn" bindtap="retry">重新加载</button>
+  </view>
+
+  <view class="card empty" wx:elif="{{!list.length}}">
+    <view class="empty-icon">—</view>
+    <view>暂时还没有课堂点评</view>
+    <view class="muted empty-desc">老师课后点评发布后会显示在这里</view>
+  </view>
+
+  <block wx:else>
+    <view class="timeline">
+      <view class="item" wx:for="{{list}}" wx:key="id" data-index="{{index}}" bindtap="markRead">
+        <view class="axis">
+          <view class="dot {{item.isNew ? 'new' : ''}}"></view>
+          <view class="line" wx:if="{{index < list.length - 1}}"></view>
+        </view>
+        <view class="card item-card">
+          <view class="item-head">
+            <view class="item-tags">
+              <text class="tag {{item.ratingClass}}" wx:if="{{item.rating}}">{{item.rating}}</text>
+              <text class="new-flag" wx:if="{{item.isNew}}">新点评</text>
+            </view>
+            <text class="muted">{{item.dateText}}</text>
+          </view>
+          <text class="content">{{item.content}}</text>
+          <view class="meta">
+            <text>{{item.courseName || item.className || '课堂'}}</text>
+            <text wx:if="{{item.teacherName}}"> · {{item.teacherName}} 老师</text>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <view class="more" wx:if="{{hasMore}}" bindtap="onReachBottom">
+      {{loadingMore ? '加载中…' : '加载更多'}}
+    </view>
+    <view class="more muted" wx:else>共 {{total}} 条课堂点评，已经到底啦</view>
+  </block>
+</view>

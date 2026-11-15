@@ -20,4 +20,6 @@ public interface StudentMapper extends BaseMapper<Student> {
     List<EnrollmentVO> selectEnrollments(@Param("studentId") Long studentId);
 
     List<String> selectChannels();
+
+    List<String> selectGrades();
 }

@@ -22,7 +22,7 @@ import java.util.stream.Collectors;
 
 /**
  * 活动模板：节日活动（618/双11）与报课优惠（报10/20节），按分类层级组织。
- * 仅落本地库，不调用校宝任何接口。
+ * 仅落本地库，不调用原系统任何接口。
  */
 @RestController
 @RequestMapping("/api/activity-templates")

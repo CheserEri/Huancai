@@ -110,6 +110,7 @@ class _ArrearsFormState extends State<ArrearsForm> {
   }
 
   Future<void> _submit() async {
+    if (_submitting) return;
     final enrollment = _enrollment;
     if (enrollment == null) {
       showToast(context, '请选择补缴报读');
@@ -136,7 +137,16 @@ class _ArrearsFormState extends State<ArrearsForm> {
       });
       if (!mounted) return;
       setState(() => _submitting = false);
-      showToast(context, '补缴成功，订单号 ${str(result['orderNo'], '-')}');
+      final paid = amount;
+      _amount.clear();
+      _remark.clear();
+      await showPaymentSuccessDialog(
+        context,
+        title: '补缴成功',
+        orderNo: str(result['orderNo'], '-'),
+        summary: '补缴金额 ¥${money(paid)}',
+      );
+      if (!mounted) return;
       widget.onDone();
       _load();
     } on ApiException catch (e) {

@@ -1,0 +1,145 @@
+<view class="page">
+  <view class="banner">
+    <view class="banner-orb"></view>
+    <text class="banner-eyebrow">BENEFITS</text>
+    <text class="banner-title">幻彩福利站</text>
+    <text class="banner-sub">续报优惠、节日活动，第一时间知道</text>
+  </view>
+
+  <view class="card loading-card" wx:if="{{loading}}">
+    <text class="muted">正在加载活动…</text>
+  </view>
+
+  <view class="card empty" wx:elif="{{error}}">
+    <view class="empty-icon">!</view>
+    <view>{{error}}</view>
+    <button class="btn plain-btn" bindtap="load">重新加载</button>
+  </view>
+
+  <block wx:else>
+    <view class="card subscribe">
+      <view class="subscribe-info">
+        <text class="subscribe-title">活动开始前提醒我</text>
+        <text class="subscribe-hint">开启后，新活动会通过微信「服务通知」推送给你</text>
+      </view>
+      <button class="btn subscribe-btn" bindtap="onSubscribe">订阅提醒</button>
+    </view>
+
+    <block wx:if="{{posters.length}}">
+      <view class="section">
+        <text class="section-title">活动海报</text>
+        <text class="section-more">{{posters.length}} 个活动</text>
+      </view>
+      <view
+        class="card poster"
+        wx:for="{{posters}}"
+        wx:key="id"
+        id="poster-{{item.id}}"
+      >
+        <view class="poster-head">
+          <text class="poster-title">{{item.title}}</text>
+          <text class="muted">{{item.dateText}}</text>
+        </view>
+        <view class="poster-desc" wx:if="{{item.description}}">{{item.description}}</view>
+        <swiper
+          class="poster-swiper"
+          current="{{item.current}}"
+          circular="{{item.images.length > 1}}"
+          indicator-dots="{{item.images.length > 1}}"
+          indicator-color="rgba(255, 255, 255, 0.45)"
+          indicator-active-color="#ffffff"
+          bindchange="onSwiperChange"
+          data-poster-id="{{item.id}}"
+        >
+          <swiper-item wx:for="{{item.images}}" wx:for-item="src" wx:for-index="imageIndex" wx:key="*this">
+            <image
+              class="poster-image"
+              src="{{src}}"
+              mode="aspectFit"
+              data-poster-index="{{index}}"
+              data-index="{{imageIndex}}"
+              binderror="onPosterImageError"
+              bindtap="previewPoster"
+            />
+          </swiper-item>
+        </swiper>
+        <view class="poster-foot">
+          <text class="muted" wx:if="{{item.images.length > 1}}">左右滑动切换 {{item.current + 1}}/{{item.images.length}}</text>
+          <text class="poster-tap">点击海报查看大图</text>
+        </view>
+      </view>
+    </block>
+
+    <view class="card empty" wx:if="{{!list.length}}">
+      <view class="empty-icon">—</view>
+      <view>暂时还没有活动</view>
+      <view class="muted empty-desc">新的优惠活动上线后会在这里显示</view>
+    </view>
+
+    <block wx:else>
+    <block wx:if="{{ongoing.length}}">
+      <view class="section">
+        <text class="section-title">正在进行</text>
+        <text class="section-more">{{ongoing.length}} 个活动</text>
+      </view>
+      <view class="card act" wx:for="{{ongoing}}" wx:key="id">
+        <view class="act-head">
+          <text class="tag {{item.tagClass}}">{{item.phase}}</text>
+          <text class="act-type">{{item.type}}</text>
+        </view>
+        <text class="act-name">{{item.name}}</text>
+        <view class="act-rules">
+          <view class="rule" wx:for="{{item.ruleTexts}}" wx:for-item="rule" wx:key="*this">
+            <text class="rule-dot"></text>
+            <text class="rule-text">{{rule}}</text>
+          </view>
+        </view>
+        <view class="act-foot">
+          <text class="muted">{{item.dateText}}</text>
+        </view>
+        <view class="act-remark" wx:if="{{item.remark}}">{{item.remark}}</view>
+      </view>
+    </block>
+
+    <block wx:if="{{upcoming.length}}">
+      <view class="section">
+        <text class="section-title">即将开始</text>
+      </view>
+      <view class="card act" wx:for="{{upcoming}}" wx:key="id">
+        <view class="act-head">
+          <text class="tag {{item.tagClass}}">{{item.phase}}</text>
+          <text class="act-type">{{item.type}}</text>
+        </view>
+        <text class="act-name">{{item.name}}</text>
+        <view class="act-rules">
+          <view class="rule" wx:for="{{item.ruleTexts}}" wx:for-item="rule" wx:key="*this">
+            <text class="rule-dot"></text>
+            <text class="rule-text">{{rule}}</text>
+          </view>
+        </view>
+        <view class="act-foot">
+          <text class="muted">{{item.dateText}}</text>
+        </view>
+      </view>
+    </block>
+
+    <block wx:if="{{ended.length}}">
+      <view class="section">
+        <text class="section-title">已结束</text>
+      </view>
+      <view class="card act ended" wx:for="{{ended}}" wx:key="id">
+        <view class="act-head">
+          <text class="tag {{item.tagClass}}">{{item.phase}}</text>
+          <text class="act-type">{{item.type}}</text>
+        </view>
+        <text class="act-name">{{item.name}}</text>
+        <view class="act-foot">
+          <text class="muted">{{item.dateText}}</text>
+        </view>
+      </view>
+    </block>
+
+    <view class="foot-note">活动详情与报名以校区老师通知为准</view>
+    </block>
+  </block>
+</view>

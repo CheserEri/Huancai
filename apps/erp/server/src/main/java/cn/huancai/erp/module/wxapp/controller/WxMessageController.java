@@ -28,13 +28,17 @@ public class WxMessageController {
     @GetMapping
     public ApiResult<List<WxParentMessageVO>> list(HttpServletRequest request,
                                                    @RequestParam(required = false) Long studentId) {
-        return ApiResult.ok(contentMapper.selectParentMessages(parentId(request), studentId));
+        Long parentId = parentId(request);
+        contentMapper.syncParentReceivers(parentId);
+        return ApiResult.ok(contentMapper.selectParentMessages(parentId, studentId));
     }
 
     @GetMapping("/unread-count")
     public ApiResult<Integer> unreadCount(HttpServletRequest request,
                                           @RequestParam(required = false) Long studentId) {
-        return ApiResult.ok(contentMapper.countUnreadMessages(parentId(request), studentId));
+        Long parentId = parentId(request);
+        contentMapper.syncParentReceivers(parentId);
+        return ApiResult.ok(contentMapper.countUnreadMessages(parentId, studentId));
     }
 
     @PostMapping("/{id}/read")

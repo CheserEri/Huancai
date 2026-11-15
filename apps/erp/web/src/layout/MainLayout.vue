@@ -5,18 +5,17 @@ import {
   AccountBookOutlined,
   AppstoreOutlined,
   BarChartOutlined,
-  BellOutlined,
   CloseOutlined,
-  CustomerServiceOutlined,
   DesktopOutlined,
   DownOutlined,
-  DownloadOutlined,
   GiftOutlined,
   HomeOutlined,
+  IdcardOutlined,
+  LogoutOutlined,
   MenuOutlined,
   NotificationOutlined,
-  QuestionCircleOutlined,
   ReadOutlined,
+  RightOutlined,
   RocketOutlined,
   SettingOutlined,
   TeamOutlined,
@@ -24,7 +23,16 @@ import {
 } from '@ant-design/icons-vue'
 import { menuIndex } from '../config/menu'
 import { fetchProfile, logout as logoutRequest } from '../api/client'
-import { authState, clearLogin, hasMenuPermission, HOME_PATH, updateProfile, visibleMenuGroups } from '../stores/auth'
+import {
+  authState,
+  clearLogin,
+  hasMenuPermission,
+  HOME_PATH,
+  roleText,
+  updateProfile,
+  visibleMenuGroups,
+  type AuthUser,
+} from '../stores/auth'
 import { closeTab, openTab, workTabs } from '../stores/workspace'
 
 const route = useRoute()
@@ -44,18 +52,15 @@ const groupIcons: Record<string, Component> = {
 }
 
 const expanded = ref('home')
-const campus = ref('buoyant')
 const collapsed = ref(false)
-
-const campusOptions = [
-  { value: 'all', label: '全部校区' },
-  { value: 'buoyant', label: '鲅鱼圈校区' },
-  { value: 'xinmin', label: '新民校区' },
-]
 
 watch(
   () => route.path,
   (path) => {
+    if (path === '/profile') {
+      openTab('/profile', '个人中心')
+      return
+    }
     const entry = menuEntryFor(path)
     if (entry) {
       openTab(path, path.startsWith('/classDetail') ? '班级详情' : entry.title)
@@ -113,9 +118,15 @@ async function logout() {
   router.replace('/login')
 }
 
+function goProfile() {
+  router.push('/profile')
+}
+
 /** 当前账号可见的菜单：由登录账号的菜单权限决定。 */
 const groups = computed(() => visibleMenuGroups(authState.permissions))
-const currentUser = computed(() => authState.user ?? { name: '', role: '' })
+const currentUser = computed<AuthUser>(
+  () => authState.user ?? { staffId: 0, name: '', role: '', permissions: [] },
+)
 
 onMounted(async () => {
   try {
@@ -180,14 +191,6 @@ onMounted(async () => {
             <span>试用手机 App</span>
             <i class="red-dot" />
           </div>
-          <div class="user">
-            <div class="avatar">幻</div>
-            <div class="user-meta">
-              <div class="user-name">{{ currentUser.name || '幻彩教育' }}</div>
-              <div class="user-ver">{{ currentUser.role === 'admin' ? '管理员' : '版本 v13.0' }}</div>
-            </div>
-            <span class="logout" @click="logout">退出</span>
-          </div>
         </div>
       </aside>
 
@@ -213,19 +216,40 @@ onMounted(async () => {
           </div>
 
           <div class="top-actions">
-            <a-select
-              v-model:value="campus"
-              :options="campusOptions"
-              size="small"
-              :bordered="false"
-              style="width: 124px"
-            />
-            <DesktopOutlined class="action-icon" title="数据大屏" />
-            <QuestionCircleOutlined class="action-icon" title="帮助" />
-            <DownloadOutlined class="action-icon" title="下载客户端" />
-            <BellOutlined class="action-icon" title="通知" />
-            <CustomerServiceOutlined class="action-icon" title="在线客服" />
-            <div class="top-avatar"><UserOutlined /></div>
+            <a-popover
+              placement="bottomRight"
+              trigger="hover"
+              :arrow="false"
+              overlay-class-name="account-popover"
+            >
+              <template #content>
+                <div class="account-card">
+                  <div class="account-head">
+                    <div class="account-avatar"><UserOutlined /></div>
+                    <div class="account-head-text">
+                      <div class="account-name">{{ currentUser.name || '未登录' }}</div>
+                      <div class="account-phone">{{ currentUser.phone || '未绑定手机号' }}</div>
+                    </div>
+                  </div>
+                  <div class="account-entry" @click="goProfile">
+                    <IdcardOutlined class="account-entry-icon" />
+                    <div class="account-entry-text">
+                      <div class="account-entry-title">个人中心</div>
+                      <div class="account-entry-sub">
+                        {{ currentUser.account || currentUser.name
+                        }}{{ currentUser.role ? `（${roleText(currentUser.role)}）` : '' }}
+                      </div>
+                    </div>
+                    <RightOutlined class="account-entry-arrow" />
+                  </div>
+                  <div class="account-logout" @click="logout">
+                    <LogoutOutlined />
+                    <span>退出登录</span>
+                  </div>
+                </div>
+              </template>
+              <div class="top-avatar" title="账号信息"><UserOutlined /></div>
+            </a-popover>
           </div>
         </header>
 
@@ -270,8 +294,7 @@ onMounted(async () => {
 
 .side.collapsed .nav-title,
 .side.collapsed .nav-arrow,
-.side.collapsed .app-entry span,
-.side.collapsed .user-meta {
+.side.collapsed .app-entry span {
   display: none;
 }
 
@@ -281,10 +304,6 @@ onMounted(async () => {
 }
 
 .side.collapsed .app-entry {
-  justify-content: center;
-}
-
-.side.collapsed .user {
   justify-content: center;
 }
 
@@ -444,48 +463,6 @@ onMounted(async () => {
   background: #f5222d;
 }
 
-.user {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-top: 10px;
-}
-
-.avatar {
-  width: 30px;
-  height: 30px;
-  flex: 0 0 30px;
-  border-radius: 50%;
-  background: #2b3b55;
-  color: #dfe7f3;
-  font-size: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.user-name {
-  font-size: 13px;
-  color: #dfe7f3;
-}
-
-.user-ver {
-  font-size: 11px;
-  color: #64748b;
-  margin-top: 1px;
-}
-
-.logout {
-  margin-left: auto;
-  font-size: 12px;
-  color: #64748b;
-  cursor: pointer;
-}
-
-.logout:hover {
-  color: #fff;
-}
-
 /* ---------- 右侧主区 ---------- */
 .main {
   flex: 1;
@@ -619,15 +596,6 @@ onMounted(async () => {
   color: var(--text-2);
 }
 
-.action-icon {
-  font-size: 16px;
-  cursor: pointer;
-}
-
-.action-icon:hover {
-  color: var(--brand);
-}
-
 .top-avatar {
   width: 30px;
   height: 30px;
@@ -641,9 +609,120 @@ onMounted(async () => {
   cursor: pointer;
 }
 
+.top-avatar:hover {
+  background: #e3e8f0;
+}
+
 .content {
   flex: 1;
   min-height: 0;
   overflow: auto;
+}
+</style>
+
+<style>
+/* 头像悬浮卡片由 Popover 挂载到 body，需使用非 scoped 样式 */
+.account-popover .ant-popover-inner {
+  padding: 0;
+  border-radius: 10px;
+  box-shadow: 0 6px 24px rgba(15, 23, 42, 0.12);
+}
+
+.account-card {
+  width: 288px;
+  padding: 18px 18px 0;
+}
+
+.account-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding-bottom: 16px;
+}
+
+.account-avatar {
+  width: 56px;
+  height: 56px;
+  flex: 0 0 56px;
+  border-radius: 50%;
+  background: #eceff3;
+  color: #a8b0ba;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+}
+
+.account-head-text {
+  min-width: 0;
+}
+
+.account-name {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.account-phone {
+  margin-top: 4px;
+  font-size: 13px;
+  color: var(--text-3);
+}
+
+.account-entry {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0 14px;
+  cursor: pointer;
+}
+
+.account-entry:hover .account-entry-title {
+  color: var(--brand);
+}
+
+.account-entry-icon {
+  font-size: 18px;
+  color: var(--text-2);
+}
+
+.account-entry-text {
+  min-width: 0;
+}
+
+.account-entry-title {
+  font-size: 14px;
+  color: var(--text);
+}
+
+.account-entry-sub {
+  margin-top: 3px;
+  font-size: 12px;
+  color: var(--text-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.account-entry-arrow {
+  margin-left: auto;
+  font-size: 11px;
+  color: #c3c8cf;
+}
+
+.account-logout {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 -18px;
+  padding: 13px 18px;
+  border-top: 1px solid var(--line);
+  font-size: 14px;
+  color: var(--text-2);
+  cursor: pointer;
+}
+
+.account-logout:hover {
+  color: #f5222d;
 }
 </style>

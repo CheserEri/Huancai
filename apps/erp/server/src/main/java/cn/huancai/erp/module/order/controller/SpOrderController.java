@@ -23,7 +23,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 
-/** 校宝订单列表镜像接口（只读）。 */
+/** 历史订单列表镜像接口（只读）。 */
 @RestController
 @RequestMapping("/api/sp-orders")
 public class SpOrderController {
@@ -71,7 +71,7 @@ public class SpOrderController {
         return order == null ? ApiResult.fail("订单不存在") : ApiResult.ok(order);
     }
 
-    /** 作废订单：只改本地状态，不写校宝。 */
+    /** 作废订单：只改本地状态，不写原系统。 */
     @PostMapping("/{id}/void")
     public ApiResult<SpOrderVO> voidOrder(@PathVariable Long id, @RequestBody VoidOrderRequest request) {
         try {

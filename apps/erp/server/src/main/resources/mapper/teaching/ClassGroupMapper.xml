@@ -238,7 +238,6 @@
       SELECT COALESCE(t.name, cg.teacher_text) AS name
       FROM class_group cg
       LEFT JOIN staff t ON t.id = cg.teacher_id
-      WHERE cg.source = '校宝班级列表'
     ) x
     WHERE name IS NOT NULL AND name &lt;&gt; ''
     ORDER BY name
@@ -247,7 +246,7 @@
   <select id="selectLessonClasses" resultType="java.lang.String">
     SELECT DISTINCT lesson_class_name
     FROM class_group
-    WHERE source = '校宝班级列表' AND lesson_class_name IS NOT NULL AND lesson_class_name &lt;&gt; ''
+    WHERE lesson_class_name IS NOT NULL AND lesson_class_name &lt;&gt; ''
     ORDER BY lesson_class_name
   </select>
 
@@ -255,7 +254,7 @@
     SELECT DISTINCT c.name
     FROM class_group cg
     JOIN course c ON c.id = cg.course_id
-    WHERE cg.source = '校宝班级列表' AND c.name IS NOT NULL AND c.name &lt;&gt; ''
+    WHERE c.name IS NOT NULL AND c.name &lt;&gt; ''
     ORDER BY c.name
   </select>
 
@@ -263,14 +262,14 @@
     SELECT DISTINCT c.category
     FROM class_group cg
     JOIN course c ON c.id = cg.course_id
-    WHERE cg.source = '校宝班级列表' AND c.category IS NOT NULL AND c.category &lt;&gt; ''
+    WHERE c.category IS NOT NULL AND c.category &lt;&gt; ''
     ORDER BY c.category
   </select>
 
   <select id="selectRooms" resultType="java.lang.String">
     SELECT DISTINCT room
     FROM class_group
-    WHERE source = '校宝班级列表' AND room IS NOT NULL AND room &lt;&gt; ''
+    WHERE room IS NOT NULL AND room &lt;&gt; ''
     ORDER BY room
   </select>
 

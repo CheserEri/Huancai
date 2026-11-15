@@ -1,0 +1,165 @@
+<view class="home">
+  <view class="hero">
+    <view class="orb orb-a"></view>
+    <view class="orb orb-b"></view>
+
+    <view class="hero-head">
+      <view class="brand">
+        <view class="brand-mark">幻</view>
+        <view class="brand-lockup">
+          <text class="brand-name">幻彩学堂</text>
+          <text class="brand-tag">家长端</text>
+        </view>
+      </view>
+      <text class="greet">{{greeting}}，家长</text>
+    </view>
+
+    <scroll-view class="child-tabs" scroll-x wx:if="{{children.length > 1}}">
+      <view
+        class="child-tab {{item.studentId === childId ? 'on' : ''}}"
+        wx:for="{{children}}"
+        wx:key="studentId"
+        data-id="{{item.studentId}}"
+        bindtap="switchChild"
+      >
+        <text class="child-dot">{{item.initial}}</text>
+        <text class="child-name">{{item.name}}</text>
+      </view>
+    </scroll-view>
+
+    <view class="hero-card" wx:if="{{home}}">
+      <view class="hero-main">
+        <text class="hero-label">{{home.child.name}} 的剩余课时</text>
+        <view class="hero-value">{{stat.remainText}}<text class="hero-unit">课时</text></view>
+        <text class="hero-sub">{{home.child.grade || '在读学员'}}{{home.child.campusName ? ' · ' + home.child.campusName : ''}}</text>
+        <view class="hero-progress">
+          <view class="hero-progress-inner" style="width: {{stat.usedPercent}}%"></view>
+        </view>
+        <text class="hero-progress-text">课时已使用 {{stat.usedPercent}}%</text>
+      </view>
+      <view class="hero-badge" bindtap="goLessons">
+        <text class="hero-badge-num">{{stat.courseCount}}</text>
+        <text class="hero-badge-label">在读课程</text>
+      </view>
+    </view>
+  </view>
+
+  <view class="body">
+    <view class="card loading-card" wx:if="{{loading}}">
+      <text class="muted">正在加载孩子的学习数据…</text>
+    </view>
+
+    <view class="card empty" wx:elif="{{error}}">
+      <view class="empty-icon">!</view>
+      <view>{{error}}</view>
+      <button class="btn plain-btn" bindtap="retry">重新加载</button>
+    </view>
+
+    <view class="card empty" wx:elif="{{noChild}}">
+      <view class="empty-icon">+</view>
+      <view class="empty-title">还没有绑定孩子</view>
+      <view class="muted empty-desc">绑定后即可查看剩余课时、课堂表现和成绩变化</view>
+      <button class="btn plain-btn" bindtap="goBind">绑定孩子</button>
+    </view>
+
+    <block wx:elif="{{home}}">
+      <view class="quick card">
+        <view class="quick-item" bindtap="goLessons">
+          <text class="quick-num">{{stat.courseCount}}</text>
+          <text class="quick-label">在读课程</text>
+        </view>
+        <view class="quick-item" bindtap="goLessons">
+          <text class="quick-num">{{stat.upcomingCount}}</text>
+          <text class="quick-label">待上课程</text>
+        </view>
+        <view class="quick-item" bindtap="goComments">
+          <text class="quick-num">{{stat.unread}}</text>
+          <text class="quick-label">未读点评</text>
+        </view>
+      </view>
+
+      <view class="card notice-entry" bindtap="goMessages">
+        <view class="notice-left">
+          <text class="notice-icon">信</text>
+          <view class="notice-text">
+            <text class="notice-title">消息通知</text>
+            <text class="muted">休课通知与上课安排</text>
+          </view>
+        </view>
+        <view class="notice-right">
+          <text class="notice-badge" wx:if="{{messageUnread > 0}}">{{messageUnread}}</text>
+          <text class="notice-arrow">›</text>
+        </view>
+      </view>
+
+      <view class="section">
+        <text class="section-title">最近课堂表现</text>
+        <text class="section-more" bindtap="goComments">全部点评 ›</text>
+      </view>
+      <view class="card comment-card" wx:if="{{latestComment}}" bindtap="goComments">
+        <view class="comment-head">
+          <text class="tag {{latestComment.isNew ? '' : 'tag-gray'}}">{{latestComment.rating || '课堂表现'}}</text>
+          <text class="muted">{{latestComment.dateText}}</text>
+        </view>
+        <text class="comment-text">{{latestComment.content}}</text>
+        <view class="comment-meta">
+          <text>{{latestComment.courseName || latestComment.className}}</text>
+          <text wx:if="{{latestComment.teacherName}}"> · {{latestComment.teacherName}} 老师</text>
+        </view>
+      </view>
+      <view class="card empty small" wx:else>暂时还没有课堂点评</view>
+
+      <view class="section">
+        <text class="section-title">成绩动态</text>
+        <text class="section-more" bindtap="goGrades">成绩趋势 ›</text>
+      </view>
+      <view class="card grade-card" wx:if="{{latestGrade}}" bindtap="goGrades">
+        <view class="grade-score">
+          <text>{{latestGrade.scoreText}}</text>
+          <text class="score-unit">分</text>
+        </view>
+        <view class="grade-info">
+          <text class="grade-name">{{latestGrade.examName}}</text>
+          <text class="muted">{{latestGrade.dateText}}{{latestGrade.rankText ? ' · ' + latestGrade.rankText : ''}}</text>
+        </view>
+        <text class="delta {{latestGrade.deltaClass}}">{{latestGrade.deltaText}}</text>
+      </view>
+      <view class="card empty small" wx:else>暂时还没有已发布的成绩</view>
+
+      <view class="section">
+        <text class="section-title">即将上课</text>
+      </view>
+      <view class="card list-card" wx:if="{{upcoming.length}}">
+        <view class="lesson" wx:for="{{upcoming}}" wx:key="id">
+          <view class="lesson-date">
+            <text class="ld-day">{{item.dateText}}</text>
+            <text class="ld-time">{{item.timeText}}</text>
+          </view>
+          <view class="lesson-line"></view>
+          <view class="lesson-main">
+            <text class="lesson-name">{{item.className}}</text>
+            <text class="muted">{{item.teacherName || '老师待定'}} · {{item.room || '教室待定'}}</text>
+          </view>
+        </view>
+      </view>
+      <view class="card empty small" wx:else>暂无待上课程</view>
+
+      <view class="section">
+        <text class="section-title">活动福利</text>
+        <text class="section-more" bindtap="goActivities">全部活动 ›</text>
+      </view>
+      <scroll-view class="act-scroll" scroll-x wx:if="{{activities.length}}">
+        <view class="act-card" wx:for="{{activities}}" wx:key="id" bindtap="goActivities">
+          <view class="act-top">
+            <text class="tag {{item.phase === '进行中' ? 'tag-green' : 'tag-gray'}}">{{item.phase}}</text>
+            <text class="act-type">{{item.type}}</text>
+          </view>
+          <text class="act-name">{{item.name}}</text>
+          <text class="act-rule">{{item.ruleTexts[0] || item.type}}</text>
+          <text class="act-date">{{item.dateText}}</text>
+        </view>
+      </scroll-view>
+      <view class="card empty small" wx:else>暂无进行中的活动</view>
+    </block>
+  </view>
+</view>

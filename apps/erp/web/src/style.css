@@ -98,6 +98,91 @@ a {
   padding: 16px 16px 4px;
 }
 
+/* 统一筛选工具栏：白色卡片，左侧筛选项自适应换行，右侧搜索与按钮固定首行 */
+.filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 8px 10px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.filter-bar .filter-fields {
+  flex: 1 1 320px;
+  min-width: 320px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+}
+
+.filter-bar .filter-actions {
+  flex: 0 0 auto;
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.filter-bar .ant-select-selector {
+  height: 32px !important;
+  border-radius: 6px !important;
+}
+
+/* 单选下拉文字垂直居中；多选标签用自身高度，避免被行高挤歪 */
+.filter-bar .ant-select-single .ant-select-selection-item,
+.filter-bar .ant-select-single .ant-select-selection-placeholder {
+  line-height: 30px !important;
+  font-size: 13px;
+}
+
+/* 多选下拉固定单行，超出用 +N 收起，避免撑高工具栏 */
+.filter-bar .ant-select-multiple .ant-select-selector {
+  flex-wrap: nowrap !important;
+  overflow: hidden;
+  align-items: center;
+}
+
+.filter-bar .ant-select-multiple .ant-select-selection-overflow,
+.filter-bar .ant-select-multiple .ant-select-selection-overflow-item {
+  flex-wrap: nowrap !important;
+  align-items: center;
+  max-width: 100%;
+}
+
+.filter-bar .ant-select-multiple .ant-select-selection-item {
+  display: flex;
+  align-items: center;
+  height: 22px;
+  line-height: 1 !important;
+  max-width: 80px;
+  margin: 0;
+}
+
+.filter-bar .ant-input-affix-wrapper,
+.filter-bar .ant-picker {
+  height: 32px;
+  border-radius: 6px;
+}
+
+.filter-bar .ant-btn {
+  height: 32px;
+  min-width: 64px;
+  border-radius: 6px;
+}
+
+.filter-select {
+  font-size: 13px;
+}
+
+.filter-search {
+  width: 200px;
+}
+
 .filter-row {
   display: flex;
   flex-wrap: wrap;

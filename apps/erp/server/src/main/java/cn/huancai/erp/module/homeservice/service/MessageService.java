@@ -96,14 +96,38 @@ public class MessageService {
     public WxMessage sendMessage(String title, String content, String msgType, String audienceType,
                                  List<Long> classIds, List<Long> studentIds) {
         List<MessageStudentVO> students = resolveStudents(audienceType, classIds, studentIds);
-        if (students.isEmpty()) {
-            throw new IllegalArgumentException("所选范围没有可推送的学员，请检查班级或学员");
-        }
-
         String classNameText = null;
         if (classIds != null && !classIds.isEmpty()) {
             List<String> names = messageMapper.selectClassNames(classIds);
             classNameText = names.isEmpty() ? null : String.join("、", names);
+        }
+        return sendToStudents(title, content, msgType, audienceType, classNameText, students);
+    }
+
+    /**
+     * 指定目标学员落库并生成家长接收记录，供消息推送与活动海报推送复用。
+     *
+     * @return 已写入的消息主记录（含目标学员数、触达家长数）
+     */
+    @Transactional
+    public WxMessage sendToStudents(String title, String content, String msgType, String audienceType,
+                                    String classNameText, List<MessageStudentVO> students) {
+        if (students == null || students.isEmpty()) {
+            throw new IllegalArgumentException("所选范围没有可推送的学员，请检查班级或学员");
+        }
+
+        Map<Long, String> studentNames = new HashMap<>();
+        for (MessageStudentVO student : students) {
+            studentNames.put(student.getId(), student.getName());
+        }
+        // 当前已成立绑定关系的家长只用于统计触达，未绑定不影响消息生成
+        Set<String> seen = new HashSet<>();
+        List<MessageParentVO> parents = new ArrayList<>();
+        List<Long> ids = new ArrayList<>(studentNames.keySet());
+        for (MessageParentVO parent : messageMapper.selectParentsByStudentIds(ids)) {
+            if (seen.add(parent.getParentId() + "-" + parent.getStudentId())) {
+                parents.add(parent);
+            }
         }
 
         WxMessage message = new WxMessage();
@@ -113,30 +137,15 @@ public class MessageService {
         message.setAudienceType(audienceType);
         message.setClassNameText(classNameText);
         message.setTargetCount(students.size());
-        message.setReceiverCount(0);
+        message.setReceiverCount(parents.size());
         message.setSender(operatorResolver.resolve(null));
         LocalDateTime now = LocalDateTime.now();
         message.setSentAt(now);
         message.setCreatedAt(now);
         messageMapper.insert(message);
+        messageMapper.insertTargets(message.getId(), students);
 
-        Map<Long, String> studentNames = new HashMap<>();
-        for (MessageStudentVO student : students) {
-            studentNames.put(student.getId(), student.getName());
-        }
-        List<Long> ids = new ArrayList<>(studentNames.keySet());
-        List<MessageParentVO> parents = messageMapper.selectParentsByStudentIds(ids);
-        if (parents.isEmpty()) {
-            throw new IllegalArgumentException("所选学员的家长均未绑定微信小程序，无法推送，请先让家长在小程序绑定孩子");
-        }
-
-        Set<String> seen = new HashSet<>();
-        int receiverCount = 0;
         for (MessageParentVO parent : parents) {
-            String key = parent.getParentId() + "-" + parent.getStudentId();
-            if (!seen.add(key)) {
-                continue;
-            }
             WxMessageReceiver receiver = new WxMessageReceiver();
             receiver.setMessageId(message.getId());
             receiver.setParentId(parent.getParentId());
@@ -145,27 +154,8 @@ public class MessageService {
             receiver.setReadFlag(0);
             receiver.setCreatedAt(now);
             receiverMapper.insert(receiver);
-            receiverCount++;
         }
-        if (receiverCount == 0) {
-            throw new IllegalArgumentException("所选学员的家长均未绑定微信小程序，无法推送，请先让家长在小程序绑定孩子");
-        }
-        message.setReceiverCount(receiverCount);
-        messageMapper.updateById(message);
         return message;
-    }
-
-    /** 统计所选范围内已绑定微信小程序的家长数，用于发送前判断通知能否送达。 */
-    public int countReachableParents(String audienceType, List<Long> classIds, List<Long> studentIds) {
-        List<MessageStudentVO> students = resolveStudents(audienceType, classIds, studentIds);
-        if (students.isEmpty()) {
-            return 0;
-        }
-        List<Long> ids = new ArrayList<>();
-        for (MessageStudentVO student : students) {
-            ids.add(student.getId());
-        }
-        return messageMapper.selectParentsByStudentIds(ids).size();
     }
 
     private List<MessageStudentVO> resolveStudents(String audienceType, List<Long> classIds, List<Long> studentIds) {
@@ -181,7 +171,7 @@ public class MessageService {
             }
             return messageMapper.selectStudentsByIds(studentIds);
         }
-        return messageMapper.selectAllBoundStudents();
+        return messageMapper.selectAllStudents();
     }
 
     private String trim(String value) {

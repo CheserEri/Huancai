@@ -13,6 +13,7 @@ import {
   type TeachingLogStudent,
 } from '../api/client'
 import Attendance from './Attendance.vue'
+import FilterBar from '../components/FilterBar.vue'
 
 const tab = ref<'log' | 'records'>('log')
 const subTab = ref<'today' | 'makeup'>('today')
@@ -24,12 +25,12 @@ function todayText() {
 }
 
 const selectedDate = ref(todayText())
-const campusId = ref<'all' | number>('all')
-const room = ref('all')
-const lessonMode = ref<'all' | number>('all')
-const courseId = ref<'all' | number>('all')
-const teacher = ref('all')
-const recordStatus = ref<'all' | '未记录' | '已记录'>('all')
+const campusId = ref<number | undefined>(undefined)
+const room = ref<string | undefined>(undefined)
+const lessonMode = ref<number | undefined>(undefined)
+const courseId = ref<number | undefined>(undefined)
+const teacher = ref<string | undefined>(undefined)
+const recordStatus = ref<'未记录' | '已记录' | undefined>(undefined)
 const keyword = ref('')
 
 const rows = ref<TeachingLogRow[]>([])
@@ -68,12 +69,12 @@ async function load() {
     rows.value = await fetchTeachingLogs({
       date: subTab.value === 'today' ? selectedDate.value : undefined,
       supplement: subTab.value === 'makeup',
-      campusId: campusId.value === 'all' ? undefined : Number(campusId.value),
-      room: room.value === 'all' ? undefined : room.value,
-      lessonMode: lessonMode.value === 'all' ? undefined : Number(lessonMode.value),
-      courseId: courseId.value === 'all' ? undefined : Number(courseId.value),
-      teacher: teacher.value === 'all' ? undefined : teacher.value,
-      status: recordStatus.value === 'all' ? undefined : recordStatus.value,
+      campusId: campusId.value,
+      room: room.value,
+      lessonMode: lessonMode.value,
+      courseId: courseId.value,
+      teacher: teacher.value,
+      status: recordStatus.value,
       keyword: keyword.value.trim() || undefined,
     })
   } catch (e) {
@@ -81,6 +82,17 @@ async function load() {
   } finally {
     loading.value = false
   }
+}
+
+function reset() {
+  campusId.value = undefined
+  room.value = undefined
+  lessonMode.value = undefined
+  courseId.value = undefined
+  teacher.value = undefined
+  recordStatus.value = undefined
+  keyword.value = ''
+  load()
 }
 
 function switchSubTab(key: 'today' | 'makeup') {
@@ -520,53 +532,87 @@ onMounted(async () => {
         <span class="sub-tab" :class="{ active: subTab === 'makeup' }" @click="switchSubTab('makeup')">补记上课</span>
       </div>
 
-      <div class="filter-card">
-        <div class="filter-row">
-          <a-select v-model:value="campusId" size="small" class="filter-select" @change="load">
-            <a-select-option value="all">校区</a-select-option>
-            <a-select-option v-for="item in options.campuses" :key="item.id" :value="item.id">{{ item.name }}</a-select-option>
-          </a-select>
-          <a-select v-model:value="room" size="small" class="filter-select" @change="load">
-            <a-select-option value="all">教室</a-select-option>
-            <a-select-option v-for="item in options.rooms" :key="item" :value="item">{{ item }}</a-select-option>
-          </a-select>
-          <a-select v-model:value="lessonMode" size="small" class="filter-select" @change="load">
-            <a-select-option value="all">授课模式</a-select-option>
-            <a-select-option :value="1">班课</a-select-option>
-            <a-select-option :value="2">一对一</a-select-option>
-          </a-select>
-          <a-select v-model:value="courseId" size="small" class="filter-select wide" @change="load">
-            <a-select-option value="all">科目</a-select-option>
-            <a-select-option v-for="item in options.courses" :key="item.id" :value="item.id">{{ item.name }}</a-select-option>
-          </a-select>
-          <a-select v-model:value="teacher" size="small" class="filter-select" @change="load">
-            <a-select-option value="all">上课教师</a-select-option>
-            <a-select-option v-for="item in options.teachers" :key="item.id" :value="item.name">{{ item.name }}</a-select-option>
-          </a-select>
-          <a-select v-model:value="recordStatus" size="small" class="filter-select" @change="load">
-            <a-select-option value="all">记上课状态</a-select-option>
-            <a-select-option value="未记录">未记录</a-select-option>
-            <a-select-option value="已记录">已记录</a-select-option>
-          </a-select>
-          <span class="filter-spacer" />
+      <FilterBar @search="load" @reset="reset">
+        <a-select
+          v-model:value="campusId"
+          class="filter-select"
+          placeholder="全部校区"
+          allow-clear
+          style="width: 150px"
+          @change="load"
+        >
+          <a-select-option v-for="item in options.campuses" :key="item.id" :value="item.id">{{ item.name }}</a-select-option>
+        </a-select>
+        <a-select
+          v-model:value="room"
+          class="filter-select"
+          placeholder="全部教室"
+          allow-clear
+          style="width: 130px"
+          @change="load"
+        >
+          <a-select-option v-for="item in options.rooms" :key="item" :value="item">{{ item }}</a-select-option>
+        </a-select>
+        <a-select
+          v-model:value="lessonMode"
+          class="filter-select"
+          placeholder="全部授课模式"
+          allow-clear
+          style="width: 130px"
+          @change="load"
+        >
+          <a-select-option :value="1">班课</a-select-option>
+          <a-select-option :value="2">一对一</a-select-option>
+        </a-select>
+        <a-select
+          v-model:value="courseId"
+          class="filter-select"
+          placeholder="全部科目"
+          allow-clear
+          style="width: 140px"
+          @change="load"
+        >
+          <a-select-option v-for="item in options.courses" :key="item.id" :value="item.id">{{ item.name }}</a-select-option>
+        </a-select>
+        <a-select
+          v-model:value="teacher"
+          class="filter-select"
+          placeholder="全部教师"
+          allow-clear
+          style="width: 130px"
+          @change="load"
+        >
+          <a-select-option v-for="item in options.teachers" :key="item.id" :value="item.name">{{ item.name }}</a-select-option>
+        </a-select>
+        <a-select
+          v-model:value="recordStatus"
+          class="filter-select"
+          placeholder="全部记上课状态"
+          allow-clear
+          style="width: 150px"
+          @change="load"
+        >
+          <a-select-option value="未记录">未记录</a-select-option>
+          <a-select-option value="已记录">已记录</a-select-option>
+        </a-select>
+        <template #search>
           <a-input
             v-model:value="keyword"
-            size="small"
-            class="keyword"
+            class="filter-search"
             placeholder="请输入班级/一对一名称"
             allow-clear
             @press-enter="load"
           >
-            <template #suffix><SearchOutlined class="search-icon" @click="load" /></template>
+            <template #prefix><SearchOutlined class="search-icon" /></template>
           </a-input>
-        </div>
-      </div>
+        </template>
+      </FilterBar>
 
       <div class="action-bar">
-        <a-button type="primary" size="small" @click="openQuick">未排课记上课</a-button>
-        <a-button size="small" @click="openBatch">批量打印签到名单</a-button>
+        <a-button type="primary" @click="openQuick">未排课记上课</a-button>
+        <a-button @click="openBatch">批量打印签到表</a-button>
         <span class="filter-spacer" />
-        <a-button size="small" class="ghost-btn">自定义列表</a-button>
+        <a-button class="ghost-btn">自定义列表</a-button>
       </div>
 
       <div class="result-line">共 {{ rows.length }} 条记录</div>
@@ -622,7 +668,7 @@ onMounted(async () => {
         <span class="summary-sep">|</span>
         <span>实到 {{ presentCount }} 人</span>
         <span class="filter-spacer" />
-        <a-button size="small" @click="printRoster">打印上课名单</a-button>
+        <a-button size="small" @click="printRoster">打印签到表</a-button>
         <a-button v-if="!recordReadonly" size="small" @click="markAllPresent">全部到课</a-button>
       </div>
       <a-table
@@ -682,14 +728,14 @@ onMounted(async () => {
 
     <a-modal
       v-model:open="batchOpen"
-      title="批量打印签到名单"
+      title="批量打印签到表"
       width="760px"
       :confirm-loading="batchPrinting"
-      ok-text="打印所选名单"
+      ok-text="打印所选签到表"
       :ok-button-props="{ disabled: !batchSelectedKeys.length }"
       @ok="printBatch"
     >
-      <div class="batch-tip">勾选需要打印的班级，每个班级生成一页 A4 横向签到名单，所选班级合并为一次打印。</div>
+      <div class="batch-tip">勾选需要打印的班级，每个班级生成一页 A4 横向签到表，所选班级合并为一次打印。</div>
       <a-table
         :columns="batchColumns"
         :data-source="rows"
@@ -856,36 +902,12 @@ onMounted(async () => {
   background: #1677ff;
 }
 
-.filter-card {
-  padding: 10px 0 4px;
-}
-
-.filter-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.filter-select {
-  width: 100px;
-}
-
-.filter-select.wide {
-  width: 130px;
-}
-
 .filter-spacer {
   flex: 1;
 }
 
-.keyword {
-  width: 220px;
-}
-
 .search-icon {
   color: #8c8c8c;
-  cursor: pointer;
 }
 
 .action-bar {

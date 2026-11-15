@@ -14,9 +14,28 @@ export const HOME_PATH = '/desktop'
 export interface AuthUser {
   staffId: number
   name: string
+  phone?: string
+  account?: string
+  title?: string
   role: string
   campusId?: number
+  campusName?: string
   permissions: string[]
+}
+
+/** 账号角色显示文案，跨页面统一使用。 */
+export const ROLE_TEXT: Record<string, string> = {
+  admin: '系统管理员',
+  manager: '校长',
+  finance: '财务',
+  reception: '前台',
+  consultant: '顾问',
+  teacher: '教师',
+  assistant: '助教',
+}
+
+export function roleText(role?: string): string {
+  return ROLE_TEXT[role ?? ''] ?? '员工'
 }
 
 function readUser(): AuthUser | null {
@@ -29,8 +48,12 @@ function readUser(): AuthUser | null {
     return {
       staffId: Number(parsed.staffId ?? 0),
       name: parsed.name,
+      phone: parsed.phone,
+      account: parsed.account,
+      title: parsed.title,
       role: parsed.role ?? '',
       campusId: parsed.campusId,
+      campusName: parsed.campusName,
       permissions,
     }
   } catch {
@@ -63,8 +86,12 @@ export function saveLogin(user: AuthUser & { token: string }) {
   const profile: AuthUser = {
     staffId: user.staffId,
     name: user.name,
+    phone: user.phone,
+    account: user.account,
+    title: user.title,
     role: user.role,
     campusId: user.campusId,
+    campusName: user.campusName,
     permissions: user.permissions ?? [],
   }
   localStorage.setItem(TOKEN_KEY, user.token)
@@ -80,8 +107,12 @@ export function updateProfile(user: Omit<AuthUser, 'permissions'> & { permission
   const profile: AuthUser = {
     staffId: user.staffId,
     name: user.name,
+    phone: user.phone,
+    account: user.account,
+    title: user.title,
     role: user.role,
     campusId: user.campusId,
+    campusName: user.campusName,
     permissions: user.permissions ?? [],
   }
   localStorage.setItem(USER_KEY, JSON.stringify(profile))

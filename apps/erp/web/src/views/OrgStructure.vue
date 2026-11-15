@@ -1,10 +1,17 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
-import { message } from 'ant-design-vue'
+import { computed, onMounted, reactive, ref } from 'vue'
+import { PlusOutlined } from '@ant-design/icons-vue'
+import { Modal, message } from 'ant-design-vue'
 import {
+  createPermissionTemplate,
+  deletePermissionTemplate,
+  fetchPermissionTemplates,
   fetchStaff,
   fetchStaffOptions,
+  updatePermissionTemplate,
   updateStaffPermissions,
+  type PermissionTemplatePayload,
+  type PermissionTemplateRow,
   type StaffOptions,
   type StaffRow,
 } from '../api/client'
@@ -26,21 +33,25 @@ interface PermGroup {
 
 const roleText: Record<string, string> = {
   admin: '管理员',
-  manager: '校区主管',
-  teacher: '教师',
-  consultant: '顾问',
+  manager: '校长',
   finance: '财务',
+  reception: '前台',
+  consultant: '顾问',
+  teacher: '教师',
+  assistant: '助教',
 }
 
 const roleColor: Record<string, string> = {
   admin: 'red',
   manager: 'gold',
-  teacher: 'blue',
-  consultant: 'green',
   finance: 'purple',
+  reception: 'cyan',
+  consultant: 'green',
+  teacher: 'blue',
+  assistant: 'geekblue',
 }
 
-const roleOrder = ['admin', 'manager', 'teacher', 'consultant', 'finance']
+const roleOrder = ['admin', 'manager', 'finance', 'reception', 'consultant', 'teacher', 'assistant']
 
 const loading = ref(false)
 const saving = ref(false)
@@ -52,6 +63,8 @@ const expandedKeys = ref<string[]>([])
 const drawerOpen = ref(false)
 const current = ref<StaffRow | null>(null)
 const draft = ref<string[]>([])
+const selectedTemplateId = ref<number | null>(null)
+const activeTab = ref('staff')
 
 /** 只有管理员可以分配权限；其余账号在此页只读。 */
 const isAdmin = computed(() => authState.user?.role === 'admin')
@@ -71,10 +84,19 @@ const filteredRows = computed(() => {
   const kw = keyword.value.trim().toLowerCase()
   if (!kw) return rows.value
   return rows.value.filter((row) =>
-    [row.name, row.title, row.phone, row.account, row.campusName, roleText[row.role]]
+    [row.name, row.title, row.phone, row.account, row.campusName, ...roleLabels(row)]
       .some((value) => (value ?? '').toLowerCase().includes(kw)),
   )
 })
+
+/** 主角色 + 兼任角色，用于展示与统计。 */
+function roleList(row: StaffRow) {
+  return [row.role, ...(row.extraRoles ?? [])]
+}
+
+function roleLabels(row: StaffRow) {
+  return roleList(row).map((role) => roleText[role] ?? role)
+}
 
 function roleRank(role: string) {
   const index = roleOrder.indexOf(role)
@@ -146,8 +168,8 @@ const scopeSummary = computed(() => {
   return {
     total: list.length,
     active: list.filter((row) => row.status === 1).length,
-    teachers: list.filter((row) => row.role === 'teacher').length,
-    consultants: list.filter((row) => row.role === 'consultant').length,
+    teachers: list.filter((row) => roleList(row).includes('teacher')).length,
+    consultants: list.filter((row) => roleList(row).includes('consultant')).length,
   }
 })
 
@@ -180,27 +202,83 @@ function permissionSummary(row: StaffRow) {
 function openPermission(row: StaffRow) {
   current.value = row
   draft.value = row.role === 'admin' ? [] : (row.permissions ?? []).filter((path) => path !== '*')
+  selectedTemplateId.value = null
   drawerOpen.value = true
 }
 
-function groupChecked(group: PermGroup) {
-  return group.items.length > 0 && group.items.every((item) => draft.value.includes(item.value))
+function groupChecked(group: PermGroup, values: string[]) {
+  return group.items.length > 0 && group.items.every((item) => values.includes(item.value))
 }
 
-function groupIndeterminate(group: PermGroup) {
-  const count = group.items.filter((item) => draft.value.includes(item.value)).length
+function groupIndeterminate(group: PermGroup, values: string[]) {
+  const count = group.items.filter((item) => values.includes(item.value)).length
   return count > 0 && count < group.items.length
 }
 
-function toggleGroup(group: PermGroup, event: { target: { checked: boolean } }) {
-  const values = group.items.map((item) => item.value)
-  const rest = draft.value.filter((path) => !values.includes(path))
-  draft.value = event.target.checked ? [...rest, ...values] : rest
+/** 分组全选 / 取消：保持其余分组的勾选不变。 */
+function toggleGroupValues(group: PermGroup, values: string[], checked: boolean) {
+  const paths = group.items.map((item) => item.value)
+  const rest = values.filter((path) => !paths.includes(path))
+  return checked ? [...rest, ...paths] : rest
+}
+
+function toggleStaffGroup(group: PermGroup, event: { target: { checked: boolean } }) {
+  draft.value = toggleGroupValues(group, draft.value, event.target.checked)
 }
 
 function clearAll() {
   draft.value = []
   message.info('已清空，仅保留工作台。保存后生效')
+}
+
+/** 套用模板只做一键填充，保存权限后才写入员工账号。 */
+const templates = ref<PermissionTemplateRow[]>([])
+const templateLoading = ref(false)
+const templateDrawerOpen = ref(false)
+const templateSaving = ref(false)
+const editingTemplateId = ref<number | null>(null)
+const templateDraft = reactive({
+  name: '',
+  role: null as string | null,
+  permissions: [] as string[],
+})
+
+const templateRoleOptions = roleOrder
+  .filter((role) => role !== 'admin')
+  .map((role) => ({ value: role, label: roleText[role] ?? role }))
+
+const editingBuiltin = computed(() =>
+  templates.value.some((item) => item.id === editingTemplateId.value && item.builtin === 1),
+)
+
+const templateColumns = [
+  { title: '模板名称', dataIndex: 'name', width: 180 },
+  { title: '适用角色', dataIndex: 'role', width: 110 },
+  { title: '可见菜单', dataIndex: 'menuCount', width: 150 },
+  { title: '类型', dataIndex: 'builtin', width: 100 },
+  { title: '更新时间', dataIndex: 'updatedAt', width: 170 },
+  { title: '操作', dataIndex: 'action', width: 120 },
+]
+
+const templateOptions = computed(() => {
+  const roles = current.value ? roleList(current.value) : []
+  return [...templates.value]
+    .sort((a, b) => Number(roles.includes(b.role ?? '')) - Number(roles.includes(a.role ?? '')))
+    .map((item) => ({
+      value: item.id,
+      label: item.builtin
+        ? item.name
+        : item.role
+          ? `${item.name} · ${roleText[item.role] ?? item.role}`
+          : item.name,
+    }))
+})
+
+function applyTemplate() {
+  const template = templates.value.find((item) => item.id === selectedTemplateId.value)
+  if (!template) return
+  draft.value = [...template.permissions]
+  message.success(`已套用模板「${template.name}」，点击「保存权限」后生效`)
 }
 
 async function savePermissions() {
@@ -221,85 +299,263 @@ async function savePermissions() {
   }
 }
 
-onMounted(load)
+/* ---------------- 权限模板 ---------------- */
+async function loadTemplates() {
+  templateLoading.value = true
+  try {
+    templates.value = await fetchPermissionTemplates()
+  } catch (e) {
+    message.error(e instanceof Error ? e.message : '加载权限模板失败')
+  } finally {
+    templateLoading.value = false
+  }
+}
+
+function templateMenuCount(row: PermissionTemplateRow) {
+  const paths = (row.permissions ?? []).filter((path) => path !== '*')
+  if (paths.length === 0) return '仅工作台'
+  return `已授权 ${paths.length} 个菜单`
+}
+
+function formatTime(value: string) {
+  if (!value) return '—'
+  return value.replace('T', ' ').slice(0, 16)
+}
+
+function openTemplateCreate() {
+  editingTemplateId.value = null
+  templateDraft.name = ''
+  templateDraft.role = null
+  templateDraft.permissions = []
+  templateDrawerOpen.value = true
+}
+
+function openTemplateEdit(row: PermissionTemplateRow) {
+  editingTemplateId.value = row.id
+  templateDraft.name = row.name
+  templateDraft.role = row.role
+  templateDraft.permissions = [...row.permissions]
+  templateDrawerOpen.value = true
+}
+
+function toggleTemplateGroup(group: PermGroup, event: { target: { checked: boolean } }) {
+  templateDraft.permissions = toggleGroupValues(group, templateDraft.permissions, event.target.checked)
+}
+
+function clearTemplatePermissions() {
+  templateDraft.permissions = []
+}
+
+async function saveTemplate() {
+  if (!editingBuiltin.value && !templateDraft.name.trim()) {
+    message.warning('请填写模板名称')
+    return
+  }
+  templateSaving.value = true
+  try {
+    const payload: PermissionTemplatePayload = editingBuiltin.value
+      ? {
+          name: templateDraft.name,
+          role: templateDraft.role,
+          permissions: templateDraft.permissions,
+        }
+      : {
+          name: templateDraft.name.trim(),
+          role: templateDraft.role,
+          permissions: templateDraft.permissions,
+        }
+    if (editingTemplateId.value === null) {
+      await createPermissionTemplate(payload)
+      message.success('权限模板已创建')
+    } else {
+      await updatePermissionTemplate(editingTemplateId.value, payload)
+      message.success('权限模板已更新')
+    }
+    templateDrawerOpen.value = false
+    await loadTemplates()
+  } catch (e) {
+    message.error(e instanceof Error ? e.message : '保存权限模板失败')
+  } finally {
+    templateSaving.value = false
+  }
+}
+
+function removeTemplate(row: PermissionTemplateRow) {
+  Modal.confirm({
+    title: `确认删除权限模板「${row.name}」？`,
+    content: '删除模板不会影响已经套用该模板的员工权限。',
+    okText: '删除',
+    okType: 'danger',
+    cancelText: '取消',
+    onOk: async () => {
+      try {
+        await deletePermissionTemplate(row.id)
+        message.success('权限模板已删除')
+        await loadTemplates()
+      } catch (e) {
+        message.error(e instanceof Error ? e.message : '删除权限模板失败')
+      }
+    },
+  })
+}
+
+onMounted(() => {
+  load()
+  loadTemplates()
+})
 </script>
 
 <template>
   <div class="page">
-    <div class="org-tip">
-      管理员点击员工卡片即可授予或回收菜单权限；未授权的功能在员工登录后不会显示，直接输入网址会被拦回工作台，对应接口也会拒绝访问。
-      <span v-if="!isAdmin" class="readonly">当前账号不是管理员，仅可查看，无法调整权限。</span>
-    </div>
-
-    <div class="org-layout">
-      <div class="org-side">
-        <div class="side-title">组织架构</div>
-        <a-input
-          v-model:value="keyword"
-          placeholder="搜索姓名 / 职位 / 手机号"
-          size="small"
-          allow-clear
-          style="margin-bottom: 10px"
-        />
-        <a-spin :spinning="loading">
-          <a-tree
-            v-model:expanded-keys="expandedKeys"
-            :tree-data="treeData"
-            :selected-keys="[selectedKey]"
-            block-node
-            @select="onSelect"
-          />
-          <div v-if="!loading && filteredRows.length === 0" class="side-empty">没有匹配的员工</div>
-        </a-spin>
-      </div>
-
-      <div class="org-main">
-        <div class="main-head">
-          <div>
-            <div class="main-title">{{ scopeTitle }}</div>
-            <div class="main-sub">
-              <span>共 <b>{{ scopeSummary.total }}</b> 人</span>
-              <span>在职 <b>{{ scopeSummary.active }}</b></span>
-              <span>教师 <b>{{ scopeSummary.teachers }}</b></span>
-              <span>顾问 <b>{{ scopeSummary.consultants }}</b></span>
-            </div>
-          </div>
-          <span class="muted" style="font-size: 12px">点击员工卡片配置权限</span>
+    <a-tabs v-model:activeKey="activeTab" class="org-tabs">
+      <a-tab-pane key="staff" tab="员工权限">
+        <div class="org-tip">
+          管理员点击员工卡片即可授予或回收菜单权限；未授权的功能在员工登录后不会显示，直接输入网址会被拦回工作台，对应接口也会拒绝访问。
+          <span v-if="!isAdmin" class="readonly">当前账号不是管理员，仅可查看，无法调整权限。</span>
         </div>
 
-        <a-spin :spinning="loading">
-          <div v-if="scopeRows.length > 0" class="staff-grid">
-            <div
-              v-for="row in scopeRows"
-              :key="row.id"
-              class="staff-card"
-              :class="{ inactive: row.status !== 1 }"
-              @click="openPermission(row)"
-            >
-              <div class="staff-avatar">{{ row.name.slice(0, 1) }}</div>
-              <div class="staff-body">
-                <div class="staff-line">
-                  <span class="staff-name">{{ row.name }}</span>
-                  <a-tag :color="roleColor[row.role] ?? 'default'" class="role-tag">
-                    {{ roleText[row.role] ?? row.role }}
-                  </a-tag>
-                  <a-tag v-if="row.status !== 1" class="role-tag">离职</a-tag>
-                </div>
-                <div class="staff-meta">
-                  {{ row.campusName || '未分配校区' }}<template v-if="row.title"> · {{ row.title }}</template>
-                </div>
-                <div class="staff-perm">
-                  <span class="perm-value">{{ permissionSummary(row) }}</span>
-                  <span v-if="!row.account" class="perm-warn">未开通登录账号</span>
+        <div class="org-layout">
+          <div class="org-side">
+            <div class="side-title">组织架构</div>
+            <a-input
+              v-model:value="keyword"
+              placeholder="搜索姓名 / 职位 / 手机号"
+              size="small"
+              allow-clear
+              style="margin-bottom: 10px"
+            />
+            <a-spin :spinning="loading">
+              <a-tree
+                v-model:expanded-keys="expandedKeys"
+                :tree-data="treeData"
+                :selected-keys="[selectedKey]"
+                block-node
+                @select="onSelect"
+              />
+              <div v-if="!loading && filteredRows.length === 0" class="side-empty">没有匹配的员工</div>
+            </a-spin>
+          </div>
+
+          <div class="org-main">
+            <div class="main-head">
+              <div>
+                <div class="main-title">{{ scopeTitle }}</div>
+                <div class="main-sub">
+                  <span>共 <b>{{ scopeSummary.total }}</b> 人</span>
+                  <span>在职 <b>{{ scopeSummary.active }}</b></span>
+                  <span>教师 <b>{{ scopeSummary.teachers }}</b></span>
+                  <span>顾问 <b>{{ scopeSummary.consultants }}</b></span>
                 </div>
               </div>
-              <span class="card-action">{{ isAdmin ? '配置权限' : '查看权限' }}</span>
+              <span class="muted" style="font-size: 12px">点击员工卡片配置权限</span>
             </div>
+
+            <a-spin :spinning="loading">
+              <div v-if="scopeRows.length > 0" class="staff-grid">
+                <div
+                  v-for="row in scopeRows"
+                  :key="row.id"
+                  class="staff-card"
+                  :class="{ inactive: row.status !== 1 }"
+                  @click="openPermission(row)"
+                >
+                  <div class="staff-avatar">{{ row.name.slice(0, 1) }}</div>
+                  <div class="staff-body">
+                    <div class="staff-line">
+                      <span class="staff-name">{{ row.name }}</span>
+                      <a-tag
+                        v-for="role in roleList(row)"
+                        :key="role"
+                        :color="roleColor[role] ?? 'default'"
+                        class="role-tag"
+                      >
+                        {{ roleText[role] ?? role }}
+                      </a-tag>
+                      <a-tag v-if="row.status !== 1" class="role-tag">离职</a-tag>
+                    </div>
+                    <div class="staff-meta">
+                      {{ row.campusName || '未分配校区' }}<template v-if="row.title"> · {{ row.title }}</template>
+                    </div>
+                    <div class="staff-perm">
+                      <span class="perm-value">{{ permissionSummary(row) }}</span>
+                      <span v-if="!row.account" class="perm-warn">未开通登录账号</span>
+                    </div>
+                  </div>
+                  <span class="card-action">{{ isAdmin ? '配置权限' : '查看权限' }}</span>
+                </div>
+              </div>
+              <a-empty v-else description="当前范围暂无员工" style="padding: 40px 0" />
+            </a-spin>
           </div>
-          <a-empty v-else description="当前范围暂无员工" style="padding: 40px 0" />
-        </a-spin>
-      </div>
-    </div>
+        </div>
+      </a-tab-pane>
+
+      <a-tab-pane key="template" tab="权限模板">
+        <div class="org-tip">
+          权限模板是菜单权限的预设组合：在「员工权限」里选中模板即可一键填充勾选，仍需保存后才会写入员工账号；修改模板不会自动同步到已配置的员工。
+          内置模板与职务一一对应，可调整勾选内容但不可删除。
+        </div>
+
+        <div class="template-pane">
+          <div class="main-head">
+            <div>
+              <div class="main-title">权限模板</div>
+              <div class="main-sub">
+                <span>共 <b>{{ templates.length }}</b> 个模板</span>
+              </div>
+            </div>
+            <a-button v-if="isAdmin" type="primary" size="small" @click="openTemplateCreate">
+              <PlusOutlined />新建模板
+            </a-button>
+          </div>
+
+          <a-spin :spinning="templateLoading">
+            <a-table
+              :columns="templateColumns"
+              :data-source="templates"
+              row-key="id"
+              size="middle"
+              :pagination="false"
+            >
+              <template #bodyCell="{ column, record }">
+                <span v-if="column.dataIndex === 'name'">{{ record.name }}</span>
+                <span v-else-if="column.dataIndex === 'role'">
+                  {{ record.role ? roleText[record.role] ?? record.role : '通用' }}
+                </span>
+                <span v-else-if="column.dataIndex === 'menuCount'">{{ templateMenuCount(record) }}</span>
+                <span v-else-if="column.dataIndex === 'builtin'">
+                  <a-tag :color="record.builtin === 1 ? 'blue' : 'default'">
+                    {{ record.builtin === 1 ? '内置' : '自定义' }}
+                  </a-tag>
+                </span>
+                <span v-else-if="column.dataIndex === 'updatedAt'">{{ formatTime(record.updatedAt) }}</span>
+                <span v-else-if="column.dataIndex === 'action'" class="row-actions">
+                  <template v-if="isAdmin">
+                    <a-button type="link" size="small" class="row-btn" @click="openTemplateEdit(record)">
+                      编辑
+                    </a-button>
+                    <a-button
+                      v-if="record.builtin !== 1"
+                      type="link"
+                      size="small"
+                      danger
+                      class="row-btn"
+                      @click="removeTemplate(record)"
+                    >
+                      删除
+                    </a-button>
+                  </template>
+                  <span v-else class="muted">只读</span>
+                </span>
+              </template>
+              <template #emptyText>
+                <div style="padding: 32px 0; color: #8f959e">暂无权限模板</div>
+              </template>
+            </a-table>
+          </a-spin>
+        </div>
+      </a-tab-pane>
+    </a-tabs>
 
     <a-drawer
       v-model:open="drawerOpen"
@@ -313,7 +569,14 @@ onMounted(load)
           <div>
             <div class="staff-line">
               <span class="staff-name">{{ current.name }}</span>
-              <a-tag :color="roleColor[current.role] ?? 'default'">{{ roleText[current.role] ?? current.role }}</a-tag>
+              <a-tag
+                v-for="role in roleList(current)"
+                :key="role"
+                :color="roleColor[role] ?? 'default'"
+                class="role-tag"
+              >
+                {{ roleText[role] ?? role }}
+              </a-tag>
               <a-tag v-if="current.status !== 1">离职</a-tag>
             </div>
             <div class="staff-meta">
@@ -348,16 +611,29 @@ onMounted(load)
         />
 
         <div v-if="current.role !== 'admin'" class="perm-box">
+          <div v-if="canEdit" class="template-apply">
+            <span class="apply-label">套用模板</span>
+            <a-select
+              v-model:value="selectedTemplateId"
+              size="small"
+              placeholder="选择权限模板"
+              allow-clear
+              style="width: 220px"
+              :options="templateOptions"
+            />
+            <a-button size="small" :disabled="!selectedTemplateId" @click="applyTemplate">套用</a-button>
+            <span class="apply-hint">套用后仍需保存</span>
+          </div>
           <div class="perm-toolbar">
             <span>可见菜单</span>
             <a-button v-if="canEdit" type="link" size="small" @click="clearAll">清空</a-button>
           </div>
           <div v-for="group in permissionGroups" :key="group.key" class="perm-group">
             <a-checkbox
-              :checked="groupChecked(group)"
-              :indeterminate="groupIndeterminate(group)"
+              :checked="groupChecked(group, draft)"
+              :indeterminate="groupIndeterminate(group, draft)"
               :disabled="!canEdit"
-              @change="toggleGroup(group, $event)"
+              @change="toggleStaffGroup(group, $event)"
             >
               {{ group.title }}
             </a-checkbox>
@@ -373,6 +649,64 @@ onMounted(load)
         <div class="drawer-footer">
           <a-button @click="drawerOpen = false">关闭</a-button>
           <a-button v-if="canEdit" type="primary" :loading="saving" @click="savePermissions">保存权限</a-button>
+        </div>
+      </template>
+    </a-drawer>
+
+    <a-drawer
+      v-model:open="templateDrawerOpen"
+      :width="560"
+      :title="editingTemplateId === null ? '新建权限模板' : `编辑权限模板 · ${templateDraft.name}`"
+      destroy-on-close
+    >
+      <a-form layout="vertical">
+        <a-form-item label="模板名称" required>
+          <a-input
+            v-model:value="templateDraft.name"
+            :maxlength="64"
+            :disabled="editingBuiltin"
+            placeholder="如：晚班前台"
+          />
+        </a-form-item>
+        <a-form-item label="适用角色">
+          <a-select
+            v-model:value="templateDraft.role"
+            :disabled="editingBuiltin"
+            allow-clear
+            placeholder="不选则为通用模板"
+            :options="templateRoleOptions"
+          />
+        </a-form-item>
+      </a-form>
+
+      <div class="perm-box">
+        <div class="perm-toolbar">
+          <span>可见菜单</span>
+          <a-button type="link" size="small" @click="clearTemplatePermissions">清空</a-button>
+        </div>
+        <div v-for="group in permissionGroups" :key="group.key" class="perm-group">
+          <a-checkbox
+            :checked="groupChecked(group, templateDraft.permissions)"
+            :indeterminate="groupIndeterminate(group, templateDraft.permissions)"
+            @change="toggleTemplateGroup(group, $event)"
+          >
+            {{ group.title }}
+          </a-checkbox>
+          <a-checkbox-group
+            v-model:value="templateDraft.permissions"
+            :options="group.items"
+            class="perm-items"
+          />
+        </div>
+        <div class="perm-tip">
+          工作台为默认页面始终可见；模板仅用于填充员工权限，不自动继承。
+        </div>
+      </div>
+
+      <template #footer>
+        <div class="drawer-footer">
+          <a-button @click="templateDrawerOpen = false">关闭</a-button>
+          <a-button type="primary" :loading="templateSaving" @click="saveTemplate">保存模板</a-button>
         </div>
       </template>
     </a-drawer>
@@ -396,6 +730,10 @@ onMounted(load)
   margin-left: 6px;
 }
 
+.org-tabs :deep(.ant-tabs-nav) {
+  margin-bottom: 12px;
+}
+
 .org-layout {
   display: grid;
   grid-template-columns: 280px minmax(0, 1fr);
@@ -404,7 +742,8 @@ onMounted(load)
 }
 
 .org-side,
-.org-main {
+.org-main,
+.template-pane {
   background: var(--card);
   border-radius: 8px;
   padding: 14px 16px 16px;
@@ -435,6 +774,11 @@ onMounted(load)
   padding-bottom: 12px;
   margin-bottom: 12px;
   border-bottom: 1px solid var(--line);
+}
+
+.template-pane .main-head {
+  border-bottom: none;
+  margin-bottom: 0;
 }
 
 .main-title {
@@ -563,6 +907,24 @@ onMounted(load)
   padding: 6px 12px 10px;
 }
 
+.template-apply {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0 6px;
+  border-bottom: 1px dashed #f2f2f2;
+}
+
+.apply-label {
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+.apply-hint {
+  font-size: 12px;
+  color: var(--text-3);
+}
+
 .perm-toolbar {
   display: flex;
   align-items: center;
@@ -603,6 +965,17 @@ onMounted(load)
   font-size: 12px;
   color: var(--text-3);
   line-height: 1.6;
+}
+
+.row-actions {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.row-btn {
+  padding: 0 4px;
+  height: 22px;
+  font-size: 12px;
 }
 
 .drawer-footer {

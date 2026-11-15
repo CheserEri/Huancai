@@ -1,6 +1,6 @@
-"""从校宝「报读明细」导出补全 course 主数据：校区、授课模式、欠费。
+"""从原系统「报读明细」导出补全 course 主数据：校区、授课模式、欠费。
 
-- 数据源：data/schoolpal/enroll_20261025.xls（1,645 行 × 22 列）
+- 数据源：data/legacy/enroll_20261025.xls（1,645 行 × 22 列）
 - 匹配：course.name = 报读课程（67 门课程全部能匹配）
 - 幂等：按课程名逐条 UPDATE，可反复重跑
 """
@@ -10,7 +10,7 @@ import subprocess
 
 import xlrd
 
-XLS = r"d:\Code\Projects\Huancai\data\schoolpal\enroll_20261025.xls"
+XLS = r"d:\Code\Projects\Huancai\data\legacy\enroll_20261025.xls"
 MYSQL = r"D:\Code\Projects\Huancai\tools\mysql-8.0.28-winx64\bin\mysql.exe"
 DB_ARGS = ["-h", "127.0.0.1", "-P", "3307", "-u", "hc", "-phc123456",
            "-D", "huancai_erp", "--default-character-set=utf8mb4"]

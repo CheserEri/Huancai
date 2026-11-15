@@ -1,0 +1,106 @@
+<view class="page">
+  <view class="child-bar" wx:if="{{child}}">
+    <view class="child-info">
+      <text class="child-dot">{{child.initial}}</text>
+      <text class="child-name">{{child.name}}</text>
+      <text class="muted" wx:if="{{child.grade}}">{{child.grade}}</text>
+    </view>
+    <text class="switch" wx:if="{{child && summary}}" bindtap="switchChild">切换孩子</text>
+  </view>
+
+  <view class="card loading-card" wx:if="{{loading}}">
+    <text class="muted">正在加载课时账户…</text>
+  </view>
+
+  <view class="card empty" wx:elif="{{error}}">
+    <view class="empty-icon">!</view>
+    <view>{{error}}</view>
+    <button class="btn plain-btn" bindtap="load">重新加载</button>
+  </view>
+
+  <view class="card empty" wx:elif="{{noChild}}">
+    <view class="empty-icon">+</view>
+    <view>还没有绑定孩子</view>
+    <button class="btn plain-btn" bindtap="goBind">绑定孩子</button>
+  </view>
+
+  <block wx:else>
+    <view class="summary-card">
+      <view class="summary-top">
+        <view>
+          <text class="summary-label">剩余总课时</text>
+          <view class="summary-value">{{summary.remainText}}<text class="summary-unit">课时</text></view>
+        </view>
+        <view class="summary-side">
+          <text class="side-num">{{summary.courseCount}}</text>
+          <text class="side-label">门在读课程</text>
+        </view>
+      </view>
+      <view class="progress">
+        <view class="progress-inner" style="width: {{summary.usedPercent}}%"></view>
+      </view>
+      <view class="summary-foot">
+        <text>累计课时 {{summary.totalText}}</text>
+        <text>已消耗 {{summary.usedText}} · {{summary.usedPercent}}%</text>
+      </view>
+    </view>
+
+    <view class="section">
+      <text class="section-title">课时账户</text>
+      <text class="section-more">按课程查看</text>
+    </view>
+
+    <view class="card course-card" wx:for="{{courses}}" wx:key="enrollmentId">
+      <view class="course-head">
+        <view class="course-title">
+          <text class="course-name">{{item.courseName || '课程'}}</text>
+          <text class="muted" wx:if="{{item.className}}">{{item.className}}</text>
+        </view>
+        <view class="course-remain">
+          <text class="remain-num">{{item.remainText}}</text>
+          <text class="remain-label">剩余</text>
+        </view>
+      </view>
+      <view class="progress">
+        <view class="progress-inner" style="width: {{item.percent}}%"></view>
+      </view>
+      <view class="course-meta">
+        <text>共 {{item.totalText}} 课时 · 已上 {{item.usedText}}</text>
+        <text wx:if="{{item.giftText !== '0'}}">含赠送 {{item.giftText}}</text>
+      </view>
+      <view class="course-foot">
+        <text class="course-expire">{{item.expireText}}</text>
+        <text
+          class="album-link"
+          wx:if="{{item.classId}}"
+          data-class-id="{{item.classId}}"
+          catchtap="goAlbum"
+        >班级相册 ›</text>
+      </view>
+    </view>
+
+    <view class="card empty small" wx:if="{{!courses.length}}">暂无生效中的课时账户</view>
+
+    <view class="section">
+      <text class="section-title">课时流水</text>
+      <text class="section-more">最近 20 条</text>
+    </view>
+
+    <view class="card txn-card" wx:if="{{txns.length}}">
+      <view class="txn" wx:for="{{txns}}" wx:key="id">
+        <view class="txn-icon {{item.positive ? 'plus' : 'minus'}}">{{item.positive ? '+' : '-'}}</view>
+        <view class="txn-main">
+          <view class="txn-line">
+            <text class="txn-course">{{item.courseName || item.type}}</text>
+            <text class="txn-num {{item.positive ? 'up' : 'down'}}">{{item.lessonsText}}</text>
+          </view>
+          <view class="txn-sub">
+            <text>{{item.type}}{{item.note ? ' · ' + item.note : ''}}</text>
+            <text>{{item.dateText}}</text>
+          </view>
+        </view>
+      </view>
+    </view>
+    <view class="card empty small" wx:else>暂无课时流水</view>
+  </block>
+</view>

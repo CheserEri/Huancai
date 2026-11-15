@@ -14,6 +14,8 @@ public class WxParentMessageVO {
     private String title;
     private String content;
     private String msgType;
+    /** 活动海报消息对应的海报 ID，点击后跳转活动页。 */
+    private Long posterId;
     private Long studentId;
     private String studentName;
     private Integer readFlag;

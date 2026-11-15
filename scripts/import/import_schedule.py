@@ -3,8 +3,8 @@ import os
 import re
 from datetime import datetime, timezone, timedelta
 
-SRC = r"d:\Code\Projects\Huancai\data\schoolpal\schedule.json"
-CLASSES = r"d:\Code\Projects\Huancai\data\schoolpal\classes.json"
+SRC = r"d:\Code\Projects\Huancai\data\legacy\schedule.json"
+CLASSES = r"d:\Code\Projects\Huancai\data\legacy\classes.json"
 REF_CLASSES = os.path.join(os.environ.get("TEMP", "."), "hc-import", "ref_class.tsv")
 REF_COURSES = os.path.join(os.environ.get("TEMP", "."), "hc-import", "ref_course.tsv")
 REF_STAFF = os.path.join(os.environ.get("TEMP", "."), "hc-import", "ref_staff.tsv")

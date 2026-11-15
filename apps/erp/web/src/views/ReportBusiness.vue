@@ -195,7 +195,7 @@ onMounted(load)
         </a-button>
         <a-button size="small" @click="reset">重置</a-button>
       </div>
-      <div class="source-note muted">数据来源：校宝历史订单、收款、点名与咨询记录。</div>
+      <div class="source-note muted">数据来源：历史订单、收款、点名与咨询记录。</div>
     </div>
 
     <a-spin :spinning="loading">

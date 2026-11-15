@@ -13,6 +13,11 @@ public class StaffVO {
     private String phone;
     private String account;
     private String role;
+    /** 数据库原始值，仅用于转换成 extraRoles 后返回前端。 */
+    @JsonIgnore
+    private String extraRolesText;
+    /** 兼任角色，不含主角色。 */
+    private List<String> extraRoles;
     private String title;
     private Integer status;
     private Long campusId;

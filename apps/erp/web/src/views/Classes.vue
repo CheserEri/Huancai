@@ -3,6 +3,7 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { DownOutlined, SearchOutlined } from '@ant-design/icons-vue'
 import { Modal, message } from 'ant-design-vue'
+import FilterBar from '../components/FilterBar.vue'
 import {
   addClassStudents,
   batchDeleteClasses,
@@ -17,7 +18,6 @@ import {
   fetchClassSummary,
   fetchClassTeachers,
   fetchClasses,
-  fetchLessonClasses,
   fetchStudents,
   removeClassStudent,
   updateClass,
@@ -39,15 +39,11 @@ const room = ref<string | undefined>(undefined)
 const category = ref<string | undefined>(undefined)
 const course = ref<string | undefined>(undefined)
 const weekday = ref<string | undefined>(undefined)
-const timePeriod = ref<string | undefined>(undefined)
 const status = ref<string | undefined>(undefined)
 
 const teacher = ref<string | undefined>(undefined)
-const lessonClass = ref<string | undefined>(undefined)
-const enrolling = ref<'all' | number>('all')
-const source = ref('all')
+const enrolling = ref<number | undefined>(undefined)
 const includeClosed = ref(false)
-const moreOpen = ref(false)
 
 const sortField = ref<string | undefined>(undefined)
 const sortOrder = ref<string | undefined>(undefined)
@@ -61,7 +57,6 @@ const total = ref(0)
 const selectedKeys = ref<number[]>([])
 
 const teachers = ref<string[]>([])
-const lessonClasses = ref<string[]>([])
 const courses = ref<string[]>([])
 const categories = ref<string[]>([])
 const rooms = ref<string[]>([])
@@ -203,7 +198,6 @@ const addCandidates = ref<StudentRow[]>([])
 const addSelected = ref<number[]>([])
 
 const weekdays = ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
-const periods = ['上午', '下午', '晚上']
 
 const optionalColumns = [
   { key: 'lessonClass', title: '班型' },
@@ -227,12 +221,9 @@ function baseQuery() {
     courseCategory: category.value || undefined,
     courseName: course.value || undefined,
     weekday: weekday.value || undefined,
-    timePeriod: timePeriod.value || undefined,
     status: status.value || undefined,
     teacher: teacher.value || undefined,
-    lessonClass: lessonClass.value || undefined,
-    enrolling: enrolling.value === 'all' ? undefined : Number(enrolling.value),
-    source: includeClosed.value || source.value === 'all' ? undefined : source.value,
+    enrolling: enrolling.value === undefined ? undefined : Number(enrolling.value),
     includeClosed: includeClosed.value,
   }
 }
@@ -275,12 +266,9 @@ function reset() {
   category.value = undefined
   course.value = undefined
   weekday.value = undefined
-  timePeriod.value = undefined
   status.value = undefined
   teacher.value = undefined
-  lessonClass.value = undefined
-  enrolling.value = 'all'
-  source.value = 'all'
+  enrolling.value = undefined
   includeClosed.value = false
   sortField.value = undefined
   sortOrder.value = undefined
@@ -407,7 +395,6 @@ async function submitForm() {
     if (formMode.value === 'create') {
       const res = await createClass(payload)
       message.success(`已创建班级「${res.name}」`)
-      source.value = 'all'
       page.value = 1
       await load()
     } else if (editingId.value !== null) {
@@ -591,11 +578,11 @@ function removeStudent(record: ClassStudentRow) {
 }
 
 function notSupported(action: string) {
-  message.info(`${action}需在校宝端操作，本系统仅同步展示班级数据`)
+  message.info(`${action}需在平台端操作，本系统仅同步展示班级数据`)
 }
 
 function openFaq() {
-  message.info('校宝「班级常见问题」帮助内容未迁移到本系统')
+  message.info('原系统「班级常见问题」帮助内容未迁移到本系统')
 }
 
 function dateOf(value: string | null) {
@@ -621,28 +608,27 @@ const columns = computed<any[]>(() => {
     {
       title: '班级名称',
       dataIndex: 'name',
-      width: 360,
       sorter: true,
-      fixed: 'left',
+      ellipsis: true,
     },
-    { title: '人数', dataIndex: 'enrolled', width: 88, sorter: true },
-    { title: '班主任', dataIndex: 'teacherName', width: 96 },
-    { title: '所属课程', dataIndex: 'courseName', width: 210, ellipsis: true },
-    { title: '开班校区', dataIndex: 'campusName', width: 140, ellipsis: true },
-    { title: '开班日期', dataIndex: 'startDate', width: 118, sorter: true },
-    { title: '上课时间', dataIndex: 'scheduleText', width: 180, ellipsis: true },
-    { title: '招生状态', dataIndex: 'enrolling', width: 102 },
+    { title: '人数', dataIndex: 'enrolled', width: '6%', sorter: true },
+    { title: '班主任', dataIndex: 'teacherName', width: '7%', ellipsis: true },
+    { title: '所属课程', dataIndex: 'courseName', width: '13%', ellipsis: true },
+    { title: '开班校区', dataIndex: 'campusName', width: '10%', ellipsis: true },
+    { title: '开班日期', dataIndex: 'startDate', width: '9%', sorter: true },
+    { title: '上课时间', dataIndex: 'scheduleText', width: '13%', ellipsis: true },
+    { title: '招生状态', dataIndex: 'enrolling', width: '8%' },
   ]
 
   const extras: Record<string, Record<string, unknown>> = {
-    lessonClass: { title: '班型', dataIndex: 'lessonClassName', width: 110 },
-    room: { title: '教室', dataIndex: 'room', width: 100 },
-    assist: { title: '助教', dataIndex: 'assistName', width: 92 },
+    lessonClass: { title: '班型', dataIndex: 'lessonClassName', width: 110, ellipsis: true },
+    room: { title: '教室', dataIndex: 'room', width: 100, ellipsis: true },
+    assist: { title: '助教', dataIndex: 'assistName', width: 92, ellipsis: true },
     stuRate: { title: '满班率', dataIndex: 'stuRate', width: 88, align: 'right' },
     upRate: { title: '升班率', dataIndex: 'upRate', width: 88, align: 'right' },
     scheduleCount: { title: '课次数', dataIndex: 'scheduleCount', width: 88, align: 'right' },
     endDate: { title: '结班日期', dataIndex: 'endDate', width: 112 },
-    createBy: { title: '创建人', dataIndex: 'createBy', width: 92 },
+    createBy: { title: '创建人', dataIndex: 'createBy', width: 92, ellipsis: true },
     createdAt: { title: '创建时间', dataIndex: 'createdAt', width: 112 },
     feeStandard: { title: '收费标准', dataIndex: 'feeStandard', width: 200, ellipsis: true },
   }
@@ -651,15 +637,14 @@ const columns = computed<any[]>(() => {
     if (visibleOptional.value.includes(item.key)) list.push(extras[item.key])
   }
 
-  list.push({ title: '操作', dataIndex: 'action', width: 84, fixed: 'right' })
+  list.push({ title: '操作', dataIndex: 'action', width: 64 })
   return list
 })
 
-const scrollX = computed(() => {
-  let width = 0
-  for (const col of columns.value) width += Number(col.width ?? 0)
-  return width + 48
-})
+/** 默认 9 列按百分比铺满容器；只有额外勾选自定义列时才需要横向滚动。 */
+const tableScroll = computed(() =>
+  visibleOptional.value.length > 0 ? { x: 'max-content' as const } : undefined,
+)
 
 const emptyText = computed(() =>
   loading.value ? '' : '当前筛选条件下暂无班级',
@@ -707,15 +692,13 @@ onMounted(async () => {
   load()
   document.addEventListener('visibilitychange', refreshWhenVisible)
   window.addEventListener('focus', refreshWhenVisible)
-  const [t, lc, cs, ca, rm] = await Promise.all([
+  const [t, cs, ca, rm] = await Promise.all([
     fetchClassTeachers().catch(() => [] as string[]),
-    fetchLessonClasses().catch(() => [] as string[]),
     fetchClassCourses().catch(() => [] as string[]),
     fetchClassCategories().catch(() => [] as string[]),
     fetchClassRooms().catch(() => [] as string[]),
   ])
   teachers.value = t
-  lessonClasses.value = lc
   courses.value = cs
   categories.value = ca
   rooms.value = rm
@@ -745,27 +728,26 @@ onUnmounted(() => {
         <a-button @click="notSupported('导入班级')">导入班级</a-button>
       </div>
 
-      <div class="filter-line">
+      <FilterBar @search="search" @reset="reset">
         <a-select
           v-model:value="campus"
-          class="plain-select"
-          placeholder="校区"
+          class="filter-select"
+          placeholder="全部校区"
           allow-clear
-          :bordered="false"
-          style="width: 92px"
+          style="width: 150px"
           @change="search"
         >
-          <a-select-option :value="1">鲅鱼圈幻彩国学堂</a-select-option>
-          <a-select-option :value="2">新民幻彩国学堂</a-select-option>
+          <a-select-option v-for="item in classOptions.campuses" :key="item.id" :value="item.id">
+            {{ item.name }}
+          </a-select-option>
         </a-select>
 
         <a-select
           v-model:value="room"
-          class="plain-select"
+          class="filter-select"
           placeholder="教室"
           allow-clear
-          :bordered="false"
-          style="width: 92px"
+          style="width: 116px"
           @change="search"
         >
           <a-select-option v-for="item in rooms" :key="item" :value="item">{{ item }}</a-select-option>
@@ -773,11 +755,10 @@ onUnmounted(() => {
 
         <a-select
           v-model:value="category"
-          class="plain-select"
+          class="filter-select"
           placeholder="课程类别"
           allow-clear
-          :bordered="false"
-          style="width: 106px"
+          style="width: 116px"
           @change="search"
         >
           <a-select-option v-for="item in categories" :key="item" :value="item">{{ item }}</a-select-option>
@@ -785,11 +766,10 @@ onUnmounted(() => {
 
         <a-select
           v-model:value="course"
-          class="plain-select"
+          class="filter-select"
           placeholder="课程"
           allow-clear
-          :bordered="false"
-          style="width: 96px"
+          style="width: 130px"
           @change="search"
         >
           <a-select-option v-for="item in courses" :key="item" :value="item">{{ item }}</a-select-option>
@@ -797,113 +777,64 @@ onUnmounted(() => {
 
         <a-select
           v-model:value="weekday"
-          class="plain-select"
+          class="filter-select"
           placeholder="上课星期"
           allow-clear
-          :bordered="false"
-          style="width: 106px"
+          style="width: 116px"
           @change="search"
         >
           <a-select-option v-for="item in weekdays" :key="item" :value="item">{{ item }}</a-select-option>
         </a-select>
 
         <a-select
-          v-model:value="timePeriod"
-          class="plain-select"
-          placeholder="上课时段"
-          allow-clear
-          :bordered="false"
-          style="width: 106px"
-          @change="search"
-        >
-          <a-select-option v-for="item in periods" :key="item" :value="item">{{ item }}</a-select-option>
-        </a-select>
-
-        <a-select
           v-model:value="status"
-          class="plain-select"
+          class="filter-select"
           placeholder="班级状态"
           allow-clear
-          :bordered="false"
-          style="width: 106px"
+          style="width: 116px"
           @change="search"
         >
           <a-select-option value="已开班">已开班</a-select-option>
           <a-select-option value="已结班">已结班</a-select-option>
         </a-select>
 
-        <span class="filter-spacer" />
-
-        <div class="name-search">
-          <span class="name-label">班级名称</span>
-          <a-input
-            v-model:value="keyword"
-            class="name-input"
-            placeholder="请输入班级名称"
-            allow-clear
-            :bordered="false"
-            @press-enter="search"
-          >
-            <template #suffix>
-              <SearchOutlined class="search-icon" @click="search" />
-            </template>
-          </a-input>
-        </div>
-
-        <a class="more-link" @click="moreOpen = !moreOpen">
-          更多筛选 <DownOutlined :class="{ rotated: moreOpen }" />
-        </a>
-      </div>
-
-      <div v-if="moreOpen" class="filter-line more-line">
         <a-select
           v-model:value="teacher"
-          class="plain-select"
+          class="filter-select"
           placeholder="班主任"
           allow-clear
-          :bordered="false"
-          style="width: 106px"
+          style="width: 116px"
           @change="search"
         >
           <a-select-option v-for="item in teachers" :key="item" :value="item">{{ item }}</a-select-option>
         </a-select>
-        <a-select
-          v-model:value="lessonClass"
-          class="plain-select"
-          placeholder="班型"
-          allow-clear
-          :bordered="false"
-          style="width: 100px"
-          @change="search"
-        >
-          <a-select-option v-for="item in lessonClasses" :key="item" :value="item">{{ item }}</a-select-option>
-        </a-select>
+
         <a-select
           v-model:value="enrolling"
-          class="plain-select"
+          class="filter-select"
           placeholder="招生状态"
-          :bordered="false"
-          style="width: 106px"
+          allow-clear
+          style="width: 116px"
           @change="search"
         >
-          <a-select-option value="all">全部状态</a-select-option>
           <a-select-option :value="1">开放招生</a-select-option>
           <a-select-option :value="0">停止招生</a-select-option>
         </a-select>
-        <a-select
-          v-model:value="source"
-          class="plain-select"
-          :bordered="false"
-          style="width: 132px"
-          @change="search"
-        >
-          <a-select-option value="校宝班级列表">校宝班级列表</a-select-option>
-          <a-select-option value="校宝排课">校宝排课（历史）</a-select-option>
-          <a-select-option value="本系统新建">本系统新建</a-select-option>
-          <a-select-option value="all">全部来源</a-select-option>
-        </a-select>
-        <a-button type="link" size="small" class="reset-link" @click="reset">清空筛选</a-button>
-      </div>
+
+        <template #search>
+          <a-input
+            v-model:value="keyword"
+            class="filter-search"
+            placeholder="搜索班级名称"
+            allow-clear
+            @press-enter="search"
+          >
+            <template #prefix>
+              <SearchOutlined class="search-icon" />
+            </template>
+          </a-input>
+        </template>
+      </FilterBar>
 
       <div class="bulk-row">
         <a-button size="small" class="bulk-btn" @click="batchDelete">批量删除</a-button>
@@ -947,7 +878,8 @@ onUnmounted(() => {
         }"
         row-key="id"
         size="small"
-        :scroll="{ x: scrollX }"
+        table-layout="fixed"
+        :scroll="tableScroll"
         :row-selection="{
           selectedRowKeys: selectedKeys,
           onChange: onSelectChange,
@@ -1353,85 +1285,8 @@ onUnmounted(() => {
   background: var(--brand);
 }
 
-.filter-line {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 6px 14px;
-  padding: 2px 0 10px;
-}
-
-.more-line {
-  border-top: 1px dashed var(--line);
-  padding-top: 10px;
-}
-
-.plain-select {
-  font-size: 13px;
-  color: var(--text-2);
-}
-
-.plain-select :deep(.ant-select-selector) {
-  padding-left: 0;
-  padding-right: 18px;
-}
-
-.plain-select :deep(.ant-select-selection-placeholder) {
-  color: var(--text-2);
-  padding-left: 0;
-}
-
-.filter-spacer {
-  flex: 1;
-  min-width: 12px;
-}
-
-.name-search {
-  display: flex;
-  align-items: center;
-  height: 32px;
-  border: 1px solid #d9dce0;
-  border-radius: 4px;
-  overflow: hidden;
-  background: #fff;
-}
-
-.name-label {
-  flex: 0 0 auto;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  padding: 0 10px;
-  font-size: 13px;
-  color: var(--text-2);
-  background: #f7f8fa;
-  border-right: 1px solid #e5e6eb;
-}
-
-.name-input {
-  width: 210px;
-  padding: 0 8px;
-}
-
 .search-icon {
-  color: var(--brand);
-  cursor: pointer;
-}
-
-.more-link {
-  font-size: 13px;
-  color: var(--brand);
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-.rotated {
-  transform: rotate(180deg);
-}
-
-.reset-link {
-  padding: 0;
-  font-size: 13px;
+  color: var(--text-2);
 }
 
 .bulk-row {

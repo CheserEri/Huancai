@@ -105,8 +105,8 @@ function resetRecord() {
   recordFilter.status = undefined
 }
 
-function needSchoolpal(what: string) {
-  message.info(`「${what}」需在校宝端操作，本系统仅同步展示`)
+function needPlatformAction(what: string) {
+  message.info(`「${what}」需在平台端操作，本系统仅同步展示`)
 }
 
 const faqs = [
@@ -182,7 +182,7 @@ onMounted(async () => {
     <!-- 约课班级列表 -->
     <template v-if="tab === 'class'">
       <div class="action-row">
-        <a-button type="primary" class="primary-btn" @click="needSchoolpal('添加约课班级')">添加约课班级</a-button>
+        <a-button type="primary" class="primary-btn" @click="needPlatformAction('添加约课班级')">添加约课班级</a-button>
       </div>
 
       <div class="filter-line">
@@ -196,7 +196,7 @@ onMounted(async () => {
           size="small"
         >
           <template #suffix>
-            <SearchOutlined class="search-icon" @click="needSchoolpal('搜索')" />
+            <SearchOutlined class="search-icon" @click="needPlatformAction('搜索')" />
           </template>
         </a-input>
 
@@ -242,8 +242,8 @@ onMounted(async () => {
 
       <div class="toolbar-row">
         <span class="filter-chip">约课状态：{{ classFilter.status }}</span>
-        <a-button size="small" class="bulk-btn" @click="needSchoolpal('批量上架')">批量上架</a-button>
-        <a-button size="small" class="bulk-btn" @click="needSchoolpal('批量下架')">批量下架</a-button>
+        <a-button size="small" class="bulk-btn" @click="needPlatformAction('批量上架')">批量上架</a-button>
+        <a-button size="small" class="bulk-btn" @click="needPlatformAction('批量下架')">批量下架</a-button>
       </div>
 
       <div class="result-line">当前结果：共计 <b>0</b> 个班</div>
@@ -277,7 +277,7 @@ onMounted(async () => {
           size="small"
         >
           <template #suffix>
-            <SearchOutlined class="search-icon" @click="needSchoolpal('搜索')" />
+            <SearchOutlined class="search-icon" @click="needPlatformAction('搜索')" />
           </template>
         </a-input>
 
@@ -328,8 +328,8 @@ onMounted(async () => {
       <div class="toolbar-row">
         <span class="filter-chip">上课日期：{{ scheduleFilter.range[0] }} ~ {{ scheduleFilter.range[1] }}</span>
         <span class="filter-chip">约课日程状态：{{ scheduleFilter.status }}</span>
-        <a-button size="small" class="bulk-btn" @click="needSchoolpal('批量上架')">批量上架</a-button>
-        <a-button size="small" class="bulk-btn" @click="needSchoolpal('批量下架')">批量下架</a-button>
+        <a-button size="small" class="bulk-btn" @click="needPlatformAction('批量上架')">批量上架</a-button>
+        <a-button size="small" class="bulk-btn" @click="needPlatformAction('批量下架')">批量下架</a-button>
       </div>
 
       <div class="result-line">当前结果：共计 <b>0</b> 个日程</div>
@@ -363,7 +363,7 @@ onMounted(async () => {
           size="small"
         >
           <template #suffix>
-            <SearchOutlined class="search-icon" @click="needSchoolpal('搜索')" />
+            <SearchOutlined class="search-icon" @click="needPlatformAction('搜索')" />
           </template>
         </a-input>
 

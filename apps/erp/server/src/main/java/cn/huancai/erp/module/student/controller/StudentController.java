@@ -38,4 +38,9 @@ public class StudentController {
     public ApiResult<List<String>> channels() {
         return ApiResult.ok(studentMapper.selectChannels());
     }
+
+    @GetMapping("/grades")
+    public ApiResult<List<String>> grades() {
+        return ApiResult.ok(studentMapper.selectGrades());
+    }
 }

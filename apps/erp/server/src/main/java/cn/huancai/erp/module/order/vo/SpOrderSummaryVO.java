@@ -4,7 +4,7 @@ import lombok.Data;
 
 import java.math.BigDecimal;
 
-/** 订单列表底部汇总（与校宝列表口径一致）。 */
+/** 订单列表底部汇总（与原系统列表口径一致）。 */
 @Data
 public class SpOrderSummaryVO {
 

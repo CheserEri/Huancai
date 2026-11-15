@@ -6,7 +6,7 @@ import java.util.List;
 /**
  * 本地闭环办理请求。
  *
- * <p>校宝为实际在用的生产系统，本系统不向其写入任何业务数据，
+ * <p>原系统为实际在用的生产系统，本系统不向其写入任何业务数据，
  * 报名/续费/充值/退费/转课只落在本地库（sp_order + enrollment + lesson_txn + student）。</p>
  */
 public final class LocalOrderRequests {

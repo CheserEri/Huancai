@@ -51,8 +51,8 @@ function pointsText(value: number | null | undefined) {
   return value === null || value === undefined ? '-' : value.toFixed(2)
 }
 
-function needSchoolpal(what: string) {
-  message.info(`「${what}」需在校宝端操作，本系统仅同步展示`)
+function needPlatformAction(what: string) {
+  message.info(`「${what}」需在平台端操作，本系统仅同步展示`)
 }
 
 /* ---------------- 购买记录 ---------------- */
@@ -702,7 +702,7 @@ onMounted(async () => {
           <a-button size="small" type="primary" class="with-icon" @click="openChange()">
             <PlusOutlined />出入库
           </a-button>
-          <a-button size="small" @click="needSchoolpal('导出')">导出</a-button>
+          <a-button size="small" @click="needPlatformAction('导出')">导出</a-button>
         </div>
       </div>
 
@@ -912,7 +912,7 @@ onMounted(async () => {
         <a-button size="small" type="primary" class="with-icon" @click="openSetting()">
           <PlusOutlined />新建教材
         </a-button>
-        <a-button size="small" @click="needSchoolpal('批量导入')">批量导入</a-button>
+        <a-button size="small" @click="needPlatformAction('批量导入')">批量导入</a-button>
         <a-input
           v-model:value="settingFilter.keyword"
           class="stock-search"
@@ -991,7 +991,7 @@ onMounted(async () => {
     <!-- 杂费设置 -->
     <template v-else>
       <div class="filter-line">
-        <a-button size="small" @click="needSchoolpal('新建杂费')">新建杂费</a-button>
+        <a-button size="small" @click="needPlatformAction('新建杂费')">新建杂费</a-button>
         <a-input
           v-model:value="feeKeyword"
           class="stock-search"
@@ -1037,8 +1037,8 @@ onMounted(async () => {
             <span :class="record.status === '正常' ? 'status-on' : 'status-off'">{{ record.status }}</span>
           </span>
           <span v-else-if="column.dataIndex === 'action'" class="row-actions">
-            <a @click="needSchoolpal('编辑杂费')">编辑</a>
-            <a class="danger" @click="needSchoolpal('删除杂费')">删除</a>
+            <a @click="needPlatformAction('编辑杂费')">编辑</a>
+            <a class="danger" @click="needPlatformAction('删除杂费')">删除</a>
           </span>
         </template>
         <template #emptyText>

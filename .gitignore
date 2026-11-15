@@ -29,8 +29,10 @@ Thumbs.db
 .env
 .env.local
 *.local
+apps/erp/server/src/main/resources/application-local.yml
 
 # ---------- 临时文件与日志 ----------
 *.tmp
+.tmp-*
 *.bak
 *.log

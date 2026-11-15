@@ -141,6 +141,7 @@ class _MaterialFormState extends State<MaterialForm> {
   }
 
   Future<void> _submit() async {
+    if (_submitting) return;
     if (_material == null) {
       showToast(context, '请选择教材');
       return;
@@ -177,8 +178,26 @@ class _MaterialFormState extends State<MaterialForm> {
         if (_remark.text.trim().isNotEmpty) 'remark': _remark.text.trim(),
       });
       if (!mounted) return;
-      setState(() => _submitting = false);
-      showToast(context, '教材出库成功，单号 ${str(result['extOrderNo'], '-')}');
+      final orderNo = str(result['extOrderNo'], '-');
+      final amount = _total;
+      final balance = _balanceValue;
+      // 出库成功后清空表单，避免重复提交生成第二张出库单。
+      setState(() {
+        _submitting = false;
+        _material = null;
+        _quantity.text = '1';
+        _unitPrice.clear();
+        _balanceAmount.text = '0';
+        _useBalance = false;
+        _remark.clear();
+      });
+      await showPaymentSuccessDialog(
+        context,
+        title: '教材出库成功',
+        orderNo: orderNo,
+        summary: '教材金额 ¥${money(amount)}${balance > 0 ? '，余额抵扣 ¥${money(balance)}' : ''}',
+      );
+      if (!mounted) return;
       widget.onDone();
     } on ApiException catch (e) {
       if (!mounted) return;

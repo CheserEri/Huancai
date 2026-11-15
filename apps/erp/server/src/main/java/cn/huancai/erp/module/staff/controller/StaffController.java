@@ -3,6 +3,7 @@ package cn.huancai.erp.module.staff.controller;
 import cn.huancai.erp.common.ApiResult;
 import cn.huancai.erp.module.staff.mapper.StaffMapper;
 import cn.huancai.erp.module.staff.support.PermissionCodec;
+import cn.huancai.erp.module.staff.support.StaffRoles;
 import cn.huancai.erp.module.staff.vo.StaffSummaryVO;
 import cn.huancai.erp.module.staff.vo.StaffVO;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -31,6 +32,7 @@ public class StaffController {
         List<StaffVO> list = staffMapper.selectStaffList(campusId, keyword, role, status);
         for (StaffVO vo : list) {
             vo.setPermissions(PermissionCodec.resolve(vo.getRole(), vo.getMenuPermissions()));
+            vo.setExtraRoles(StaffRoles.splitExtras(vo.getExtraRolesText()));
         }
         return ApiResult.ok(list);
     }

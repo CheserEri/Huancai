@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.huancai.erp.module.wxapp.mapper.WxSubscribeQuotaMapper">
+
+  <insert id="grant">
+    INSERT INTO wx_subscribe_quota (parent_id, template_id, remain_count, updated_at)
+    VALUES (#{parentId}, #{templateId}, #{count}, NOW())
+    ON DUPLICATE KEY UPDATE remain_count = remain_count + VALUES(remain_count), updated_at = NOW()
+  </insert>
+
+  <update id="consume">
+    UPDATE wx_subscribe_quota
+    SET remain_count = remain_count - 1, updated_at = NOW()
+    WHERE parent_id = #{parentId} AND template_id = #{templateId} AND remain_count &gt; 0
+  </update>
+
+  <select id="remainCount" resultType="int">
+    SELECT COALESCE(remain_count, 0)
+    FROM wx_subscribe_quota
+    WHERE parent_id = #{parentId} AND template_id = #{templateId}
+    LIMIT 1
+  </select>
+
+</mapper>

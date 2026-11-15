@@ -1,7 +1,10 @@
 package cn.huancai.erp.module.schedule.controller;
 
 import cn.huancai.erp.common.ApiResult;
+import cn.huancai.erp.common.OperatorResolver;
 import cn.huancai.erp.module.campus.entity.Campus;
+import cn.huancai.erp.module.homeservice.entity.ClassSuspend;
+import cn.huancai.erp.module.homeservice.mapper.ClassSuspendMapper;
 import cn.huancai.erp.module.campus.mapper.CampusMapper;
 import cn.huancai.erp.module.course.entity.Course;
 import cn.huancai.erp.module.course.mapper.CourseMapper;
@@ -26,6 +29,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -41,6 +45,8 @@ public class ScheduleWriteController {
     private final CourseMapper courseMapper;
     private final StaffMapper staffMapper;
     private final StudentMapper studentMapper;
+    private final ClassSuspendMapper suspendMapper;
+    private final OperatorResolver operatorResolver;
 
     public ScheduleWriteController(ScheduleMapper scheduleMapper,
                                    ClassGroupMapper classGroupMapper,
@@ -48,7 +54,9 @@ public class ScheduleWriteController {
                                    CampusMapper campusMapper,
                                    CourseMapper courseMapper,
                                    StaffMapper staffMapper,
-                                   StudentMapper studentMapper) {
+                                   StudentMapper studentMapper,
+                                   ClassSuspendMapper suspendMapper,
+                                   OperatorResolver operatorResolver) {
         this.scheduleMapper = scheduleMapper;
         this.classGroupMapper = classGroupMapper;
         this.classStudentMapper = classStudentMapper;
@@ -56,6 +64,8 @@ public class ScheduleWriteController {
         this.courseMapper = courseMapper;
         this.staffMapper = staffMapper;
         this.studentMapper = studentMapper;
+        this.suspendMapper = suspendMapper;
+        this.operatorResolver = operatorResolver;
     }
 
     @GetMapping("/options")
@@ -219,6 +229,7 @@ public class ScheduleWriteController {
         }
         schedule.setStatus("已取消");
         scheduleMapper.updateById(schedule);
+        createSuspendRecord(schedule);
         refreshClassScheduleCount(schedule.getClassId());
         return ApiResult.ok(null);
     }
@@ -235,8 +246,53 @@ public class ScheduleWriteController {
         }
         schedule.setStatus("待上课");
         scheduleMapper.updateById(schedule);
+        restoreSuspendRecord(schedule.getId());
         refreshClassScheduleCount(schedule.getClassId());
         return ApiResult.ok(null);
+    }
+
+    /** 排课停课时同步生成班级休课记录，家校服务-班级休课可直接查看。 */
+    private void createSuspendRecord(Schedule schedule) {
+        Long exists = suspendMapper.selectCount(new LambdaQueryWrapper<ClassSuspend>()
+                .eq(ClassSuspend::getScheduleId, schedule.getId())
+                .eq(ClassSuspend::getStatus, "已休课"));
+        if (exists != null && exists > 0) {
+            return;
+        }
+        LocalDateTime now = LocalDateTime.now();
+        ClassSuspend record = new ClassSuspend();
+        record.setScheduleId(schedule.getId());
+        record.setCampusId(schedule.getCampusId());
+        record.setClassId(schedule.getClassId());
+        String className = schedule.getClassName();
+        if ((className == null || className.isBlank()) && schedule.getClassId() != null) {
+            ClassGroup group = classGroupMapper.selectById(schedule.getClassId());
+            className = group == null ? null : group.getName();
+        }
+        record.setClassName(className);
+        record.setCourseName(schedule.getCourseName());
+        record.setTeacherName(schedule.getTeacherName());
+        record.setLessonDate(schedule.getLessonDate());
+        record.setStartTime(schedule.getStartTime());
+        record.setEndTime(schedule.getEndTime());
+        record.setReason("排课停课");
+        record.setStatus("已休课");
+        record.setNotifyFlag(0);
+        record.setOperatorName(operatorResolver.resolve(null));
+        record.setSuspendedAt(now);
+        record.setCreatedAt(now);
+        suspendMapper.insert(record);
+    }
+
+    /** 排课恢复时同步把对应的班级休课记录标记为已恢复。 */
+    private void restoreSuspendRecord(Long scheduleId) {
+        ClassSuspend patch = new ClassSuspend();
+        patch.setStatus("已恢复");
+        patch.setRestoredAt(LocalDateTime.now());
+        patch.setRestoredBy(operatorResolver.resolve(null));
+        suspendMapper.update(patch, new LambdaQueryWrapper<ClassSuspend>()
+                .eq(ClassSuspend::getScheduleId, scheduleId)
+                .eq(ClassSuspend::getStatus, "已休课"));
     }
 
     private void refreshClassScheduleCount(Long classId) {

@@ -166,7 +166,7 @@ onMounted(async () => {
     <div class="table-card">
       <div class="table-toolbar">
         <div class="table-toolbar-left">
-          <span class="muted" style="font-size: 12px">数据来源：校宝历史上课记录与点名</span>
+          <span class="muted" style="font-size: 12px">数据来源：历史上课记录与点名</span>
         </div>
         <a-button size="small"><DownloadOutlined />导出当前结果</a-button>
       </div>

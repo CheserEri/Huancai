@@ -1,6 +1,7 @@
 package cn.huancai.erp.module.order.controller;
 
 import cn.huancai.erp.common.ApiResult;
+import cn.huancai.erp.common.OrderNoGenerator;
 import cn.huancai.erp.module.campus.entity.Campus;
 import cn.huancai.erp.module.campus.mapper.CampusMapper;
 import cn.huancai.erp.module.order.dto.OrderForm;
@@ -36,15 +37,18 @@ public class OrderWriteController {
     private final PaymentMapper paymentMapper;
     private final StudentMapper studentMapper;
     private final CampusMapper campusMapper;
+    private final OrderNoGenerator orderNoGenerator;
 
     public OrderWriteController(OrderMapper orderMapper,
                                 PaymentMapper paymentMapper,
                                 StudentMapper studentMapper,
-                                CampusMapper campusMapper) {
+                                CampusMapper campusMapper,
+                                OrderNoGenerator orderNoGenerator) {
         this.orderMapper = orderMapper;
         this.paymentMapper = paymentMapper;
         this.studentMapper = studentMapper;
         this.campusMapper = campusMapper;
+        this.orderNoGenerator = orderNoGenerator;
     }
 
     @GetMapping("/options")
@@ -204,11 +208,8 @@ public class OrderWriteController {
         paymentMapper.insert(payment);
     }
 
-    /** 与校宝一致的纯数字订单号：接续已有纯数字最大值；历史订单为 QB-E-xxx 时从 33661 起。 */
     private String nextOrderNo() {
-        Long max = orderMapper.selectMaxNumericOrderNo();
-        long next = (max == null || max < 33660L ? 33660L : max) + 1;
-        return String.valueOf(next);
+        return orderNoGenerator.next();
     }
 
     private BigDecimal debtOf(BigDecimal receivable, BigDecimal discount, BigDecimal received) {

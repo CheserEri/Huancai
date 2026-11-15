@@ -2,6 +2,7 @@ package cn.huancai.erp.module.material.controller;
 
 import cn.huancai.erp.common.ApiResult;
 import cn.huancai.erp.common.OperatorResolver;
+import cn.huancai.erp.common.OrderNoGenerator;
 import cn.huancai.erp.module.material.dto.MaterialForm;
 import cn.huancai.erp.module.material.dto.MaterialPurchaseForm;
 import cn.huancai.erp.module.material.dto.PointsExchangeForm;
@@ -36,8 +37,8 @@ import java.util.Set;
 public class MaterialWriteController {
 
     private static final String LOCAL_SOURCE = "本地录入";
-    private static final String SYNC_SOURCE = "校宝教材设置";
-    private static final String CHANGE_SYNC_SOURCE = "校宝库存变动";
+    private static final String SYNC_SOURCE = "历史教材设置";
+    private static final String CHANGE_SYNC_SOURCE = "历史库存变动";
 
     private static final List<String> ROOMS = List.of("总库", "鲅鱼圈幻彩国学堂", "新民幻彩国学堂");
 
@@ -47,19 +48,22 @@ public class MaterialWriteController {
     private final StudentMapper studentMapper;
     private final SpOrderMapper spOrderMapper;
     private final OperatorResolver operatorResolver;
+    private final OrderNoGenerator orderNoGenerator;
 
     public MaterialWriteController(MaterialMapper materialMapper,
                                    MaterialStockChangeMapper changeMapper,
                                    MaterialBuyRecordMapper buyRecordMapper,
                                    StudentMapper studentMapper,
                                    SpOrderMapper spOrderMapper,
-                                   OperatorResolver operatorResolver) {
+                                   OperatorResolver operatorResolver,
+                                   OrderNoGenerator orderNoGenerator) {
         this.materialMapper = materialMapper;
         this.changeMapper = changeMapper;
         this.buyRecordMapper = buyRecordMapper;
         this.studentMapper = studentMapper;
         this.operatorResolver = operatorResolver;
         this.spOrderMapper = spOrderMapper;
+        this.orderNoGenerator = orderNoGenerator;
     }
 
     /* ---------- 下拉选项 ---------- */
@@ -303,7 +307,7 @@ public class MaterialWriteController {
             return ApiResult.fail("账户剩余未用学费不足，当前可用 ￥" + available.toPlainString());
         }
         BigDecimal cashPay = total.subtract(balanceAmount);
-        String orderNo = "LOC" + System.currentTimeMillis();
+        String orderNo = orderNoGenerator.next();
         String handler = operatorResolver.resolve(form.getHandler());
         String remark = trim(form.getRemark());
 
@@ -433,7 +437,7 @@ public class MaterialWriteController {
         if (availablePoints < needPoints) {
             return ApiResult.fail("学员积分不足，当前 " + availablePoints + " 积分，本次需 " + needPoints + " 积分");
         }
-        String orderNo = "LOC" + System.currentTimeMillis();
+        String orderNo = orderNoGenerator.next();
         String handler = operatorResolver.resolve(form.getHandler());
         String remark = trim(form.getRemark());
 

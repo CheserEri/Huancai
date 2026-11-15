@@ -145,7 +145,7 @@ onMounted(load)
         </a-button>
         <a-button size="small" @click="reset">重置</a-button>
       </div>
-      <div class="source-note muted">数据来源：校宝历史记上课/点名记录</div>
+      <div class="source-note muted">数据来源：历史记上课/点名记录</div>
     </div>
 
     <div class="stats-grid">

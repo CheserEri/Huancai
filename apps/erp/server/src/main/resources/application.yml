@@ -23,6 +23,9 @@ spring:
   jackson:
     time-zone: Asia/Shanghai
     default-property-inclusion: non_null
+  # 本地私密配置（微信 AppID / AppSecret 等）放在 application-local.yml，该文件不入库
+  config:
+    import: optional:classpath:application-local.yml
 
 mybatis-plus:
   mapper-locations: classpath*:/mapper/**/*.xml
@@ -38,12 +41,13 @@ app:
   upload-dir: ./storage/uploads
 
 # 家长端微信小程序
-# 填写正式 AppID / AppSecret 后走微信 code2session 登录；
-# 留空则进入开发模式，用本地持久化的 devOpenid 登录，便于开发者工具联调。
+# AppID / AppSecret 为本地私密配置，写在同目录 application-local.yml（已被 .gitignore 忽略）；
+# 未提供时后端进入开发模式，用本地持久化的 devOpenid 登录，便于开发者工具联调。
 wx:
   miniapp:
-    appid: ''
-    secret: ''
+    # 订阅消息：活动开始前提醒家长（模板类目「教育装备」）
+    subscribe:
+      activity-template-id: 'wx-KOL04qZ6EXqwf56Haxe09Bd3PRY-x3m3wBHiv5r4'
 
 # 58mm 热敏小票机：本机 USB 设备接口路径（H58 Printer USB，端口 USB004）
 # 该机型无厂商驱动，后端直接通过 kernel32 打开设备并写入 ESC/POS 指令

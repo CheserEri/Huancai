@@ -166,4 +166,10 @@
     WHERE channel_name IS NOT NULL AND channel_name &lt;&gt; ''
     ORDER BY channel_name
   </select>
+
+  <select id="selectGrades" resultType="java.lang.String">
+    SELECT DISTINCT grade FROM student
+    WHERE grade IS NOT NULL AND grade &lt;&gt; ''
+    ORDER BY LENGTH(grade), grade
+  </select>
 </mapper>

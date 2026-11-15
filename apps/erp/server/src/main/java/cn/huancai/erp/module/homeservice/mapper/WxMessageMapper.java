@@ -28,9 +28,16 @@ public interface WxMessageMapper extends BaseMapper<WxMessage> {
 
     List<MessageStudentVO> selectClassStudents(@Param("classIds") List<Long> classIds);
 
-    List<MessageStudentVO> selectAllBoundStudents();
+    List<MessageStudentVO> selectAllStudents();
 
     List<MessageStudentVO> selectStudentsByIds(@Param("ids") List<Long> ids);
 
+    /** 年级 / 班级 / 学员 三个维度并集去重。 */
+    List<MessageStudentVO> selectStudentsByAudience(@Param("grades") List<String> grades,
+                                                    @Param("classIds") List<Long> classIds,
+                                                    @Param("studentIds") List<Long> studentIds);
+
     List<MessageParentVO> selectParentsByStudentIds(@Param("ids") List<Long> ids);
+
+    void insertTargets(@Param("messageId") Long messageId, @Param("students") List<MessageStudentVO> students);
 }

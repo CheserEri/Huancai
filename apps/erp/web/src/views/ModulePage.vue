@@ -40,7 +40,7 @@ function formatMoney(value: unknown) {
       <div class="state-icon"><LockOutlined /></div>
       <div class="state-title">暂无访问权限</div>
       <div class="state-desc">
-        当前账号没有「{{ entry?.title }}」的权限。校宝里这是由员工角色与数据范围控制的功能权限，
+        当前账号没有「{{ entry?.title }}」的权限。原系统里这是由员工角色与数据范围控制的功能权限，
         复刻版会沿用「角色 → 功能」双层模型，由管理员在内部管理 → 员工中分配。
       </div>
       <a-button type="primary">联系管理员开通</a-button>
@@ -50,7 +50,7 @@ function formatMoney(value: unknown) {
       <div class="state-icon" style="background: #f0f7ff; color: #007aff"><SwapOutlined /></div>
       <div class="state-title">{{ entry?.title }}为外部服务</div>
       <div class="state-desc">
-        该能力不在校宝主系统内，点击会跳转到独立的第三方站点（原地址：{{ entry?.source }}）。
+        该能力不在核心系统内，点击会跳转到独立的第三方站点（原地址：{{ entry?.source }}）。
         自建系统里这类能力建议直接采购，不做复刻。
       </div>
       <a-button>查看外部地址</a-button>

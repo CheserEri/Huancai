@@ -37,6 +37,7 @@ const specialViews: Record<string, () => Promise<unknown>> = {
   '/gradeQuery': () => import('../views/GradeQuery.vue'),
   '/gradeAnalysis': () => import('../views/GradeAnalysis.vue'),
   '/messagePush': () => import('../views/MessagePush.vue'),
+  '/activityPoster': () => import('../views/ActivityPoster.vue'),
   '/classSuspend': () => import('../views/ClassSuspend.vue'),
   '/classComment': () => import('../views/ClassComment.vue'),
   '/classHomework': () => import('../views/ClassHomework.vue'),
@@ -87,6 +88,13 @@ children.push({
   path: '/transfer',
   component: () => import('../views/TransferOrder.vue'),
   meta: { title: '新建转课', group: '办理中心' },
+})
+
+// 个人中心从右上角头像进入，不进入左侧菜单
+children.push({
+  path: '/profile',
+  component: () => import('../views/Profile.vue'),
+  meta: { title: '个人中心' },
 })
 
 const router = createRouter({

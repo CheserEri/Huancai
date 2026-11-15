@@ -121,6 +121,7 @@ class _DataFeeFormState extends State<DataFeeForm> {
   }
 
   Future<void> _submit() async {
+    if (_submitting) return;
     if (_enrollmentId == null) {
       showToast(context, '请选择缴费课程');
       return;
@@ -141,10 +142,13 @@ class _DataFeeFormState extends State<DataFeeForm> {
       if (!mounted) return;
       setState(() => _submitting = false);
       final period = '${str(result['periodStart'], '')}${str(result['periodEnd']).isEmpty ? '' : ' 至 ${str(result['periodEnd'])}'}';
-      showToast(
+      await showPaymentSuccessDialog(
         context,
-        '资料费缴纳成功，订单号 ${str(result['orderNo'], '-')}${period.isEmpty ? '' : '，周期 $period'}',
+        title: '资料费缴纳成功',
+        orderNo: str(result['orderNo'], '-'),
+        summary: period.isEmpty ? null : '缴纳周期 $period',
       );
+      if (!mounted) return;
       widget.onDone();
     } on ApiException catch (e) {
       if (!mounted) return;

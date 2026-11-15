@@ -1,9 +1,9 @@
-"""导入校宝「库存变动记录」82 条。数据源 stock_change.json（11 列，含表头）。幂等。"""
+"""导入原系统「库存变动记录」82 条。数据源 stock_change.json（11 列，含表头）。幂等。"""
 import json
 import os
 import subprocess
 
-BASE = r"d:\Code\Projects\Huancai\data\schoolpal"
+BASE = r"d:\Code\Projects\Huancai\data\legacy"
 MYSQL = r"D:\Code\Projects\Huancai\tools\mysql-8.0.28-winx64\bin\mysql.exe"
 DB_ARGS = ["-h", "127.0.0.1", "-P", "3307", "-u", "hc", "-phc123456",
            "-D", "huancai_erp", "--default-character-set=utf8mb4"]
@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS material_stock_change (
   ext_order_no VARCHAR(32) NULL,
   remark VARCHAR(255) NULL,
   seq INT NOT NULL DEFAULT 0,
-  source VARCHAR(32) NOT NULL DEFAULT '校宝库存变动',
+  source VARCHAR(32) NOT NULL DEFAULT '历史库存变动',
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   UNIQUE KEY uk_change (room_name, material_name, biz_type, quantity, change_date, handler, seq)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -62,7 +62,7 @@ def integer(v):
 
 vals = []
 for i, r in enumerate(rows):
-    vals.append("({},{},{},{},{},{},{},{},{},{},{},'校宝库存变动')".format(
+    vals.append("({},{},{},{},{},{},{},{},{},{},{},'历史库存变动')".format(
         q(r["所属库房"], 64), q(r["教材名称"]), q(r["业务类型"], 16),
         integer(r["数量"]), dec(r["单价"]), date(r["出入库日期"]),
         q(r["经办人"], 64), q(r["学员"], 80), q(r["订单号"], 32), q(r["备注"], 255), i,
@@ -72,7 +72,7 @@ os.makedirs(os.path.dirname(OUT), exist_ok=True)
 with open(OUT, "w", encoding="utf-8", newline="\n") as f:
     f.write("USE huancai_erp;\n")
     f.write(DDL)
-    f.write("DELETE FROM material_stock_change WHERE source = '校宝库存变动';\n")
+    f.write("DELETE FROM material_stock_change WHERE source = '历史库存变动';\n")
     f.write("INSERT INTO material_stock_change (room_name, material_name, biz_type, quantity, unit_price, "
             "change_date, handler, student_name, ext_order_no, remark, seq, source) VALUES\n")
     f.write(",\n".join(vals) + ";\n")

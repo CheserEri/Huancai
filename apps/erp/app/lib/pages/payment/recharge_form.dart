@@ -77,6 +77,7 @@ class _RechargeFormState extends State<RechargeForm> {
   }
 
   Future<void> _submit() async {
+    if (_submitting) return;
     final amount = doubleOf(_amount.text);
     if (amount <= 0) {
       showToast(context, '请填写正确的充值金额');
@@ -93,11 +94,15 @@ class _RechargeFormState extends State<RechargeForm> {
       if (!mounted) return;
       setState(() => _submitting = false);
       final balance = result['balance'];
-      showToast(
-        context,
-        '充值成功，订单号 ${str(result['orderNo'], '-')}${balance == null ? '' : '，当前余额 ${money(doubleOf(balance))} 元'}',
-      );
       _amount.clear();
+      _remark.clear();
+      await showPaymentSuccessDialog(
+        context,
+        title: '充值成功',
+        orderNo: str(result['orderNo'], '-'),
+        summary: balance == null ? null : '当前余额 ¥${money(doubleOf(balance))}',
+      );
+      if (!mounted) return;
       widget.onDone();
     } on ApiException catch (e) {
       if (!mounted) return;

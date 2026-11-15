@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'pages/login_page.dart';
 import 'pages/shell.dart';
@@ -35,6 +36,12 @@ class HuancaiApp extends StatelessWidget {
           navigatorKey: navigatorKey,
           theme: buildAppTheme(),
           locale: const Locale('zh', 'CN'),
+          supportedLocales: const [Locale('zh', 'CN'), Locale('en')],
+          localizationsDelegates: const [
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
           home: appState.restoring
               ? const _SplashPage()
               : loggedIn

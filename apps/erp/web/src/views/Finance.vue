@@ -201,7 +201,7 @@ onMounted(load)
     <div class="table-card">
       <div class="table-toolbar">
         <div class="table-toolbar-left">
-          <span class="muted" style="font-size: 12px">数据来源：校宝收款流水</span>
+          <span class="muted" style="font-size: 12px">数据来源：原系统收款流水</span>
         </div>
       </div>
 

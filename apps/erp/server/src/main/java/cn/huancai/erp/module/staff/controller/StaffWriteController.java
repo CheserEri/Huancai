@@ -9,6 +9,7 @@ import cn.huancai.erp.module.staff.dto.StaffPermissionForm;
 import cn.huancai.erp.module.staff.entity.Staff;
 import cn.huancai.erp.module.staff.mapper.StaffMapper;
 import cn.huancai.erp.module.staff.support.PermissionCodec;
+import cn.huancai.erp.module.staff.support.StaffRoles;
 import cn.huancai.erp.module.staff.vo.StaffOptionsVO;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
@@ -16,15 +17,11 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Set;
 
 /** 员工新建 / 编辑 / 在职状态切换的写接口。 */
 @RestController
 @RequestMapping("/api/staff")
 public class StaffWriteController {
-
-    private static final Set<String> ROLES =
-            Set.of("admin", "manager", "teacher", "consultant", "finance");
 
     private final StaffMapper staffMapper;
     private final CampusMapper campusMapper;
@@ -42,7 +39,7 @@ public class StaffWriteController {
                 .stream()
                 .map(item -> new StaffOptionsVO.CampusOption(item.getId(), item.getName(), item.getStatus()))
                 .toList();
-        return ApiResult.ok(new StaffOptionsVO(campuses, List.of("admin", "manager", "teacher", "consultant", "finance")));
+        return ApiResult.ok(new StaffOptionsVO(campuses, StaffRoles.ALL));
     }
 
     @PostMapping
@@ -61,6 +58,7 @@ public class StaffWriteController {
         staff.setAccount(account);
         staff.setPasswordHash(account == null ? null : passwordEncoder.encode(form.getPassword()));
         staff.setRole(form.getRole());
+        staff.setExtraRoles(StaffRoles.encodeExtras(form.getRole(), form.getExtraRoles()));
         staff.setMenuPermissions(formatPermissions(form));
         staff.setTitle(trim(form.getTitle()));
         staff.setCampusId(form.getCampusId());
@@ -91,6 +89,7 @@ public class StaffWriteController {
                 .set(Staff::getPhone, trim(form.getPhone()))
                 .set(Staff::getAccount, account)
                 .set(Staff::getRole, form.getRole())
+                .set(Staff::getExtraRoles, StaffRoles.encodeExtras(form.getRole(), form.getExtraRoles()))
                 .set(Staff::getMenuPermissions, formatPermissions(form))
                 .set(Staff::getTitle, trim(form.getTitle()))
                 .set(Staff::getCampusId, form.getCampusId())
@@ -143,8 +142,18 @@ public class StaffWriteController {
         if (form.getName() == null || form.getName().isBlank()) {
             return "员工姓名不能为空";
         }
-        if (form.getRole() == null || !ROLES.contains(form.getRole())) {
+        if (!StaffRoles.isValid(form.getRole())) {
             return "请选择有效的角色";
+        }
+        if (form.getExtraRoles() != null) {
+            for (String extra : form.getExtraRoles()) {
+                if (!StaffRoles.isValid(extra) || "admin".equals(extra)) {
+                    return "兼任角色不正确";
+                }
+                if (extra.equals(form.getRole())) {
+                    return "兼任角色不能与主角色重复";
+                }
+            }
         }
         if (form.getStatus() != null && form.getStatus() != 0 && form.getStatus() != 1) {
             return "状态只能是 0（离职）或 1（在职）";

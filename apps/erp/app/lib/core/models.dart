@@ -531,6 +531,7 @@ class GradeExam {
       : id = intOf(json['id']),
         name = str(json['name'], '未命名考试'),
         type = str(json['type'], '考试'),
+        courseId = json['courseId'] == null ? null : intOf(json['courseId']),
         courseName = strOrNull(json['courseName']),
         examDate = strOrNull(json['examDate']),
         fullScore = numOrNull(json['fullScore']) ?? 100,
@@ -541,11 +542,14 @@ class GradeExam {
         studentCount = intOf(json['studentCount']),
         enteredCount = intOf(json['enteredCount']),
         creator = strOrNull(json['creator']),
-        remark = strOrNull(json['remark']);
+        remark = strOrNull(json['remark']),
+        paperImages = (json['paperImages'] is List) ? (json['paperImages'] as List).map((e) => '$e').toList() : <String>[],
+        parts = mapList(json['parts']).map(GradePart.from).toList();
 
   final int id;
   final String name;
   final String type;
+  final int? courseId;
   final String? courseName;
   final String? examDate;
   final num fullScore;
@@ -557,6 +561,28 @@ class GradeExam {
   final int enteredCount;
   final String? creator;
   final String? remark;
+  final List<String> paperImages;
+  final List<GradePart> parts;
+
+  bool get editable => status == '草稿';
+}
+
+/// 考试分项：weight 为权重（%），fullScore 为分项满分。
+class GradePart {
+  GradePart({required this.id, required this.name, this.weight, this.fullScore, this.sort = 0});
+
+  GradePart.from(Map<String, dynamic> json)
+      : id = intOf(json['id']),
+        name = str(json['name'], '分项'),
+        weight = numOrNull(json['weight']),
+        fullScore = numOrNull(json['fullScore']),
+        sort = intOf(json['sort']);
+
+  final int id;
+  final String name;
+  final num? weight;
+  final num? fullScore;
+  final int sort;
 }
 
 class GradeAnalysis {
@@ -574,6 +600,9 @@ class GradeAnalysis {
         minScore = numOrNull(json['minScore']),
         passRate = numOrNull(json['passRate']),
         excellentRate = numOrNull(json['excellentRate']),
+        scoringMode = str(json['scoringMode'], '分数'),
+        exemptCount = intOf(json['exemptCount']),
+        missingCount = intOf(json['missingCount']),
         distributions = mapList(json['distributions']),
         classes = mapList(json['classes']),
         rankings = mapList(json['rankings']),
@@ -587,6 +616,9 @@ class GradeAnalysis {
   final int studentCount;
   final int enteredCount;
   final int absentCount;
+  final String scoringMode;
+  final int exemptCount;
+  final int missingCount;
   final num? avgScore;
   final num? maxScore;
   final num? minScore;
@@ -601,7 +633,9 @@ class GradeAnalysis {
 class GradeQueryRow {
   GradeQueryRow.from(Map<String, dynamic> json)
       : id = intOf(json['id']),
+        examId = intOf(json['examId']),
         examName = str(json['examName'], '-'),
+        examType = str(json['examType']),
         examDate = strOrNull(json['examDate']),
         fullScore = numOrNull(json['fullScore']) ?? 100,
         scoringMode = str(json['scoringMode'], '分数'),
@@ -612,10 +646,13 @@ class GradeQueryRow {
         level = strOrNull(json['level']),
         status = str(json['status'], '-'),
         rankClass = json['rankClass'] == null ? null : intOf(json['rankClass']),
-        rankCampus = json['rankCampus'] == null ? null : intOf(json['rankCampus']);
+        rankCampus = json['rankCampus'] == null ? null : intOf(json['rankCampus']),
+        remark = strOrNull(json['remark']);
 
   final int id;
+  final int examId;
   final String examName;
+  final String examType;
   final String? examDate;
   final num fullScore;
   final String scoringMode;
@@ -627,6 +664,7 @@ class GradeQueryRow {
   final String status;
   final int? rankClass;
   final int? rankCampus;
+  final String? remark;
 }
 
 class MessageInfo {

@@ -4,7 +4,7 @@ export interface MenuItem {
   path: string
   title: string
   status: FeatureStatus
-  /** 校宝原路由，仅作对照 */
+  /** 原始路由，仅作对照 */
   source?: string
   icon?: string
 }
@@ -77,6 +77,7 @@ export const menuGroups: MenuGroup[] = [
     icon: 'NotificationOutlined',
     items: [
       { path: '/messagePush', title: '消息推送', status: 'ok', icon: 'SendOutlined' },
+      { path: '/activityPoster', title: '活动海报推送', status: 'ok', icon: 'PictureOutlined' },
       { path: '/classSuspend', title: '班级休课', status: 'ok', icon: 'PauseCircleOutlined' },
       { path: '/classComment', title: '课堂点评', status: 'ok', icon: 'CommentOutlined' },
       { path: '/classHomework', title: '作业', status: 'ok', icon: 'BookOutlined' },

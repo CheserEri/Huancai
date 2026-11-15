@@ -22,7 +22,7 @@ import java.util.function.Supplier;
 
 /**
  * 本地闭环办理接口：报名/续费、余额充值、退费、转课。
- * 所有写操作只落本地库，不调用校宝任何接口。
+ * 所有写操作只落本地库，不调用原系统任何接口。
  */
 @RestController
 @RequestMapping("/api/local-orders")

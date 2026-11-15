@@ -1,0 +1,2158 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>参考平台业务功能说明 · 完整版</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+ background:#fff;color:#24292f;line-height:1.75;font-size:15px;-webkit-font-smoothing:antialiased}
+.doc{max-width:1080px;margin:0 auto;padding:48px 40px 96px}
+h1{font-size:30px;font-weight:700;letter-spacing:-.4px;margin:0 0 20px;padding-bottom:14px;border-bottom:2px solid #e5e8ee}
+h2{font-size:22px;font-weight:700;margin:52px 0 16px;padding:10px 0 10px 14px;border-left:4px solid #1e2a44;background:#f6f8fb}
+h3{font-size:17px;font-weight:700;margin:32px 0 12px;color:#1e2a44}
+h4{font-size:15px;font-weight:700;margin:24px 0 10px;color:#3b4557}
+p{margin:10px 0}
+hr{border:0;border-top:1px solid #e8ebf0;margin:40px 0}
+blockquote{background:#f7f9fc;border-left:4px solid #94a3b8;padding:14px 18px;margin:16px 0;
+ color:#4b5565;font-size:14px;border-radius:0 6px 6px 0}
+blockquote strong{color:#1e2a44}
+code{background:#f0f3f8;color:#b4326b;padding:2px 5px;border-radius:4px;
+ font-family:"SFMono-Regular",Consolas,Menlo,monospace;font-size:12.5px}
+pre{background:#1e2530;color:#dbe3ef;padding:16px 18px;border-radius:8px;overflow:auto;margin:14px 0}
+pre code{background:none;color:inherit;padding:0;font-size:12.5px;line-height:1.7}
+.tw{overflow-x:auto;margin:14px 0;border:1px solid #e5e8ee;border-radius:8px}
+table{border-collapse:collapse;width:100%;font-size:13px;background:#fff}
+th{background:#f4f6fa;text-align:left;padding:9px 12px;font-weight:600;color:#28313f;
+ border-bottom:1px solid #e5e8ee;white-space:nowrap}
+td{padding:9px 12px;border-bottom:1px solid #f0f2f6;vertical-align:top;color:#3b4557}
+td:nth-child(2){min-width:74px}
+tbody tr:last-child td{border-bottom:0}
+tbody tr:hover{background:#fafbfd}
+td code,th code{font-size:11.5px}
+ul,ol{margin:10px 0 10px 22px}
+li{margin:5px 0}
+strong{color:#1e2a44;font-weight:600}
+@media print{body{font-size:12px}.doc{padding:0}h2{page-break-after:avoid}.tw{page-break-inside:auto}tr{page-break-inside:avoid}}
+</style></head><body><div class="doc">
+<h1 id="参考平台-Legacy-业务功能说明-完整版">参考平台业务功能说明 · 完整版</h1>
+<blockquote><strong>文档版本</strong>：v2.0（在 v1.0 基础上逐页核对补充）<br><strong>核对方式</strong>：登录实际系统，遍历全部一级/二级菜单与页面内页签，记录字段、筛选条件、批量操作与状态<br><strong>系统</strong>：原系统智慧校园 v13.0（PC 端 <code>pro.legacy.cn/web</code>）<br><strong>机构</strong>：幻彩教育 · 鲅鱼圈幻彩国学堂 / 新民幻彩国学堂<br><strong>核对日期</strong>：2026-10-17</blockquote>
+<hr>
+<h2 id="阅读说明">阅读说明</h2>
+<h3 id="状态标记">状态标记</h3>
+<p>本文对每一项功能标注了它在<strong>当前账号</strong>下的真实可用状态，这是 v1.0 缺失的关键维度——只看菜单名会把「买不到的能力」误当成「已有能力」。</p>
+<div class='tw'><table><thead><tr>
+<th>标记</th>
+<th>含义</th>
+<th>数量</th>
+</tr></thead><tbody>
+<tr>
+<td>✅ 可用</td>
+<td>已开通且当前账号可正常访问</td>
+<td>31 项</td>
+</tr>
+<tr>
+<td>🔒 无权限</td>
+<td>功能已购买，但当前账号角色无权限（换管理员账号可看）</td>
+<td>10 项</td>
+</tr>
+<tr>
+<td>⬆ 需升级</td>
+<td>当前版本未开通，点击进入只显示「立即咨询开通 / 点击抢占升级名额」</td>
+<td>23 项</td>
+</tr>
+<tr>
+<td>↗ 外部服务</td>
+<td>跳转到原系统其他站点或第三方（增值服务）</td>
+<td>3 项</td>
+</tr>
+<tr>
+<td>合计</td>
+<td>二级功能总数</td>
+<td>67 项</td>
+</tr>
+</tbody></table></div>
+<blockquote>⚠️ 重要结论：<strong>23 项功能是「空壳」</strong>。招生中心的抖音开店、超级裂变、转介绍、美团/抖音/小红书直连、入学测评、智能外呼、AI 听记；教务中心的 AI 学员运营、AI 风险预警、人脸考勤机；教学中心全部 8 项（题库、组卷、云盘、作业批改、学情报告、直播课、录播课）；家长端的学员风采、积分商城；内部管理的电子合同——这些在菜单里都能看到，但点进去都是升级引导页。<strong>评估这套系统「已经有什么」时，必须按状态列筛一遍。</strong></blockquote>
+<hr>
+<h1 id="第一部分-系统总览">第一部分 系统总览</h1>
+<h2 id="1-1-产品定位与形态">1.1 产品定位与形态</h2>
+<p>面向课外培训机构（教培）的一体化经营管理系统。三端协同：</p>
+<div class='tw'><table><thead><tr>
+<th>端</th>
+<th>形态</th>
+<th>使用者</th>
+<th>主要职责</th>
+</tr></thead><tbody>
+<tr>
+<td>PC 管理端</td>
+<td>Web（<code>pro.legacy.cn/web</code>）</td>
+<td>校长、教务、财务、前台</td>
+<td>全量业务操作与经营分析</td>
+</tr>
+<tr>
+<td>教职工 App</td>
+<td>「原系统」手机 App</td>
+<td>教师、教务</td>
+<td>记上课、点评、查课表</td>
+</tr>
+<tr>
+<td>家长端</td>
+<td>微信服务号「家长端」</td>
+<td>家长</td>
+<td>查课时、看点评、收通知、请假约课</td>
+</tr>
+</tbody></table></div>
+<p>配套硬件：磁卡考勤机、人脸识别考勤机。</p>
+<h2 id="1-2-账户与权限模型">1.2 账户与权限模型</h2>
+<pre><code>机构（幻彩教育）
+ └─ 校区（鲅鱼圈幻彩国学堂 / 新民幻彩国学堂）
+     └─ 部门（教务部 / 财务部 …）
+         └─ 员工（12 人）── 关联 ──&gt; 角色 ──&gt; 功能权限（能进哪些页面）
+                                          └─&gt; 数据权限（管辖哪些校区/部门的数据）</code></pre>
+<ul>
+<li>当前 12 名员工中：机构主管 1 人、自定义权限 2 人、教务/教师若干</li>
+<li>角色示例：机构主管、教务、教师、财务、自定义权限</li>
+<li>权限是<strong>双层</strong>的：功能权限决定「能不能进这个菜单」，数据权限决定「进去后能看到哪些校区/部门的数据」。这也是本文 10 项 🔒 的成因。</li>
+</ul>
+<h2 id="1-3-业务主线">1.3 业务主线</h2>
+<pre><code>获客引流 → 咨询跟进 → 报名收费 → 分班排课 → 记上课扣课时 → 作业点评 → 续费/转退 → 经营报表
+   ↑                                                              ↓
+   └──────────────── 家长端触达（家长端）←────────────────────────┘</code></pre>
+<p>所有模块的数据最终汇入两个账户：<strong>学员课时账户</strong>（服务履约）和<strong>财务资金流水</strong>（钱）。</p>
+<h2 id="1-4-模块地图-9-个一级模块-67-项二级功能">1.4 模块地图（9 个一级模块 / 67 项二级功能）</h2>
+<div class='tw'><table><thead><tr>
+<th>#</th>
+<th>一级模块</th>
+<th>功能数</th>
+<th>模块定位</th>
+</tr></thead><tbody>
+<tr>
+<td>1</td>
+<td>工作台</td>
+<td>8 区块</td>
+<td>每日待办 + 经营快照 + 新手引导</td>
+</tr>
+<tr>
+<td>2</td>
+<td>招生中心</td>
+<td>14</td>
+<td>线索获取、转化、营销活动</td>
+</tr>
+<tr>
+<td>3</td>
+<td>办理中心</td>
+<td>7</td>
+<td>收银台：报名、充值、补费、转课、退费</td>
+</tr>
+<tr>
+<td>4</td>
+<td>教务中心</td>
+<td>12</td>
+<td>业务引擎：学员、班级、排课、上课、课时</td>
+</tr>
+<tr>
+<td>5</td>
+<td>教学中心</td>
+<td>8</td>
+<td>教学内容与课后闭环（<strong>全部为升级项</strong>）</td>
+</tr>
+<tr>
+<td>6</td>
+<td>报表中心</td>
+<td>6</td>
+<td>经营驾驶舱</td>
+</tr>
+<tr>
+<td>7</td>
+<td>家长端</td>
+<td>10</td>
+<td>家长端家校服务</td>
+</tr>
+<tr>
+<td>8</td>
+<td>内部管理</td>
+<td>7</td>
+<td>组织、人事、财务、教材、合同</td>
+</tr>
+<tr>
+<td>9</td>
+<td>增值服务</td>
+<td>3</td>
+<td>原系统自营资金/培训产品</td>
+</tr>
+<tr>
+<td>—</td>
+<td><strong>合计</strong></td>
+<td><strong>67</strong></td>
+<td>另含平台级通用能力 15 项</td>
+</tr>
+</tbody></table></div>
+<hr>
+<h1 id="第二部分-完整功能清单">第二部分 完整功能清单</h1>
+<blockquote>表格说明：<strong>子页签</strong>＝进入该功能后的横向标签页；<strong>关键字段/操作</strong>＝页面实际存在的筛选项、列、按钮。</blockquote>
+<h2 id="2-1-工作台">2.1 工作台</h2>
+<p>路由：<code>/web/desktop</code></p>
+<div class='tw'><table><thead><tr>
+<th>功能区块</th>
+<th>状态</th>
+<th>具体内容</th>
+</tr></thead><tbody>
+<tr>
+<td>顶部营销位</td>
+<td>✅</td>
+<td>系统内置推广横幅（课后巩固/错题本/个性卷），可点击跳转</td>
+</tr>
+<tr>
+<td>待办提醒</td>
+<td>✅</td>
+<td>按课时学员将到期（当前 <strong>855 位</strong>）、待处理欠费（0）、待点评作业（0）、待回访（0）、待处理家长申请（2）</td>
+</tr>
+<tr>
+<td>四步初始设置</td>
+<td>✅</td>
+<td>已完成 4/4：①员工（创建账号、分配权限）②课程（收费模式、课程价格）③班级（班级名称、满班人数）④学员（学员信息、批量导入）</td>
+</tr>
+<tr>
+<td>常用功能</td>
+<td>✅</td>
+<td>咨询记录、报名续费、排课、记上课（各带今日计数）</td>
+</tr>
+<tr>
+<td>今日总览</td>
+<td>✅</td>
+<td>新生报名 / 老生报名 / 新增咨询 折线图</td>
+</tr>
+<tr>
+<td>产品动态</td>
+<td>✅</td>
+<td>功能更新公告流（电子合同升级、订单标签必选开关、批量结课、收款对账升级、财务账目按校区锁定）</td>
+</tr>
+<tr>
+<td>运营指导</td>
+<td>✅</td>
+<td>优质案例、学习最佳实践、学习交流（导流原系统商学）</td>
+</tr>
+<tr>
+<td>新手引导</td>
+<td>✅</td>
+<td>导航栏收起引导、操作气泡「跳过引导 / 我知道了」</td>
+</tr>
+</tbody></table></div>
+<h2 id="2-2-招生中心-14-项">2.2 招生中心（14 项）</h2>
+<div class='tw'><table><thead><tr>
+<th>#</th>
+<th>功能</th>
+<th>路由</th>
+<th>状态</th>
+<th>子页签 / 关键内容</th>
+</tr></thead><tbody>
+<tr>
+<td>1</td>
+<td>招生宝</td>
+<td><code>/legacyShow</code></td>
+<td>✅</td>
+<td>活动管理、原系统钱包（活动列表）</td>
+</tr>
+<tr>
+<td>2</td>
+<td>抖音开店</td>
+<td><code>/dyaccount</code></td>
+<td>⬆</td>
+<td>升级引导页</td>
+</tr>
+<tr>
+<td>3</td>
+<td>超级裂变</td>
+<td><code>/superfission</code></td>
+<td>⬆</td>
+<td>升级引导页</td>
+</tr>
+<tr>
+<td>4</td>
+<td>咨询本</td>
+<td><code>/Reception/CrmConsultIndex</code></td>
+<td>🔒</td>
+<td>线索 CRM（无权限）</td>
+</tr>
+<tr>
+<td>5</td>
+<td>招生表单</td>
+<td><code>/popularizeform</code></td>
+<td>✅</td>
+<td>全部表单；系统预置模板「日常采单」（基础学员信息，供采单员快速收集高意向线索）、「地推登记」（精准意向信息，便于邀约试听转化）；可新建表单</td>
+</tr>
+<tr>
+<td>6</td>
+<td>微校</td>
+<td><code>/microwebsite</code></td>
+<td>✅</td>
+<td><strong>微官网 / 微商城 / 微校设置</strong>；页面模块：品牌介绍、师资团队、明星学员、机构荣誉、校区环境、课程分类、学员作品；带访问次数/分享次数统计</td>
+</tr>
+<tr>
+<td>7</td>
+<td>营销中心</td>
+<td><code>/MarketingSolution/Index</code></td>
+<td>🔒</td>
+<td>营销方案库（无权限）</td>
+</tr>
+<tr>
+<td>8</td>
+<td>转介绍</td>
+<td><code>/referer</code></td>
+<td>⬆</td>
+<td>升级引导页</td>
+</tr>
+<tr>
+<td>9</td>
+<td>美团直连</td>
+<td><code>/meituan</code></td>
+<td>⬆</td>
+<td>升级引导页</td>
+</tr>
+<tr>
+<td>10</td>
+<td>抖音直连</td>
+<td><code>/douyinDirect</code></td>
+<td>⬆</td>
+<td>升级引导页</td>
+</tr>
+<tr>
+<td>11</td>
+<td>小红书直连</td>
+<td><code>/xiaohongshuDirect</code></td>
+<td>⬆</td>
+<td>升级引导页</td>
+</tr>
+<tr>
+<td>12</td>
+<td>入学测评</td>
+<td><code>/examTest</code></td>
+<td>⬆</td>
+<td>升级引导页</td>
+</tr>
+<tr>
+<td>13</td>
+<td>智能外呼</td>
+<td><code>/intelligentCallout</code></td>
+<td>⬆</td>
+<td>升级引导页</td>
+</tr>
+<tr>
+<td>14</td>
+<td>AI 听记</td>
+<td><code>/aiNotes</code></td>
+<td>⬆</td>
+<td>升级引导页（原 v1.0 误写为「AI 听评」）</td>
+</tr>
+</tbody></table></div>
+<h2 id="2-3-办理中心-7-项">2.3 办理中心（7 项）</h2>
+<p>路由：<code>/order/orderList</code>（默认落在「报名/续费」）</p>
+<div class='tw'><table><thead><tr>
+<th>#</th>
+<th>功能</th>
+<th>状态</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>1</td>
+<td><strong>报名/续费</strong></td>
+<td>✅</td>
+<td>v1.0 遗漏的首项。开单收费、选课程、算优惠、生成订单</td>
+</tr>
+<tr>
+<td>2</td>
+<td>余额充值</td>
+<td>✅</td>
+<td>学员账户预存</td>
+</tr>
+<tr>
+<td>3</td>
+<td>补费</td>
+<td>✅</td>
+<td>差额补缴</td>
+</tr>
+<tr>
+<td>4</td>
+<td>转课</td>
+<td>✅</td>
+<td>课程间课时/金额转移</td>
+</tr>
+<tr>
+<td>5</td>
+<td>退费</td>
+<td>✅</td>
+<td>按已消耗课时核算应退</td>
+</tr>
+<tr>
+<td>6</td>
+<td>教材杂费</td>
+<td>✅</td>
+<td>教材、资料等非课时收费</td>
+</tr>
+<tr>
+<td>7</td>
+<td>积分</td>
+<td>✅</td>
+<td>积分发放与扣减</td>
+</tr>
+</tbody></table></div>
+<p><strong>订单列表完整能力</strong>（这是 v1.0 只写了一句「订单流水」的地方）：</p>
+<ul>
+<li>筛选：学员姓名、经办日期、是否欠费、课程、教材杂费、售前人员类型、售前人员、订单类型、订单标签、经办人、经办校区、订单状态、订单来源、是否发起合同</li>
+<li>范围切换：我的 / 今日 / 校区 / 今日校区</li>
+<li>汇总条：应收款项总计、实收总计、学员账户变动总计、欠费总计、积分总计</li>
+<li>列：交易内容、应收/应退、实收/实退、学员账户、欠费、积分、销售员、订单标签、经办校区、经办日期、经办人、对内备注、对外备注、到款状态、订单号、学员姓名、联系方式、订单类型</li>
+<li>操作：导出当前结果、自定义显示列、批量确认、统计、订单详情</li>
+<li>状态：待支付 / 已完成</li>
+</ul>
+<h2 id="2-4-教务中心-12-项">2.4 教务中心（12 项）</h2>
+<div class='tw'><table><thead><tr>
+<th>#</th>
+<th>功能</th>
+<th>路由</th>
+<th>状态</th>
+<th>子页签</th>
+<th>关键字段 / 操作</th>
+</tr></thead><tbody>
+<tr>
+<td>1</td>
+<td>学员</td>
+<td><code>/student</code></td>
+<td>✅</td>
+<td>花名册、报读列表、分班列表、学员成绩、学员常见问题、批量导入</td>
+<td>筛选：学员状态、报读校区、性别、是否关注家长端、是否绑定磁卡、是否录入人脸、是否欠费、新老生；批量：导出、发送通知公告、新建成长档案、批量调整、批量删除、批量打印二维码、自定义显示列</td>
+</tr>
+<tr>
+<td>2</td>
+<td>班级</td>
+<td><code>/class</code></td>
+<td>✅</td>
+<td>班级列表、分班操作日志、班级常见问题</td>
+<td>新建班级、导入班级；字段：班级名称、校区、教室、课程类别、课程、上课星期、上课时段、班级状态、人数/满班人数、班主任、所属课程、开班校区、开班日期、上课时间、招生状态；批量删除/编辑/导出；可显示已结班班级</td>
+</tr>
+<tr>
+<td>3</td>
+<td>一对一</td>
+<td><code>/oneToOne</code></td>
+<td>✅</td>
+<td>一对一学员、待处理学员</td>
+<td>筛选：校区、教室、课程类别、课程、收费模式、开课日期；操作：导出、发送通知、批量编辑、批量转课、显示转/停/退/结学员、星标</td>
+</tr>
+<tr>
+<td>4</td>
+<td>排课</td>
+<td><code>/schedule</code></td>
+<td>✅</td>
+<td>课程表、日程列表、冲突日程</td>
+<td><strong>视图</strong>：时间课表、教师课表、教室课表、班级课表、时刻表；筛选：校区、教师、教室、课程类别、课程、科目、是否记上课；开关：已记上课、冲突日程、我的日程、其它日程、含试听学员；粒度：日/周/月；操作：新建排课、一对一排课、导入、导出课表</td>
+</tr>
+<tr>
+<td>5</td>
+<td>约课</td>
+<td><code>/bookingClass</code></td>
+<td>✅</td>
+<td>约课班级列表、约课日程列表、预约记录、约课常见问题</td>
+<td>添加约课班级、批量上架/下架、约课状态（上架）</td>
+</tr>
+<tr>
+<td>6</td>
+<td>记上课</td>
+<td><code>/teachingLog</code></td>
+<td>✅</td>
+<td>记上课、上课记录、补课管理、课时汇总、教师试听</td>
+<td>今日上课、补记上课、未排课记上课、自定义列表；列：上课时段、班级/一对一、所属课程、上课教师、状态（未记录/已记录）、上课校区、教室</td>
+</tr>
+<tr>
+<td>7</td>
+<td>磁卡考勤</td>
+<td><code>/Reception/AttendanceIndex</code></td>
+<td>🔒</td>
+<td>刷卡签到（无权限）</td>
+<td>—</td>
+</tr>
+<tr>
+<td>8</td>
+<td>赛事考级</td>
+<td><code>/saishi/kaoji</code></td>
+<td>✅</td>
+<td>赛事考级管理</td>
+<td>赛事与考级报名、成绩</td>
+</tr>
+<tr>
+<td>9</td>
+<td>课程</td>
+<td><code>/Lesson</code></td>
+<td>✅</td>
+<td>课程列表、升期关系列表、课程类别、科目设置、课程常见问题</td>
+<td>新建课程、批量导入；字段：开课校区、课程类别、授课模式、收费模式、课程状态、科目、开班数；批量导出/删除/起售/停售；「升期关系」用于课程进阶路径</td>
+</tr>
+<tr>
+<td>10</td>
+<td>AI 学员运营</td>
+<td><code>/aiStudents</code></td>
+<td>⬆</td>
+<td>升级引导页</td>
+<td>—</td>
+</tr>
+<tr>
+<td>11</td>
+<td>AI 风险预警</td>
+<td><code>/aiRiskAlert</code></td>
+<td>⬆</td>
+<td>升级引导页</td>
+<td>—</td>
+</tr>
+<tr>
+<td>12</td>
+<td>人脸考勤机</td>
+<td><code>/faceMachine</code></td>
+<td>⬆</td>
+<td>升级引导页</td>
+<td>—</td>
+</tr>
+</tbody></table></div>
+<h2 id="2-5-教学中心-8-项-全部为升级项">2.5 教学中心（8 项，全部为升级项）</h2>
+<div class='tw'><table><thead><tr>
+<th>#</th>
+<th>功能</th>
+<th>路由</th>
+<th>状态</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>1</td>
+<td>题库资源</td>
+<td><code>/questionBank</code></td>
+<td>⬆</td>
+<td>私有题库</td>
+</tr>
+<tr>
+<td>2</td>
+<td>题库组卷</td>
+<td><code>/examPaper</code></td>
+<td>⬆</td>
+<td>自动/手动组卷</td>
+</tr>
+<tr>
+<td>3</td>
+<td>教学云盘</td>
+<td><code>/cloudDriver</code></td>
+<td>⬆</td>
+<td>课件资料存储分发</td>
+</tr>
+<tr>
+<td>4</td>
+<td>作业批改</td>
+<td><code>/homeworkMarking</code></td>
+<td>⬆</td>
+<td>线上批改（AI）</td>
+</tr>
+<tr>
+<td>5</td>
+<td>错题本</td>
+<td><code>/mistakeNotebookUpgrade</code></td>
+<td>⬆</td>
+<td>错题归集与个性练习</td>
+</tr>
+<tr>
+<td>6</td>
+<td>学情报告</td>
+<td><code>/learningReport</code></td>
+<td>⬆</td>
+<td>阶段性学习报告</td>
+</tr>
+<tr>
+<td>7</td>
+<td>ClassIn 直播课</td>
+<td><code>/liveUpgrade</code></td>
+<td>⬆</td>
+<td>第三方直播对接</td>
+</tr>
+<tr>
+<td>8</td>
+<td>录播课</td>
+<td><code>/liveReplay</code></td>
+<td>⬆</td>
+<td>录播课程与观看数据</td>
+</tr>
+</tbody></table></div>
+<blockquote>⚠️ <strong>v1.0 的结构性错误</strong>：v1.0 把「课堂点评、作业布置、成长记录、通知公告、服务中心、数据分析、设置」写进了教学中心。实际这些全部属于「家长端」模块，教学中心只有上表 8 项，且<strong>一项都没开通</strong>。</blockquote>
+<h2 id="2-6-报表中心-6-项">2.6 报表中心（6 项）</h2>
+<div class='tw'><table><thead><tr>
+<th>#</th>
+<th>报表</th>
+<th>状态</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>1</td>
+<td>校区经营分析</td>
+<td>✅</td>
+<td>见下方明细</td>
+</tr>
+<tr>
+<td>2</td>
+<td>教务报表</td>
+<td>✅</td>
+<td>班级、课时消耗、教师工作量</td>
+</tr>
+<tr>
+<td>3</td>
+<td>财务报表</td>
+<td>✅</td>
+<td>收支、应收实收、欠费</td>
+</tr>
+<tr>
+<td>4</td>
+<td>教材杂费报表</td>
+<td>✅</td>
+<td>教材与杂费收支</td>
+</tr>
+<tr>
+<td>5</td>
+<td>数据大屏</td>
+<td>✅</td>
+<td>可视化看板</td>
+</tr>
+<tr>
+<td>6</td>
+<td>AI 数据分析助理</td>
+<td>✅</td>
+<td>自然语言问数</td>
+</tr>
+</tbody></table></div>
+<p><strong>校区经营分析配置项</strong>：</p>
+<ul>
+<li>数据范围：经办校区（鲅鱼圈 / 新民，可多选）+ 日期范围（本月/上月/今日/昨日/本周/上周/今年/去年/自定义起止）</li>
+<li>招生概况指标：新增咨询、新增咨询数据环比、新增咨询校区对比、招生人次、报名数据环比、报名校区对比、应收成交额、应收数据环比、应收校区对比、实收成交额、实收数据环比、实收校区对比、教材杂费收入金额、退费金额、学员账户金额</li>
+<li>教务概况指标：学员就读、学费消耗</li>
+<li>财务概况指标：财务概况、数据环比、校区对比</li>
+<li>员工概况指标：员工概况</li>
+<li>操作：勾选指标 → 生成报表</li>
+</ul>
+<h2 id="2-7-家长端-10-项">2.7 家长端（10 项）</h2>
+<div class='tw'><table><thead><tr>
+<th>#</th>
+<th>功能</th>
+<th>路由</th>
+<th>状态</th>
+<th>子页签 / 关键内容</th>
+</tr></thead><tbody>
+<tr>
+<td>1</td>
+<td>课堂点评</td>
+<td><code>/comment</code></td>
+<td>✅</td>
+<td>班级点评、课堂评价；统计：点评率、阅读率、到课人数、小红花数、上课记录数、点评记录数</td>
+</tr>
+<tr>
+<td>2</td>
+<td>作业</td>
+<td><code>/homework</code></td>
+<td>✅</td>
+<td>课后作业；作业列表、草稿箱；筛选：布置时间、校区、布置教师、班级、是否全部点评；列：点评进度（已点评/已提交）、未提交、未读、布置时间</td>
+</tr>
+<tr>
+<td>3</td>
+<td>成长记录</td>
+<td><code>/growthArchives</code></td>
+<td>✅</td>
+<td>学员成长档案；档案类型（报名、课堂点评等）；可新建/详情/删除</td>
+</tr>
+<tr>
+<td>4</td>
+<td>通知公告</td>
+<td><code>?to=notice</code></td>
+<td>🔒</td>
+<td>无权限</td>
+</tr>
+<tr>
+<td>5</td>
+<td>服务中心</td>
+<td><code>?to=servicecenter</code></td>
+<td>🔒</td>
+<td>无权限</td>
+</tr>
+<tr>
+<td>6</td>
+<td>数据分析</td>
+<td><code>?to=analysis</code></td>
+<td>🔒</td>
+<td>无权限（v1.0 遗漏）</td>
+</tr>
+<tr>
+<td>7</td>
+<td>设置</td>
+<td><code>?to=setting</code></td>
+<td>🔒</td>
+<td>无权限（v1.0 遗漏）</td>
+</tr>
+<tr>
+<td>8</td>
+<td>公众号</td>
+<td><code>/wxaccount</code></td>
+<td>✅</td>
+<td>公众号授权（已对接服务号「幻彩学堂」，到期 2029-06-24）、开通微信推送、检测推送模板、设置公众号菜单、家校推广素材</td>
+</tr>
+<tr>
+<td>9</td>
+<td>学员风采</td>
+<td><code>/studentStyle</code></td>
+<td>⬆</td>
+<td>升级引导页</td>
+</tr>
+<tr>
+<td>10</td>
+<td>积分商城</td>
+<td><code>/pointsMall</code></td>
+<td>⬆</td>
+<td>升级引导页</td>
+</tr>
+</tbody></table></div>
+<h2 id="2-8-内部管理-7-项">2.8 内部管理（7 项）</h2>
+<div class='tw'><table><thead><tr>
+<th>#</th>
+<th>功能</th>
+<th>路由</th>
+<th>状态</th>
+<th>子页签</th>
+<th>关键字段</th>
+</tr></thead><tbody>
+<tr>
+<td>1</td>
+<td>组织架构</td>
+<td><code>/Settings/Index</code></td>
+<td>🔒</td>
+<td>校区/部门树（无权限）</td>
+<td>—</td>
+</tr>
+<tr>
+<td>2</td>
+<td>员工</td>
+<td><code>/employee/employeeList</code></td>
+<td>✅</td>
+<td>员工管理、角色管理、教师管理、员工常见问题</td>
+<td>新建员工；筛选：所属部门、是否教师、管辖校区、角色、人事状态；列：所属部门、是否教师、生日、人事状态、合同到期、机构账号、姓名、性别、联系方式；批量调整所属部门、导出</td>
+</tr>
+<tr>
+<td>3</td>
+<td>员工通知</td>
+<td><code>/Xiaobaoist/ArticleList</code></td>
+<td>🔒</td>
+<td>无权限</td>
+<td>—</td>
+</tr>
+<tr>
+<td>4</td>
+<td>工资</td>
+<td><code>/Performance/Index</code></td>
+<td>🔒</td>
+<td>无权限</td>
+<td>—</td>
+</tr>
+<tr>
+<td>5</td>
+<td>财务</td>
+<td><code>/finance</code></td>
+<td>✅</td>
+<td>收支明细、交易列表、确认收入列表、账户管理、收支项目</td>
+<td>新增记账、批量确认、导出、自定义列；筛选：订单号、经办日期、账户名称、经办校区、到款状态、收支类型、收支小类；列：收支大类/小类、金额、经办校区、经办日期、经办人、学员、到款时间、到款状态、订单号、账户名称</td>
+</tr>
+<tr>
+<td>6</td>
+<td>教材</td>
+<td><code>/storage</code></td>
+<td>✅</td>
+<td>购买记录、库存、教材设置、杂费设置</td>
+<td>筛选：订单号、交易类型、经办校区、经办日期、经办人、领用状态；列：学生、购买商品、数量、实付、领用状态</td>
+</tr>
+<tr>
+<td>7</td>
+<td>电子合同</td>
+<td><code>/contract/contractList</code></td>
+<td>⬆</td>
+<td>升级引导页</td>
+<td>—</td>
+</tr>
+</tbody></table></div>
+<h2 id="2-9-增值服务-3-项">2.9 增值服务（3 项）</h2>
+<div class='tw'><table><thead><tr>
+<th>功能</th>
+<th>路由</th>
+<th>状态</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>收银宝</td>
+<td><code>/OutApp/RedirectScpServerRoute</code></td>
+<td>↗</td>
+<td>前台聚合收款，收款直接对账入系统</td>
+</tr>
+<tr>
+<td>安心宝</td>
+<td><code>anxinbao.legacy.cn</code></td>
+<td>↗</td>
+<td>资金监管/退费保障类服务</td>
+</tr>
+<tr>
+<td>原系统商学</td>
+<td><code>xiaobaoonline.com/academy</code></td>
+<td>↗</td>
+<td>校长经营培训课程</td>
+</tr>
+</tbody></table></div>
+<h2 id="2-10-移动端与硬件">2.10 移动端与硬件</h2>
+<div class='tw'><table><thead><tr>
+<th>载体</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>原系统 App（教职工端）</td>
+<td>记上课、点评、课表、审批；左侧导航底部「试用手机App」入口</td>
+</tr>
+<tr>
+<td>家长端（家长端）</td>
+<td>基于微信服务号，家长查课时、看点评/作业、收通知、请假约课</td>
+</tr>
+<tr>
+<td>磁卡考勤机</td>
+<td>刷卡签到，签到即记上课（🔒 当前无权限）</td>
+</tr>
+<tr>
+<td>人脸考勤机</td>
+<td>人脸识别签到（⬆ 升级项）</td>
+</tr>
+</tbody></table></div>
+<h2 id="2-11-平台级通用能力-v1-0-完全未提及">2.11 平台级通用能力（v1.0 完全未提及）</h2>
+<p>这些能力不在任何菜单里，但决定了系统的实际使用效率，平替时同样要复刻。</p>
+<div class='tw'><table><thead><tr>
+<th>#</th>
+<th>能力</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>1</td>
+<td>多标签页工作区</td>
+<td>顶部可同时打开多个业务页（工作台/办理中心/学员/班级/排课/记上课/财务），带关闭按钮，像浏览器标签</td>
+</tr>
+<tr>
+<td>2</td>
+<td>机构切换</td>
+<td>顶部「幻彩教育 ▾」下拉，多机构账号可切换</td>
+</tr>
+<tr>
+<td>3</td>
+<td>全局搜索</td>
+<td>顶部搜索框</td>
+</tr>
+<tr>
+<td>4</td>
+<td>消息通知</td>
+<td>顶部铃铛，未读红点</td>
+</tr>
+<tr>
+<td>5</td>
+<td>帮助与新手引导</td>
+<td>操作气泡、功能指引、常见问题（每个模块都有「XX 常见问题」子页签）</td>
+</tr>
+<tr>
+<td>6</td>
+<td>在线客服 + 专属实施经理</td>
+<td>左下角客服入口</td>
+</tr>
+<tr>
+<td>7</td>
+<td>版本与更新公告</td>
+<td>左下角「版本 v13.0」，工作台「产品动态」</td>
+</tr>
+<tr>
+<td>8</td>
+<td>自定义显示列</td>
+<td>几乎所有列表页支持自定义列并记忆</td>
+</tr>
+<tr>
+<td>9</td>
+<td>导出当前结果</td>
+<td>列表页导出 Excel（学员、班级、订单、财务、员工…）</td>
+</tr>
+<tr>
+<td>10</td>
+<td>批量操作</td>
+<td>批量调整/删除/编辑/打印/起售/停售/上架/确认</td>
+</tr>
+<tr>
+<td>11</td>
+<td>批量导入</td>
+<td>学员、班级、课程支持导入 + 模板</td>
+</tr>
+<tr>
+<td>12</td>
+<td>打印二维码</td>
+<td>批量打印学员二维码（签到/绑定用）</td>
+</tr>
+<tr>
+<td>13</td>
+<td>组合筛选 + 清空筛选 + 更多筛选</td>
+<td>列表页统一交互</td>
+</tr>
+<tr>
+<td>14</td>
+<td>数据权限隔离</td>
+<td>按管辖校区/部门过滤数据</td>
+</tr>
+<tr>
+<td>15</td>
+<td>操作留痕</td>
+<td>订单、财务、分班均有经办人/经办时间记录</td>
+</tr>
+</tbody></table></div>
+<hr>
+<h1 id="第三部分-与-v1-0-文档的比对结论">第三部分 与 v1.0 文档的比对结论</h1>
+<h2 id="3-1-补充清单-v1-0-缺失-本次新增">3.1 补充清单（v1.0 缺失、本次新增）</h2>
+<div class='tw'><table><thead><tr>
+<th>#</th>
+<th>模块</th>
+<th>补充内容</th>
+<th>类型</th>
+</tr></thead><tbody>
+<tr>
+<td>1</td>
+<td>招生中心</td>
+<td><strong>营销中心</strong>（<code>/MarketingSolution</code>）整项缺失</td>
+<td>漏功能</td>
+</tr>
+<tr>
+<td>2</td>
+<td>招生中心</td>
+<td>招生宝含「原系统钱包」子页签</td>
+<td>漏子功能</td>
+</tr>
+<tr>
+<td>3</td>
+<td>招生中心</td>
+<td>招生表单的系统预置模板「日常采单」「地推登记」</td>
+<td>漏细节</td>
+</tr>
+<tr>
+<td>4</td>
+<td>招生中心</td>
+<td>微校含「微商城」「微校设置」，及 7 个页面模块、访问/分享统计</td>
+<td>漏细节</td>
+</tr>
+<tr>
+<td>5</td>
+<td>办理中心</td>
+<td><strong>报名/续费</strong>作为首个办理项缺失</td>
+<td>漏功能</td>
+</tr>
+<tr>
+<td>6</td>
+<td>办理中心</td>
+<td>订单列表的 15 个筛选项、19 个列、5 项汇总口径、批量确认</td>
+<td>漏细节</td>
+</tr>
+<tr>
+<td>7</td>
+<td>教务中心</td>
+<td>学员：5 个子页签 + 8 个筛选项 + 7 个批量操作</td>
+<td>漏细节</td>
+</tr>
+<tr>
+<td>8</td>
+<td>教务中心</td>
+<td>班级：分班操作日志、班级常见问题、导入班级、已结班显示</td>
+<td>漏子功能</td>
+</tr>
+<tr>
+<td>9</td>
+<td>教务中心</td>
+<td>一对一：待处理学员、批量转课、显示转/停/退/结学员</td>
+<td>漏子功能</td>
+</tr>
+<tr>
+<td>10</td>
+<td>教务中心</td>
+<td>排课：4 种课表视图 + 冲突日程 + 时刻表 + 含试听学员</td>
+<td>漏细节</td>
+</tr>
+<tr>
+<td>11</td>
+<td>教务中心</td>
+<td>约课：4 个子页签、批量上下架</td>
+<td>漏子功能</td>
+</tr>
+<tr>
+<td>12</td>
+<td>教务中心</td>
+<td>记上课：5 个子页签（上课记录/补课管理/课时汇总/教师试听/未排课记上课）</td>
+<td>漏子功能</td>
+</tr>
+<tr>
+<td>13</td>
+<td>教务中心</td>
+<td>课程：5 个子页签（升期关系列表、课程类别、科目设置）</td>
+<td>漏子功能</td>
+</tr>
+<tr>
+<td>14</td>
+<td>家长端</td>
+<td><strong>数据分析</strong>、<strong>设置</strong> 两项缺失</td>
+<td>漏功能</td>
+</tr>
+<tr>
+<td>15</td>
+<td>内部管理</td>
+<td>员工：角色管理、教师管理、员工常见问题、合同到期字段</td>
+<td>漏子功能</td>
+</tr>
+<tr>
+<td>16</td>
+<td>内部管理</td>
+<td>财务：5 个子页签（确认收入列表、账户管理、收支项目）</td>
+<td>漏子功能</td>
+</tr>
+<tr>
+<td>17</td>
+<td>内部管理</td>
+<td>教材：4 个子页签（库存、教材设置、杂费设置）</td>
+<td>漏子功能</td>
+</tr>
+<tr>
+<td>18</td>
+<td>全局</td>
+<td><strong>平台级通用能力 15 项</strong>（多标签、搜索、消息、导出、自定义列、批量、二维码…）</td>
+<td>漏维度</td>
+</tr>
+<tr>
+<td>19</td>
+<td>全局</td>
+<td><strong>功能状态维度</strong>（可用/无权限/需升级），23 项升级空壳</td>
+<td>漏维度</td>
+</tr>
+<tr>
+<td>20</td>
+<td>全局</td>
+<td>移动端与硬件（App、家长端、磁卡、人脸机）</td>
+<td>漏维度</td>
+</tr>
+</tbody></table></div>
+<h2 id="3-2-修正清单-v1-0-描述错误">3.2 修正清单（v1.0 描述错误）</h2>
+<div class='tw'><table><thead><tr>
+<th>#</th>
+<th>v1.0 原文</th>
+<th>实际情况</th>
+<th>影响</th>
+</tr></thead><tbody>
+<tr>
+<td>1</td>
+<td>招生中心含「AI 听评」</td>
+<td>应为「<strong>AI 听记</strong>」（<code>/aiNotes</code>）</td>
+<td>名称错误，检索不到</td>
+</tr>
+<tr>
+<td>2</td>
+<td>教学中心 = 课堂互动/成长记录/通知服务/在线课程</td>
+<td>教学中心仅 8 项：题库资源、题库组卷、教学云盘、作业批改、错题本、学情报告、ClassIn 直播课、录播课</td>
+<td><strong>模块归属错误</strong>，会导致平替时功能漏项</td>
+</tr>
+<tr>
+<td>3</td>
+<td>「课堂点评、作业布置」列在教学中心</td>
+<td>属于「家长端」（家长端触达）</td>
+<td>同上</td>
+</tr>
+<tr>
+<td>4</td>
+<td>「成长记录」列在教学中心</td>
+<td>属于「家长端」</td>
+<td>同上</td>
+</tr>
+<tr>
+<td>5</td>
+<td>「通知公告、服务中心、数据分析、设置」列在教学中心</td>
+<td>属于「家长端」</td>
+<td>同上</td>
+</tr>
+<tr>
+<td>6</td>
+<td>办理中心从「余额充值」开始</td>
+<td>首项是「报名/续费」，是办理中心最高频入口</td>
+<td>漏核心功能</td>
+</tr>
+<tr>
+<td>7</td>
+<td>招生中心未列营销中心</td>
+<td>存在 <code>/MarketingSolution/Index</code></td>
+<td>漏功能</td>
+</tr>
+<tr>
+<td>8</td>
+<td>家长端未列数据分析、设置</td>
+<td>存在</td>
+<td>漏功能</td>
+</tr>
+<tr>
+<td>9</td>
+<td>全部功能按「存在即具备」描述</td>
+<td>23 项为升级空壳，9 项无权限</td>
+<td><strong>能力误判</strong>，是本文最重要的修正</td>
+</tr>
+</tbody></table></div>
+<h2 id="3-3-当前业务数据快照-实测">3.3 当前业务数据快照（实测）</h2>
+<div class='tw'><table><thead><tr>
+<th>指标</th>
+<th>数值</th>
+<th>备注</th>
+</tr></thead><tbody>
+<tr>
+<td>在读学员</td>
+<td>1333 人</td>
+<td>欠费 0 元</td>
+</tr>
+<tr>
+<td>开班班级</td>
+<td>64 个</td>
+<td>在读 704 人 / 733 人次</td>
+</tr>
+<tr>
+<td>一对一学员</td>
+<td>2 条记录 / 1 名在读</td>
+<td>小学语文、小学数学</td>
+</tr>
+<tr>
+<td>在职员工</td>
+<td>12 人</td>
+<td>1 机构主管 + 2 自定义权限 + 教务/教师</td>
+</tr>
+<tr>
+<td>近 30 天订单</td>
+<td>191 笔</td>
+<td>应收 182,363.00 / 实收 180,211.60 / 欠费 0</td>
+</tr>
+<tr>
+<td>本月财务收支</td>
+<td>77 条</td>
+<td>—</td>
+</tr>
+<tr>
+<td>今日待记上课</td>
+<td>17 条</td>
+<td>部分已记录</td>
+</tr>
+<tr>
+<td>课时将到期学员</td>
+<td>855 位</td>
+<td>工作台待办，续费核心信号</td>
+</tr>
+<tr>
+<td>成长档案</td>
+<td>1225 条</td>
+<td>多为报名自动生成</td>
+</tr>
+<tr>
+<td>近 30 天点评班级</td>
+<td>35 个</td>
+<td>点评率参差（0%~100%）</td>
+</tr>
+</tbody></table></div>
+<h2 id="3-4-数据现状中的异常-平替时必须处理">3.4 数据现状中的异常（平替时必须处理）</h2>
+<div class='tw'><table><thead><tr>
+<th>#</th>
+<th>异常</th>
+<th>说明</th>
+<th>影响</th>
+</tr></thead><tbody>
+<tr>
+<td>1</td>
+<td><strong>课程列表 0 条</strong></td>
+<td>「课程状态=开售」筛选下为 0，但 64 个班级都有「所属课程」</td>
+<td>课程体系未在课程模块规范建档，课程可能是随班级创建的。<strong>平替时无法从「课程」表迁移，只能从班级反推课程</strong></td>
+</tr>
+<tr>
+<td>2</td>
+<td><strong>约课 0 个班上架</strong></td>
+<td>约课功能未启用</td>
+<td>该模块实际闲置</td>
+</tr>
+<tr>
+<td>3</td>
+<td><strong>作业 0 个</strong></td>
+<td>近 30 天无布置记录</td>
+<td>家校作业闭环未跑起来</td>
+</tr>
+<tr>
+<td>4</td>
+<td><strong>教材购买记录 0 条</strong></td>
+<td>教材模块未使用</td>
+<td>可降级</td>
+</tr>
+<tr>
+<td>5</td>
+<td><strong>公众号模板消息未开通</strong></td>
+<td>已对接服务号「幻彩学堂」，但提示「还没开通模版消息功能」</td>
+<td><strong>家长端推送实际发不出去</strong>，家校闭环是断的</td>
+</tr>
+<tr>
+<td>6</td>
+<td>点评率 0% 的班级存在</td>
+<td>韩钰、李东兵的班点评记录为 0</td>
+<td>教师执行不到位，非系统问题</td>
+</tr>
+<tr>
+<td>7</td>
+<td>10 个页面无权限</td>
+<td>咨询本、营销中心、磁卡考勤、组织架构、员工通知、工资、家长端 4 项</td>
+<td>当前账号权限偏窄，部分能力未被评估</td>
+</tr>
+</tbody></table></div>
+<hr>
+<h1 id="第四部分-平替方案业务分析">第四部分 平替方案业务分析</h1>
+<blockquote>结论先行：<strong>不建议「全量 1:1 复刻」，建议「核心内核自建 + 外围能力对接 + 营销类功能砍掉」</strong>。<br>原系统 67 项二级功能里，真正决定业务能否运转的只有约 30 项；23 项升级空壳和多个零数据模块，自建收益极低。</blockquote>
+<h2 id="4-1-平替的动机与真实边界">4.1 平替的动机与真实边界</h2>
+<p><strong>值得平替的理由</strong></p>
+<div class='tw'><table><thead><tr>
+<th>维度</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>数据资产</td>
+<td>学员、课时、财务是机构最核心的资产，长期沉淀在第三方，导出受限于「当前结果导出」而非全库</td>
+</tr>
+<tr>
+<td>成本结构</td>
+<td>按校区/学员规模订阅，叠加升级项（AI、直播、题库、电子合同）后年费会持续抬升</td>
+</tr>
+<tr>
+<td>定制刚性</td>
+<td>国学/语文类机构的特殊计费（赠送课时、活动抵扣、跨校区转课）在标准产品里只能变通</td>
+</tr>
+<tr>
+<td>链路断裂</td>
+<td>当前公众号模板消息未开通，家校推送形同虚设；自建可直接用小程序订阅消息重新设计</td>
+</tr>
+<tr>
+<td>依赖风险</td>
+<td>服务商调价、停服、政策变化（预收费监管）都会被动</td>
+</tr>
+</tbody></table></div>
+<p><strong>必须正视的成本</strong></p>
+<div class='tw'><table><thead><tr>
+<th>项</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>研发</td>
+<td>核心 135 人日起，全量 290 人日；不含设计、测试、运维</td>
+</tr>
+<tr>
+<td>迁移</td>
+<td>课时余额按「学员×课程」迁移，是最容易出错的一步，需 1 个月双跑对账</td>
+</tr>
+<tr>
+<td>运维</td>
+<td>需要专人负责备份、故障、账号、微信资质</td>
+</tr>
+<tr>
+<td>合规</td>
+<td>未成年人个人信息、预收费资金监管、等保</td>
+</tr>
+<tr>
+<td>迭代</td>
+<td>原系统每年发版十几次，自建后这些都要自己扛</td>
+</tr>
+</tbody></table></div>
+<p><strong>决策建议</strong>：先算一笔账——把原系统近 12 个月实际支付的总费用（含升级项）拉出来，对比「自研 TCO ÷ 3 年」。如果年费低于自研年化成本的 60%，且没有硬性定制需求，<strong>不建议全量自研</strong>；可先只自建「课时账户 + 财务」内核，其余继续用原系统。</p>
+<h2 id="4-2-三分法-自建-对接-砍掉">4.2 三分法：自建 / 对接 / 砍掉</h2>
+<div class='tw'><table><thead><tr>
+<th>类别</th>
+<th>功能</th>
+<th>理由</th>
+</tr></thead><tbody>
+<tr>
+<td><strong>必须自建</strong>（业务内核，数据资产）</td>
+<td>学员档案与监护人、课程/班级/分班、排课与冲突检测、记上课与考勤、<strong>课时账户与流水</strong>、订单/收款/退费/转课/补费、财务收支与确认收入、权限与数据范围、核心报表</td>
+<td>这些是机构的经营数据本身，也是原系统最难替代的部分</td>
+</tr>
+<tr>
+<td><strong>建议对接</strong>（不自研）</td>
+<td>支付（微信/支付宝/银联）、短信、电子合同（e签宝/法大大）、直播（ClassIn/腾讯会议/小鹅通）、AI（大模型 API + OCR）、对象存储/CDN、发票（百望/航信）、人脸考勤硬件</td>
+<td>自研成本远高于采购，且都有成熟合规方案</td>
+</tr>
+<tr>
+<td><strong>可砍/后置</strong></td>
+<td>美团/抖音/小红书直连、超级裂变、招生宝、营销中心、积分商城、原系统商学、数据大屏、题库/组卷/错题本</td>
+<td>课程、约课、作业、教材购买 4 个模块实测均为 0 条数据，23 项升级空壳从未开通——这些能力<strong>买了也没用起来</strong></td>
+</tr>
+<tr>
+<td><strong>需重构而非复刻</strong></td>
+<td>家长端触达（家长端用公众号模板消息）</td>
+<td>模板消息已受限，应改为<strong>小程序 + 订阅消息 + 服务通知</strong>，并保留短信兜底</td>
+</tr>
+</tbody></table></div>
+<h2 id="4-3-领域模型">4.3 领域模型</h2>
+<h3 id="核心实体">核心实体</h3>
+<div class='tw'><table><thead><tr>
+<th>域</th>
+<th>实体</th>
+<th>关键说明</th>
+</tr></thead><tbody>
+<tr>
+<td>组织</td>
+<td>Org（机构）、Campus（校区）、Dept（部门）、Staff（员工）、Role（角色）、Permission（功能权限）、DataScope（数据范围）</td>
+<td>权限双层：功能 + 数据</td>
+</tr>
+<tr>
+<td>人员</td>
+<td>Student（学员）、Guardian（监护人）、StudentGuardian（关系）、StudentStatus（状态）</td>
+<td>一个学员可关联多个监护人；关系含父/母/其他</td>
+</tr>
+<tr>
+<td>教学</td>
+<td>Course（课程）、CourseCategory（课程类别）、Subject（科目）、Class（班级）、ClassStudent（分班）、Lesson（课次）、LessonTeacher（授课教师）、Room（教室）</td>
+<td>Lesson 是排课实例，一对一与班课共用或分表</td>
+</tr>
+<tr>
+<td>账户</td>
+<td>HourAccount（课时账户，学员×课程）、HourTxn（课时流水）</td>
+<td><strong>账户维度必须是「学员×课程」</strong>，不能只按学员</td>
+</tr>
+<tr>
+<td>交易</td>
+<td>Order（订单）、OrderItem（订单行）、Payment（收款）、Refund（退款）、Transfer（转课）、FeeItem（教材杂费）、PointTxn（积分流水）</td>
+<td>优惠必须分摊到 OrderItem</td>
+</tr>
+<tr>
+<td>履约</td>
+<td>Attendance（考勤）、TeachingLog（上课记录）、MakeupLesson（补课）</td>
+<td>与课时扣减强绑定，需幂等</td>
+</tr>
+<tr>
+<td>家校</td>
+<td>Comment（点评）、Homework（作业）、Submission（提交）、GrowthRecord（成长档案）、Notice（通知）</td>
+<td>触达渠道：小程序订阅消息 + 短信</td>
+</tr>
+<tr>
+<td>招生</td>
+<td>Lead（线索）、FollowUp（跟进）、Visit（到访）、EnrollForm（表单）、Referral（转介绍）</td>
+<td>P2 再做</td>
+</tr>
+<tr>
+<td>财务</td>
+<td>Account（资金账户）、CashFlow（收支流水）、RevenueRecognition（确认收入）、Invoice（发票）</td>
+<td>预收款是负债，随课耗确认收入</td>
+</tr>
+<tr>
+<td>教务管理</td>
+<td>Contract（合同）、Material（教材 SKU）、Stock（库存）、StockOut（领用）、Payroll（工资）</td>
+<td>—</td>
+</tr>
+</tbody></table></div>
+<h3 id="关键关系">关键关系</h3>
+<pre><code>Student 1─n Enrollment n─1 Class n─1 Course
+Student 1─n HourAccount n─1 Course      ← 课时按课程隔离
+HourAccount 1─n HourTxn                ← 只追加，不修改
+Order 1─n OrderItem n─1 Course
+OrderItem 1─n HourTxn(充值) | 1─n Payment
+Lesson 1─n Attendance n─1 Student
+Lesson 1─n TeachingLog                  ← 记上课后生成扣课流水</code></pre>
+<h2 id="4-4-核心业务规则-12-条硬骨头">4.4 核心业务规则（12 条硬骨头）</h2>
+<p>平替项目 80% 的坑都在这 12 条里，建议逐条写成测试用例。</p>
+<h3 id="R1-课时账户按-学员-课程-建立">R1 课时账户按「学员 × 课程」建立</h3>
+<p>同一学员报两门课，课时<strong>不能混用</strong>。账户带有效期，过期课时按机构规则处理（作废/延期/折算）。余额不允许直接 UPDATE，只能由流水汇总得出（或维护快照 + 增量）。</p>
+<h3 id="R2-四种收费模式的扣减规则不同">R2 四种收费模式的扣减规则不同</h3>
+<div class='tw'><table><thead><tr>
+<th>收费模式</th>
+<th>计费口径</th>
+<th>扣减规则</th>
+<th>退费口径</th>
+</tr></thead><tbody>
+<tr>
+<td>按课时</td>
+<td>总课时 × 单价</td>
+<td>每记一次上课扣 N 课时</td>
+<td>剩余课时 × 折后单价</td>
+</tr>
+<tr>
+<td>按期</td>
+<td>时间段内不限次</td>
+<td>不扣课时，按到期日判断有效</td>
+<td>按剩余天数比例</td>
+</tr>
+<tr>
+<td>按次</td>
+<td>次数包</td>
+<td>每上课扣 1 次</td>
+<td>剩余次数 × 单价</td>
+</tr>
+<tr>
+<td>按期限次</td>
+<td>时间段 + 次数上限</td>
+<td>超出上限另行收费</td>
+<td>双重判断，取低</td>
+</tr>
+</tbody></table></div>
+<h3 id="R3-优惠必须分摊到订单行">R3 优惠必须分摊到订单行</h3>
+<p>订单级优惠（满减、折扣、优惠券、积分抵扣、活动立减）要按<strong>各订单行金额占比</strong>分摊。不分摊的话，退其中一门课时算不出「折后单价」，退费必然算错。这是历史订单里「学费优惠 500 元」这类字段的底层逻辑。</p>
+<h3 id="R4-退费公式">R4 退费公式</h3>
+<pre><code>应退金额 = 该课程实收（含分摊优惠后） - 已消耗课时 × 折后单价 - 手续费
+折后单价 = 该课程实收 ÷ 该课程总课时（含赠送课时则需约定是否计入分母）</code></pre>
+<p>必须明确三件事：①赠送课时是否计入分母；②已消耗课时按折后价还是原价计；③手续费规则。这三条不同，退费结果差异很大，也是家长纠纷高发点。</p>
+<h3 id="R5-转课">R5 转课</h3>
+<pre><code>转出课程剩余金额 = 剩余课时 × 转出课程折后单价
+转入课时数 = 转出课程剩余金额 ÷ 转入课程折后单价（向下取整，尾差进余额或补收）</code></pre>
+<p>跨校区转课还要处理<strong>收入归属</strong>：原校区冲减、新校区确认，否则两个校区的营收报表都会失真。</p>
+<h3 id="R6-排课四维冲突检测">R6 排课四维冲突检测</h3>
+<p>教师、教室、班级、学员四个维度都不能时间重叠。约束建议用数据库唯一索引 + 应用层校验双保险：</p>
+<pre><code>UNIQUE(teacher_id, start_at) / UNIQUE(room_id, start_at) / UNIQUE(class_id, start_at)
+学员冲突需查该班全部在读学员 + 试听学员</code></pre>
+<p>跨校区共享教师时，冲突检测必须跨校区，否则同一老师会被排到两个校区同一时段。</p>
+<h3 id="R7-考勤幂等-补记上课">R7 考勤幂等 + 补记上课</h3>
+<p>同一课次重复签到、重复点「记上课」不能重复扣课时。用 <code>(lesson_id, student_id)</code> 作为幂等键，扣课流水写入前先查重。补记上课要能指定「哪一课次」，否则课时会串。</p>
+<h3 id="R8-确认收入-权责发生制">R8 确认收入（权责发生制）</h3>
+<p>家长交的学费是<strong>预收款（负债）</strong>，随课时消耗逐次确认收入。财务上要能同时出三个口径：</p>
+<div class='tw'><table><thead><tr>
+<th>口径</th>
+<th>含义</th>
+<th>用途</th>
+</tr></thead><tbody>
+<tr>
+<td>实收</td>
+<td>当期收到的现金</td>
+<td>现金流</td>
+</tr>
+<tr>
+<td>应收</td>
+<td>当期开单金额</td>
+<td>业绩</td>
+</tr>
+<tr>
+<td>确认收入</td>
+<td>当期消耗课时对应的收入</td>
+<td>真实经营利润</td>
+</tr>
+</tbody></table></div>
+<p>原系统的「确认收入列表」就是这个。<strong>从收付实现制切到权责发生制，会让报表数字大幅变化，切换前必须和历史口径对齐，否则老板会以为数据出错。</strong></p>
+<h3 id="R9-欠费与上课权限">R9 欠费与上课权限</h3>
+<p>订单可挂账形成欠费。是否允许欠费学员继续上课是可配置开关。欠费学员在记上课、报名时应有明显提示。</p>
+<h3 id="R10-多校区数据隔离与汇总">R10 多校区数据隔离与汇总</h3>
+<ul>
+<li>数据隔离：员工只能看管辖校区的数据（原系统的「管辖校区」字段）</li>
+<li>汇总：总部角色可跨校区合并</li>
+<li>跨校区学员：允许在 A 校区报名、B 校区上课，课时账户跟随学员而非校区</li>
+</ul>
+<h3 id="R11-学员状态机">R11 学员状态机</h3>
+<pre><code>潜在 → 试听 → 在读 → 停课 ⇄ 复课
+                    ├→ 休学 → 复课
+                    ├→ 退学（需结清退费）
+                    └→ 结业（课时耗尽或课程结束）</code></pre>
+<p>状态影响：能否排课、能否扣课、是否计入在读人数、是否出现在待办。</p>
+<h3 id="R12-试听学员">R12 试听学员</h3>
+<p>试听不扣课时，但<strong>占用班级名额</strong>，且要计入教师课时工资的判定口径（历史排课里有「含试听学员」开关）。试听转正后要能把试听记录并入正式报读。</p>
+<h2 id="4-5-功能拆解与优先级">4.5 功能拆解与优先级</h2>
+<p>工作量单位：人日（1 名熟练工程师 1 天），含前后端，不含 UI 设计与测试。</p>
+<h3 id="P0-可替换原系统的-MVP-135-人日">P0 — 可替换原系统的 MVP（≈135 人日）</h3>
+<div class='tw'><table><thead><tr>
+<th>模块</th>
+<th>内容</th>
+<th>人日</th>
+</tr></thead><tbody>
+<tr>
+<td>组织与权限</td>
+<td>机构/校区/部门/员工/角色/功能权限/数据范围</td>
+<td>8</td>
+</tr>
+<tr>
+<td>学员档案</td>
+<td>学员 + 监护人 + 状态 + 批量导入导出 + 二维码</td>
+<td>12</td>
+</tr>
+<tr>
+<td>课程与班级</td>
+<td>课程体系、班级、分班、升期关系</td>
+<td>10</td>
+</tr>
+<tr>
+<td>排课</td>
+<td>课次生成、四维冲突检测、多视图课表、导入</td>
+<td>15</td>
+</tr>
+<tr>
+<td>记上课与考勤</td>
+<td>上课记录、补课、课时汇总、考勤幂等</td>
+<td>18</td>
+</tr>
+<tr>
+<td>课时账户</td>
+<td>账户、流水、余额、有效期、冻结</td>
+<td>10</td>
+</tr>
+<tr>
+<td>订单与收款</td>
+<td>报名续费、优惠分摊、收款、余额充值、补费</td>
+<td>15</td>
+</tr>
+<tr>
+<td>退费与转课</td>
+<td>退费核算、转课折算、跨校区归属</td>
+<td>10</td>
+</tr>
+<tr>
+<td>财务</td>
+<td>收支流水、账户、确认收入、对账</td>
+<td>12</td>
+</tr>
+<tr>
+<td>核心报表</td>
+<td>营收、课耗、在读、欠费、校区对比</td>
+<td>10</td>
+</tr>
+<tr>
+<td>家长端小程序</td>
+<td>查课时、看账单、请假、上课记录</td>
+<td>15</td>
+</tr>
+</tbody></table></div>
+<h3 id="P1-补齐家校与内部管理-66-人日">P1 — 补齐家校与内部管理（≈66 人日）</h3>
+<div class='tw'><table><thead><tr>
+<th>模块</th>
+<th>内容</th>
+<th>人日</th>
+</tr></thead><tbody>
+<tr>
+<td>课堂点评</td>
+<td>点评模板、批量点评、阅读率统计</td>
+<td>10</td>
+</tr>
+<tr>
+<td>作业</td>
+<td>布置、提交、批改、催交</td>
+<td>8</td>
+</tr>
+<tr>
+<td>成长档案</td>
+<td>自动归档（报名/点评）+ 手动新建</td>
+<td>6</td>
+</tr>
+<tr>
+<td>通知公告</td>
+<td>定向发送、已读回执、订阅消息 + 短信兜底</td>
+<td>8</td>
+</tr>
+<tr>
+<td>教材与杂费</td>
+<td>SKU、库存、领用、杂费设置</td>
+<td>8</td>
+</tr>
+<tr>
+<td>工资</td>
+<td>课时费核算、绩效规则</td>
+<td>10</td>
+</tr>
+<tr>
+<td>电子合同</td>
+<td>对接第三方（e签宝/法大大）</td>
+<td>6</td>
+</tr>
+<tr>
+<td>数据迁移工具</td>
+<td>原系统导出格式解析 + 课时余额迁移 + 对账</td>
+<td>8</td>
+</tr>
+<tr>
+<td>进阶报表</td>
+<td>自定义指标组合、导出</td>
+<td>8</td>
+</tr>
+</tbody></table></div>
+<h3 id="P2-招生与教学增值-93-人日">P2 — 招生与教学增值（≈93 人日）</h3>
+<div class='tw'><table><thead><tr>
+<th>模块</th>
+<th>内容</th>
+<th>人日</th>
+</tr></thead><tbody>
+<tr>
+<td>线索 CRM</td>
+<td>线索、跟进、到访、转化漏斗</td>
+<td>12</td>
+</tr>
+<tr>
+<td>招生表单 / 微官网</td>
+<td>表单搭建、落地页、留资</td>
+<td>8</td>
+</tr>
+<tr>
+<td>直播 / 录播</td>
+<td>对接 ClassIn 或小鹅通</td>
+<td>12</td>
+</tr>
+<tr>
+<td>题库 / 组卷 / 错题本</td>
+<td>题库、组卷、错题归集</td>
+<td>25</td>
+</tr>
+<tr>
+<td>AI 能力</td>
+<td>作业批改、学情报告、流失预警（调用大模型）</td>
+<td>20</td>
+</tr>
+<tr>
+<td>积分商城</td>
+<td>积分规则、兑换</td>
+<td>8</td>
+</tr>
+<tr>
+<td>数据大屏</td>
+<td>可视化看板</td>
+<td>8</td>
+</tr>
+</tbody></table></div>
+<p><strong>汇总</strong>：P0 135 + P1 66 + P2 93 = <strong>294 人日</strong>。</p>
+<p>3 人团队（1 后端 + 1 前端 + 1 全栈）约 5 个月；5 人团队约 3 个月。另需加 30% 用于设计、测试、联调与返工。</p>
+<h2 id="4-6-技术架构建议">4.6 技术架构建议</h2>
+<div class='tw'><table><thead><tr>
+<th>层</th>
+<th>选型</th>
+<th>理由</th>
+</tr></thead><tbody>
+<tr>
+<td>PC 前端</td>
+<td>Vue 3 + TypeScript + Element Plus</td>
+<td>中后台表格/表单密集，Element Plus 生态成熟</td>
+</tr>
+<tr>
+<td>家长端</td>
+<td>微信小程序（原生或 Taro）</td>
+<td>订阅消息能力只有小程序有，H5 做不到</td>
+</tr>
+<tr>
+<td>后端</td>
+<td>Spring Boot 3（或 NestJS）</td>
+<td>单体优先，按域分模块（modular monolith），不要一开始上微服务</td>
+</tr>
+<tr>
+<td>数据库</td>
+<td>PostgreSQL</td>
+<td><code>numeric(12,2)</code> 存金额，<code>int</code> 存课时（×100 存分/半课时）</td>
+</tr>
+<tr>
+<td>缓存/锁</td>
+<td>Redis</td>
+<td>排课锁、幂等键、会话</td>
+</tr>
+<tr>
+<td>消息</td>
+<td>Redis Stream 或 RabbitMQ</td>
+<td>推送、异步对账</td>
+</tr>
+<tr>
+<td>文件</td>
+<td>对象存储 + CDN</td>
+<td>作业图片、点评图片</td>
+</tr>
+<tr>
+<td>部署</td>
+<td>云主机 + Docker Compose</td>
+<td>1333 学员的体量，2C4G 起步足够</td>
+</tr>
+</tbody></table></div>
+<p><strong>四个关键设计决策</strong></p>
+<ol>
+<li><strong>金额用整数分存储</strong>，杜绝浮点误差；课时用整数（或 ×100 支持半课时）。</li>
+<li><strong>课时流水 append-only</strong>：任何余额变动都写一条流水，余额由流水汇总或定期快照，永不直接改余额字段。</li>
+<li><strong>所有资金/课时写操作带幂等键</strong>：<code>(业务类型, 业务ID, 学员ID)</code>，防重复提交与重复回调。</li>
+<li><strong>排课冲突用数据库唯一约束兜底</strong>：应用层校验会因并发漏判。</li>
+</ol>
+<h2 id="4-7-数据迁移方案">4.7 数据迁移方案</h2>
+<div class='tw'><table><thead><tr>
+<th>步骤</th>
+<th>内容</th>
+<th>注意</th>
+</tr></thead><tbody>
+<tr>
+<td>1</td>
+<td>从原系统导出：学员花名册、报读列表、班级列表、课程、订单、财务流水、员工、课时余额</td>
+<td>原系统导出是「当前结果」，需分页多次导出</td>
+</tr>
+<tr>
+<td>2</td>
+<td><strong>课时余额必须按「学员 × 课程」导出</strong>，含剩余课时、有效期、赠送课时</td>
+<td>只导总额无法续算，是最大坑</td>
+</tr>
+<tr>
+<td>3</td>
+<td>课程表从班级反推（因历史课程列表为 0）</td>
+<td>需人工确认课程归一</td>
+</tr>
+<tr>
+<td>4</td>
+<td>试运行：新系统只读 + 双记账，老系统继续收费</td>
+<td>至少 1 个月</td>
+</tr>
+<tr>
+<td>5</td>
+<td>五项对账：应收、实收、欠费、课时余额、预收款余额</td>
+<td>差异必须归零再切换</td>
+</tr>
+<tr>
+<td>6</td>
+<td>切换：老系统只读封存，保留查询权限</td>
+<td>建议保留 1 年</td>
+</tr>
+</tbody></table></div>
+<h2 id="4-8-分期路线图">4.8 分期路线图</h2>
+<pre><code>第 1 月        第 2-3 月         第 4 月        第 5-6 月       第 7-9 月
+需求+建模  →   P0 开发      →  双跑对账   →   P1 开发    →   P2 选做
+数据摸底       核心闭环打通      试运行         家校闭环       招生/教学增值</code></pre>
+<p>关键里程碑：<strong>第 4 月末完成全量切换</strong>（P0 已覆盖原系统 80% 的高频操作），P1/P2 在切换后迭代，避免一次性上线风险。</p>
+<h2 id="4-9-风险与合规">4.9 风险与合规</h2>
+<div class='tw'><table><thead><tr>
+<th>风险</th>
+<th>说明</th>
+<th>应对</th>
+</tr></thead><tbody>
+<tr>
+<td>课时余额迁移错账</td>
+<td>家长剩余课时算错，直接引发投诉</td>
+<td>迁移后逐学员对账，抽样 100% 人工复核高余额学员</td>
+</tr>
+<tr>
+<td>财务口径切换</td>
+<td>预收款/确认收入切换后报表不可比</td>
+<td>新旧口径并行 3 个月，出对照表</td>
+</tr>
+<tr>
+<td>微信触达受限</td>
+<td>模板消息已受限，订阅消息需用户逐次授权</td>
+<td>小程序订阅消息 + 短信兜底 + 服务号推文</td>
+</tr>
+<tr>
+<td>未成年人信息</td>
+<td>《个人信息保护法》对 14 岁以下有单独同意要求</td>
+<td>监护人授权留痕、最小必要采集、脱敏展示</td>
+</tr>
+<tr>
+<td>预收费监管</td>
+<td>部分地区要求学费进监管账户、按课消划拨</td>
+<td>对接银行存管，或保留「安心宝」类服务</td>
+</tr>
+<tr>
+<td>电子合同效力</td>
+<td>需 CA 证书与可信时间戳</td>
+<td>不自研，直接对接 e签宝/法大大</td>
+</tr>
+<tr>
+<td>发票</td>
+<td>培训服务发票需与订单对应</td>
+<td>对接百望/航信</td>
+</tr>
+<tr>
+<td>等保与数据安全</td>
+<td>学员信息属个人信息，需等级保护</td>
+<td>至少等保二级，做好备份与权限审计</td>
+</tr>
+<tr>
+<td>单点故障</td>
+<td>小团队运维能力弱</td>
+<td>每日备份 + 异地存储 + 故障预案</td>
+</tr>
+<tr>
+<td>员工离职</td>
+<td>账号未回收导致数据泄露</td>
+<td>离职即禁用，操作日志留痕</td>
+</tr>
+</tbody></table></div>
+<h2 id="4-10-成本测算口径-给公式-不编数字">4.10 成本测算口径（给公式，不编数字）</h2>
+<pre><code>自研 3 年 TCO
+  = 开发人日 × 人日成本
+  + 云资源（服务器/存储/带宽）× 36
+  + 第三方年费（短信/合同/直播/AI/发票）× 3
+  + 运维人力（0.5~1 人）× 36
+  + 每年迭代（P0 人日 × 20%）× 人日成本 × 3
+
+原系统 3 年支出 = 年费（含升级项）× 3
+
+盈亏平衡年限 = 自研 3 年 TCO ÷（原系统年费 - 自研年运维成本）</code></pre>
+<p>建议把原系统近 12 个月<strong>实际付款总额</strong>（含所有升级项、增值服务）作为分子基准，不要用官网报价。</p>
+<h2 id="4-11-需要决策的-8-个问题">4.11 需要决策的 8 个问题</h2>
+<ol>
+<li>是否必须保留<strong>多校区独立核算 + 合并报表</strong>？（决定财务模块复杂度，差异约 20 人日）</li>
+<li>家长端能否接受从「公众号模板消息」改为「小程序订阅消息」？（触达率会下降，需短信兜底）</li>
+<li>预收费是否需要<strong>资金监管账户</strong>？（涉及银行对接，可能让项目延期 1-2 个月）</li>
+<li>现有 1333 学员的课时余额，能否从原系统导出到<strong>课程级</strong>？（不能的话要人工补录，工作量按学员数线性增长）</li>
+<li>电子合同、发票、直播是否坚持<strong>不自研</strong>？（建议不自研）</li>
+<li>排课是否需要<strong>跨校区教师共享</strong>？（决定冲突检测范围）</li>
+<li>美团/抖音/小红书直连是否真的要用？（当前一个都没开通，建议砍掉）</li>
+<li>谁负责上线后的<strong>日常运维与故障响应</strong>？（没人接就别自研）</li>
+</ol>
+<hr>
+<h1 id="附录-A-完整路由表-55-条">附录 A：完整路由表（55 条）</h1>
+<div class='tw'><table><thead><tr>
+<th>模块</th>
+<th>功能</th>
+<th>路由</th>
+<th>状态</th>
+</tr></thead><tbody>
+<tr>
+<td>工作台</td>
+<td>工作台</td>
+<td><code>/web/desktop</code></td>
+<td>✅</td>
+</tr>
+<tr>
+<td>办理中心</td>
+<td>订单列表</td>
+<td><code>/web/order/orderList</code></td>
+<td>✅</td>
+</tr>
+<tr>
+<td>报表中心</td>
+<td>校区经营分析</td>
+<td><code>/web/reporter/businessAnalysis</code></td>
+<td>✅</td>
+</tr>
+<tr>
+<td>招生中心</td>
+<td>招生宝</td>
+<td><code>/web/legacyShow</code></td>
+<td>✅</td>
+</tr>
+<tr>
+<td>招生中心</td>
+<td>抖音开店</td>
+<td><code>/web/dyaccount</code></td>
+<td>⬆</td>
+</tr>
+<tr>
+<td>招生中心</td>
+<td>超级裂变</td>
+<td><code>/web/superfission</code></td>
+<td>⬆</td>
+</tr>
+<tr>
+<td>招生中心</td>
+<td>咨询本</td>
+<td><code>/web/Reception/CrmConsultIndex</code></td>
+<td>🔒</td>
+</tr>
+<tr>
+<td>招生中心</td>
+<td>招生表单</td>
+<td><code>/web/popularizeform</code></td>
+<td>✅</td>
+</tr>
+<tr>
+<td>招生中心</td>
+<td>微校</td>
+<td><code>/web/microwebsite</code></td>
+<td>✅</td>
+</tr>
+<tr>
+<td>招生中心</td>
+<td>营销中心</td>
+<td><code>/web/MarketingSolution/Index</code></td>
+<td>🔒</td>
+</tr>
+<tr>
+<td>招生中心</td>
+<td>转介绍</td>
+<td><code>/web/referer</code></td>
+<td>⬆</td>
+</tr>
+<tr>
+<td>招生中心</td>
+<td>美团直连</td>
+<td><code>/web/meituan</code></td>
+<td>⬆</td>
+</tr>
+<tr>
+<td>招生中心</td>
+<td>抖音直连</td>
+<td><code>/web/douyinDirect</code></td>
+<td>⬆</td>
+</tr>
+<tr>
+<td>招生中心</td>
+<td>小红书直连</td>
+<td><code>/web/xiaohongshuDirect</code></td>
+<td>⬆</td>
+</tr>
+<tr>
+<td>招生中心</td>
+<td>入学测评</td>
+<td><code>/web/examTest</code></td>
+<td>⬆</td>
+</tr>
+<tr>
+<td>招生中心</td>
+<td>智能外呼</td>
+<td><code>/web/intelligentCallout</code></td>
+<td>⬆</td>
+</tr>
+<tr>
+<td>招生中心</td>
+<td>AI 听记</td>
+<td><code>/web/aiNotes</code></td>
+<td>⬆</td>
+</tr>
+<tr>
+<td>教务中心</td>
+<td>学员</td>
+<td><code>/web/student</code></td>
+<td>✅</td>
+</tr>
+<tr>
+<td>教务中心</td>
+<td>班级</td>
+<td><code>/web/class</code></td>
+<td>✅</td>
+</tr>
+<tr>
+<td>教务中心</td>
+<td>一对一</td>
+<td><code>/web/oneToOne</code></td>
+<td>✅</td>
+</tr>
+<tr>
+<td>教务中心</td>
+<td>排课</td>
+<td><code>/web/schedule</code></td>
+<td>✅</td>
+</tr>
+<tr>
+<td>教务中心</td>
+<td>约课</td>
+<td><code>/web/bookingClass</code></td>
+<td>✅</td>
+</tr>
+<tr>
+<td>教务中心</td>
+<td>记上课</td>
+<td><code>/web/teachingLog</code></td>
+<td>✅</td>
+</tr>
+<tr>
+<td>教务中心</td>
+<td>磁卡考勤</td>
+<td><code>/web/Reception/AttendanceIndex</code></td>
+<td>🔒</td>
+</tr>
+<tr>
+<td>教务中心</td>
+<td>赛事考级</td>
+<td><code>/web/saishi/kaoji</code></td>
+<td>✅</td>
+</tr>
+<tr>
+<td>教务中心</td>
+<td>课程</td>
+<td><code>/web/Lesson</code></td>
+<td>✅</td>
+</tr>
+<tr>
+<td>教务中心</td>
+<td>AI 学员运营</td>
+<td><code>/web/aiStudents</code></td>
+<td>⬆</td>
+</tr>
+<tr>
+<td>教务中心</td>
+<td>AI 风险预警</td>
+<td><code>/web/aiRiskAlert</code></td>
+<td>⬆</td>
+</tr>
+<tr>
+<td>教务中心</td>
+<td>人脸考勤机</td>
+<td><code>/web/faceMachine</code></td>
+<td>⬆</td>
+</tr>
+<tr>
+<td>教学中心</td>
+<td>题库资源</td>
+<td><code>/web/questionBank</code></td>
+<td>⬆</td>
+</tr>
+<tr>
+<td>教学中心</td>
+<td>题库组卷</td>
+<td><code>/web/examPaper</code></td>
+<td>⬆</td>
+</tr>
+<tr>
+<td>教学中心</td>
+<td>教学云盘</td>
+<td><code>/web/cloudDriver</code></td>
+<td>⬆</td>
+</tr>
+<tr>
+<td>教学中心</td>
+<td>作业批改</td>
+<td><code>/web/homeworkMarking</code></td>
+<td>⬆</td>
+</tr>
+<tr>
+<td>教学中心</td>
+<td>错题本</td>
+<td><code>/web/mistakeNotebookUpgrade</code></td>
+<td>⬆</td>
+</tr>
+<tr>
+<td>教学中心</td>
+<td>学情报告</td>
+<td><code>/web/learningReport</code></td>
+<td>⬆</td>
+</tr>
+<tr>
+<td>教学中心</td>
+<td>ClassIn 直播课</td>
+<td><code>/web/liveUpgrade</code></td>
+<td>⬆</td>
+</tr>
+<tr>
+<td>教学中心</td>
+<td>录播课</td>
+<td><code>/web/liveReplay</code></td>
+<td>⬆</td>
+</tr>
+<tr>
+<td>家长端</td>
+<td>课堂点评</td>
+<td><code>/web/comment</code></td>
+<td>✅</td>
+</tr>
+<tr>
+<td>家长端</td>
+<td>作业</td>
+<td><code>/web/homework</code></td>
+<td>✅</td>
+</tr>
+<tr>
+<td>家长端</td>
+<td>成长记录</td>
+<td><code>/web/growthArchives</code></td>
+<td>✅</td>
+</tr>
+<tr>
+<td>家长端</td>
+<td>通知公告</td>
+<td><code>/web/Xiaobaoist/XiaobaoistIndex?to=notice</code></td>
+<td>🔒</td>
+</tr>
+<tr>
+<td>家长端</td>
+<td>服务中心</td>
+<td><code>/web/Xiaobaoist/XiaobaoistIndex?to=servicecenter</code></td>
+<td>🔒</td>
+</tr>
+<tr>
+<td>家长端</td>
+<td>数据分析</td>
+<td><code>/web/Xiaobaoist/XiaobaoistIndex?to=analysis</code></td>
+<td>🔒</td>
+</tr>
+<tr>
+<td>家长端</td>
+<td>设置</td>
+<td><code>/web/Xiaobaoist/XiaobaoistIndex?to=setting</code></td>
+<td>🔒</td>
+</tr>
+<tr>
+<td>家长端</td>
+<td>公众号</td>
+<td><code>/web/wxaccount</code></td>
+<td>✅</td>
+</tr>
+<tr>
+<td>家长端</td>
+<td>学员风采</td>
+<td><code>/web/studentStyle</code></td>
+<td>⬆</td>
+</tr>
+<tr>
+<td>家长端</td>
+<td>积分商城</td>
+<td><code>/web/pointsMall</code></td>
+<td>⬆</td>
+</tr>
+<tr>
+<td>内部管理</td>
+<td>组织架构</td>
+<td><code>/web/Settings/Index</code></td>
+<td>🔒</td>
+</tr>
+<tr>
+<td>内部管理</td>
+<td>员工</td>
+<td><code>/web/employee/employeeList</code></td>
+<td>✅</td>
+</tr>
+<tr>
+<td>内部管理</td>
+<td>员工通知</td>
+<td><code>/web/Xiaobaoist/ArticleList</code></td>
+<td>🔒</td>
+</tr>
+<tr>
+<td>内部管理</td>
+<td>工资</td>
+<td><code>/web/Performance/Index</code></td>
+<td>🔒</td>
+</tr>
+<tr>
+<td>内部管理</td>
+<td>财务</td>
+<td><code>/web/finance</code></td>
+<td>✅</td>
+</tr>
+<tr>
+<td>内部管理</td>
+<td>教材</td>
+<td><code>/web/storage</code></td>
+<td>✅</td>
+</tr>
+<tr>
+<td>内部管理</td>
+<td>电子合同</td>
+<td><code>/web/contract/contractList</code></td>
+<td>⬆</td>
+</tr>
+</tbody></table></div>
+<hr>
+<h1 id="附录-B-核心表设计草案">附录 B：核心表设计草案</h1>
+<pre><code>student            学员（姓名、性别、生日、状态、报读校区、关注家长端、磁卡号、人脸特征ID、欠费、新老生）
+guardian           监护人（姓名、电话、关系、微信openid/unionid）
+student_guardian   学员-监护人关系
+course             课程（名称、类别、科目、授课模式、收费模式、状态、开课校区、单价、总课时）
+class              班级（名称、课程ID、校区、教室、班主任、满班人数、上课星期/时段、开班日期、招生状态、班级状态）
+class_student      分班（班级ID、学员ID、入班日期、状态）
+lesson             课次（班级ID、开始/结束时间、教师ID、教室ID、状态、是否含试听）
+lesson_student     课次学员（课次ID、学员ID、是否试听、考勤状态）
+hour_account       课时账户（学员ID、课程ID、总课时、剩余课时、赠送课时、有效期、状态）
+hour_txn           课时流水（账户ID、类型[充值/扣减/退费/转出/转入/调整]、数量、业务ID、幂等键、时间）
+orders             订单（订单号、学员ID、类型、状态、应收、实收、优惠、欠费、经办人、经办校区、来源、标签）
+order_item         订单行（订单ID、课程ID、数量、原价、优惠分摊、实收、课时数）
+payment            收款（订单ID、账户ID、金额、支付方式、到款时间、状态、流水号）
+refund             退款（订单ID、金额、扣费明细、经办人）
+transfer           转课（原课程、新课程、转出金额、转入课时、跨校区归属）
+teaching_log       上课记录（课次ID、教师ID、实际时段、状态、记课人）
+attendance         考勤（课次ID、学员ID、方式[磁卡/人脸/手动]、时间、状态）
+cash_flow          资金流水（账户ID、收支大类/小类、金额、经办校区、经办人、业务ID）
+revenue_recognition 确认收入（期间、课程ID、消耗课时、确认金额）</code></pre>
+<p><strong>约束示例</strong></p>
+<pre><code>-- 课时流水幂等
+UNIQUE (idem_key)
+-- 排课冲突兜底
+UNIQUE (teacher_id, start_at), UNIQUE (room_id, start_at), UNIQUE (class_id, start_at)
+-- 考勤幂等
+UNIQUE (lesson_id, student_id)
+-- 课时账户唯一
+UNIQUE (student_id, course_id)</code></pre>
+<hr>
+<h1 id="附录-C-状态机">附录 C：状态机</h1>
+<p><strong>学员</strong>：潜在 → 试听 → 在读 →（停课 ⇄ 复课）→ 休学 → 退学 / 结业</p>
+<p><strong>班级</strong>：筹备 → 开放招生 → 满班 → 已开班 → 已结班</p>
+<p><strong>订单</strong>：草稿 → 待支付 → 已完成 →（部分退款）→ 已退款；欠费为独立标记</p>
+<p><strong>课次</strong>：已排课 → 已上课（待记）→ 已记上课 → 已结算</p>
+<p><strong>课时流水</strong>：充值 / 扣减 / 退费 / 转出 / 转入 / 手工调整（全部只追加）</p>
+<hr>
+<p>*文档整理：2026-10-17 · 基于实际登录系统的逐页核对，共覆盖 9 个一级模块、67 项二级功能、55 条路由*</p>
+</div></body></html>

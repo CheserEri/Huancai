@@ -44,6 +44,7 @@ public class ApiPermissionInterceptor implements HandlerInterceptor {
             new Rule("/api/data-fees", Set.of("/dataFeeTemplate", "/student", "/order"), false),
             new Rule("/api/points-goods", Set.of("/pointsMall", "/order", "/student"), false),
             new Rule("/api/staff", Set.of("/employee", "/orgStructure"), false),
+            new Rule("/api/permission-templates", Set.of("/orgStructure"), false),
             new Rule("/api/comments", Set.of("/comment", "/growthArchives"), false),
             new Rule("/api/attendance", Set.of("/teachingLog", "/attendance"), false),
             new Rule("/api/courses", Set.of("/lesson"), false),
@@ -52,6 +53,7 @@ public class ApiPermissionInterceptor implements HandlerInterceptor {
             new Rule("/api/activity-templates", Set.of("/priceTemplate"), false),
             // 家校服务：消息推送 / 班级休课 / 课堂点评 / 作业 / 班级相册
             new Rule("/api/messages", Set.of("/messagePush"), false),
+            new Rule("/api/posters", Set.of("/activityPoster"), false),
             new Rule("/api/class-suspends", Set.of("/classSuspend"), false),
             new Rule("/api/class-comments", Set.of("/classComment"), false),
             // 作业读取接口同时供班级详情页签使用，仅校验写操作

@@ -1,6 +1,6 @@
-"""把校宝「教材 - 购买记录」页 46 条记录导入 material_buy_record。
+"""把原系统「教材 - 购买记录」页 46 条记录导入 material_buy_record。
 
-- 数据源：data/schoolpal/material_buy_records.json（从校宝表格 DOM 逐行抓取）
+- 数据源：data/legacy/material_buy_records.json（从原系统表格 DOM 逐行抓取）
 - 幂等：按 (ext_order_no, student_name, item_name, quantity, handled_date) 唯一键 upsert，可反复重跑
 - 金额：paid_text 为「x.xx元」写入 paid_amount；为「xxx积分」写入 paid_points
 """
@@ -9,11 +9,11 @@ import os
 import re
 import subprocess
 
-BASE = r"d:\Code\Projects\Huancai\data\schoolpal"
+BASE = r"d:\Code\Projects\Huancai\data\legacy"
 MYSQL = r"D:\Code\Projects\Huancai\tools\mysql-8.0.28-winx64\bin\mysql.exe"
 DB_ARGS = ["-h", "127.0.0.1", "-P", "3307", "-u", "hc", "-phc123456",
            "-D", "huancai_erp", "--default-character-set=utf8mb4"]
-SOURCE = "校宝教材购买记录"
+SOURCE = "历史教材购买记录"
 
 DDL = """
 CREATE TABLE IF NOT EXISTS material_buy_record (
@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS material_buy_record (
   handler VARCHAR(64) DEFAULT NULL,
   handled_date DATE DEFAULT NULL,
   remark VARCHAR(255) DEFAULT NULL,
-  source VARCHAR(32) NOT NULL DEFAULT '校宝教材购买记录',
+  source VARCHAR(32) NOT NULL DEFAULT '历史教材购买记录',
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id),

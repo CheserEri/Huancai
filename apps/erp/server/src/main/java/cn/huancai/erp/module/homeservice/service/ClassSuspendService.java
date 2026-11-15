@@ -139,23 +139,22 @@ public class ClassSuspendService {
         String notifyMessage = null;
         if (Boolean.TRUE.equals(form.getNotify())) {
             List<Long> notifyClassIds = new ArrayList<>(affectedClassIds);
-            if (messageService.countReachableParents("班级", notifyClassIds, null) > 0) {
-                WxMessage message = messageService.sendMessage(
-                        "休课通知",
-                        buildNoticeContent(created, reason),
-                        "休课通知",
-                        "班级",
-                        notifyClassIds,
-                        null);
-                messageId = message.getId();
-                receiverCount = message.getReceiverCount() == null ? 0 : message.getReceiverCount();
-                for (ClassSuspend record : created) {
-                    record.setMessageId(messageId);
-                    record.setNotifyFlag(1);
-                    suspendMapper.updateById(record);
-                }
-            } else {
-                notifyMessage = "休课已完成，但受影响班级的家长均未绑定微信小程序，通知未推送";
+            WxMessage message = messageService.sendMessage(
+                    "休课通知",
+                    buildNoticeContent(created, reason),
+                    "休课通知",
+                    "班级",
+                    notifyClassIds,
+                    null);
+            messageId = message.getId();
+            receiverCount = message.getReceiverCount() == null ? 0 : message.getReceiverCount();
+            for (ClassSuspend record : created) {
+                record.setMessageId(messageId);
+                record.setNotifyFlag(1);
+                suspendMapper.updateById(record);
+            }
+            if (receiverCount == 0) {
+                notifyMessage = "休课通知已生成，受影响班级暂无已绑定家长，家长绑定后可在小程序查看";
             }
         }
 
@@ -165,6 +164,48 @@ public class ClassSuspendService {
         result.put("messageId", messageId);
         result.put("receiverCount", receiverCount);
         result.put("notifyMessage", notifyMessage);
+        return result;
+    }
+
+    /** 对已休课记录批量推送家长通知。 */
+    @Transactional
+    public Map<String, Object> notify(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            throw new IllegalArgumentException("请选择要通知的已休课课次");
+        }
+        List<ClassSuspend> records = suspendMapper.selectBatchIds(ids).stream()
+                .filter(record -> "已休课".equals(record.getStatus()))
+                .toList();
+        if (records.isEmpty()) {
+            throw new IllegalArgumentException("所选记录均已恢复，无法发送休课通知");
+        }
+        List<Long> classIds = records.stream()
+                .map(ClassSuspend::getClassId)
+                .filter(id -> id != null)
+                .distinct()
+                .toList();
+        WxMessage message = messageService.sendMessage(
+                "休课通知",
+                buildNoticeContent(records, commonReason(records)),
+                "休课通知",
+                "班级",
+                classIds,
+                null);
+        Long messageId = message.getId();
+        int receiverCount = message.getReceiverCount() == null ? 0 : message.getReceiverCount();
+        for (ClassSuspend record : records) {
+            record.setMessageId(messageId);
+            record.setNotifyFlag(1);
+            suspendMapper.updateById(record);
+        }
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("notified", records.size());
+        result.put("classCount", classIds.size());
+        result.put("messageId", messageId);
+        result.put("receiverCount", receiverCount);
+        result.put("notifyMessage", receiverCount == 0
+                ? "休课通知已生成，所选班级暂无已绑定家长，家长绑定后可在小程序查看" : null);
         return result;
     }
 
@@ -182,7 +223,7 @@ public class ClassSuspendService {
         if (schedule == null) {
             throw new IllegalArgumentException("对应课次不存在，无法恢复");
         }
-        if (!"休课".equals(schedule.getStatus())) {
+        if (!"休课".equals(schedule.getStatus()) && !"已取消".equals(schedule.getStatus())) {
             throw new IllegalArgumentException("该课次当前状态为「" + schedule.getStatus() + "」，无法恢复");
         }
         LocalDateTime now = LocalDateTime.now();
@@ -231,6 +272,22 @@ public class ClassSuspendService {
         content.append("休课原因：").append(reason);
         String text = content.toString();
         return text.length() > 1000 ? text.substring(0, 1000) : text;
+    }
+
+    private String commonReason(List<ClassSuspend> records) {
+        String reason = null;
+        for (ClassSuspend record : records) {
+            String current = trim(record.getReason());
+            if (current == null) {
+                continue;
+            }
+            if (reason == null) {
+                reason = current;
+            } else if (!reason.equals(current)) {
+                return "课程调整";
+            }
+        }
+        return reason == null ? "课程调整" : reason;
     }
 
     private String formatDate(LocalDate date) {

@@ -63,17 +63,18 @@ const filteredCourses = computed(() => {
   return options.value.courses.filter((item) => item.campusId && form.campusIds.includes(item.campusId))
 })
 
+// 名称、课程等长文本不截断，自动换行完整显示；整体列宽收敛到一屏内
 const columns = [
-  { title: '模板名称', dataIndex: 'name', width: 200, ellipsis: true },
-  { title: '适用课程', dataIndex: 'courseNames', width: 260, ellipsis: true },
-  { title: '适用校区', dataIndex: 'campusNames', width: 160, ellipsis: true },
-  { title: '班型', dataIndex: 'classType', width: 100 },
-  { title: '课时单价', dataIndex: 'prices', width: 180 },
-  { title: '教材费', dataIndex: 'materialFee', width: 100, align: 'right' as const },
-  { title: '有效期', dataIndex: 'validDays', width: 100 },
-  { title: '状态', dataIndex: 'status', width: 90 },
-  { title: '已用订单', dataIndex: 'usedCount', width: 90, align: 'right' as const },
-  { title: '操作', dataIndex: 'action', width: 220, fixed: 'right' as const },
+  { title: '模板名称', dataIndex: 'name', width: 264 },
+  { title: '适用课程', dataIndex: 'courseNames', width: 210 },
+  { title: '适用校区', dataIndex: 'campusNames', width: 90 },
+  { title: '班型', dataIndex: 'classType', width: 68 },
+  { title: '课时单价', dataIndex: 'prices', width: 116 },
+  { title: '教材费', dataIndex: 'materialFee', width: 78, align: 'right' as const },
+  { title: '有效期', dataIndex: 'validDays', width: 66 },
+  { title: '状态', dataIndex: 'status', width: 64 },
+  { title: '已用', dataIndex: 'usedCount', width: 54, align: 'right' as const },
+  { title: '操作', dataIndex: 'action', width: 184, fixed: 'right' as const },
 ]
 
 function money(value: number | null | undefined) {
@@ -691,14 +692,16 @@ onMounted(async () => {
               :columns="columns"
               :data-source="rows"
               row-key="id"
-              size="middle"
+              size="small"
               :pagination="false"
-              :scroll="{ x: 1560 }"
+              :scroll="{ x: 1194, y: 'calc(100vh - 320px)' }"
             >
               <template #bodyCell="{ column, record }">
-                <span v-if="column.dataIndex === 'name'">{{ record.name }}</span>
-                <span v-else-if="column.dataIndex === 'courseNames'">{{ listText(record.courseNames) }}</span>
-                <span v-else-if="column.dataIndex === 'campusNames'">
+                <span v-if="column.dataIndex === 'name'" class="cell-name">{{ record.name }}</span>
+                <span v-else-if="column.dataIndex === 'courseNames'" class="cell-wrap">
+                  {{ listText(record.courseNames) }}
+                </span>
+                <span v-else-if="column.dataIndex === 'campusNames'" class="cell-wrap">
                   {{ record.campusScope === '指定' ? listText(record.campusNames) : '全部校区' }}
                 </span>
                 <span v-else-if="column.dataIndex === 'classType'">{{ record.classType || '不限' }}</span>
@@ -1074,11 +1077,32 @@ onMounted(async () => {
 
 .row-actions {
   display: flex;
-  gap: 10px;
+  gap: 8px;
+  white-space: nowrap;
 }
 
 .row-actions a {
   font-size: 13px;
+}
+
+/* 模板名称、课程等长文本换行完整显示，避免被省略号截断 */
+.cell-name {
+  display: block;
+  font-weight: 500;
+  line-height: 1.5;
+  white-space: normal;
+  word-break: break-word;
+}
+
+.cell-wrap {
+  display: block;
+  line-height: 1.5;
+  white-space: normal;
+  word-break: break-word;
+}
+
+.table-toolbar {
+  padding: 8px 0;
 }
 
 .danger {

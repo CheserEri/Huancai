@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { PlusOutlined, SearchOutlined } from '@ant-design/icons-vue'
 import { Modal, message } from 'ant-design-vue'
 import {
@@ -15,6 +15,7 @@ import {
   type StaffSummary,
 } from '../api/client'
 import { menuGroups } from '../config/menu'
+import FilterBar from '../components/FilterBar.vue'
 
 const keyword = ref('')
 const campus = ref<'all' | number>('all')
@@ -27,18 +28,32 @@ const options = ref<StaffOptions | null>(null)
 
 const roleOptions = [
   { value: 'admin', label: '管理员' },
-  { value: 'manager', label: '校区主管' },
-  { value: 'teacher', label: '教师' },
-  { value: 'consultant', label: '顾问' },
+  { value: 'manager', label: '校长' },
   { value: 'finance', label: '财务' },
+  { value: 'reception', label: '前台' },
+  { value: 'consultant', label: '顾问' },
+  { value: 'teacher', label: '教师' },
+  { value: 'assistant', label: '助教' },
 ]
 
 const roleText: Record<string, string> = {
   admin: '管理员',
-  manager: '校区主管',
-  teacher: '教师',
-  consultant: '顾问',
+  manager: '校长',
   finance: '财务',
+  reception: '前台',
+  consultant: '顾问',
+  teacher: '教师',
+  assistant: '助教',
+}
+
+const roleColor: Record<string, string> = {
+  admin: 'red',
+  manager: 'gold',
+  finance: 'purple',
+  reception: 'cyan',
+  consultant: 'green',
+  teacher: 'blue',
+  assistant: 'geekblue',
 }
 
 function baseQuery() {
@@ -90,11 +105,21 @@ const form = reactive({
   account: '',
   password: '',
   role: 'teacher',
+  extraRoles: [] as string[],
   title: '',
   permissions: [] as string[],
   campusId: null as number | null,
   status: 1,
 })
+
+/** 兼任角色候选：排除管理员与当前主角色。 */
+const extraRoleOptions = computed(() =>
+  roleOptions.filter((item) => item.value !== 'admin' && item.value !== form.role),
+)
+
+function onPrimaryRoleChange() {
+  form.extraRoles = form.extraRoles.filter((item) => item !== form.role)
+}
 
 /** 权限配置按菜单分组展示，值与路由路径一致。 */
 const permissionGroups = menuGroups.map((group) => ({
@@ -136,6 +161,7 @@ function openCreate() {
     account: '',
     password: '',
     role: 'teacher',
+    extraRoles: [],
     title: '',
     permissions: [],
     campusId: null,
@@ -152,6 +178,7 @@ function openEdit(record: StaffRow) {
     account: record.account ?? '',
     password: '',
     role: record.role,
+    extraRoles: [...(record.extraRoles ?? [])],
     title: record.title ?? '',
     permissions: record.role === 'admin' ? [] : (record.permissions ?? []).filter((path) => path !== '*'),
     campusId: record.campusId,
@@ -185,6 +212,7 @@ async function submitForm() {
       account: form.account.trim() || undefined,
       password: form.password || undefined,
       role: form.role,
+      extraRoles: form.extraRoles.filter((item) => item !== form.role),
       title: form.title.trim() || undefined,
       permissions: form.role === 'admin' ? undefined : form.permissions,
       campusId: form.campusId,
@@ -252,58 +280,46 @@ onMounted(() => {
 
 <template>
   <div class="page">
-    <div class="filter-card">
-      <div class="filter-row">
-        <div class="filter-item">
-          <span>关键词</span>
-          <a-input
-            v-model:value="keyword"
-            placeholder="姓名 / 手机 / 职位"
-            style="width: 200px"
-            size="small"
-            allow-clear
-            @press-enter="load"
-          />
-        </div>
-        <div class="filter-item">
-          <span>校区</span>
-          <a-select v-model:value="campus" size="small" style="width: 150px" @change="load">
-            <a-select-option value="all">全部</a-select-option>
-            <a-select-option v-for="item in options?.campuses ?? []" :key="item.id" :value="item.id">
-              {{ item.name }}
-            </a-select-option>
-          </a-select>
-        </div>
-        <div class="filter-item">
-          <span>角色</span>
-          <a-select v-model:value="role" size="small" style="width: 120px" @change="load">
-            <a-select-option value="all">全部</a-select-option>
-            <a-select-option value="admin">管理员</a-select-option>
-            <a-select-option value="manager">校区主管</a-select-option>
-            <a-select-option value="teacher">教师</a-select-option>
-            <a-select-option value="consultant">顾问</a-select-option>
-            <a-select-option value="finance">财务</a-select-option>
-          </a-select>
-        </div>
-        <div class="filter-item">
-          <span>状态</span>
-          <a-select v-model:value="status" size="small" style="width: 110px" @change="load">
-            <a-select-option value="all">全部</a-select-option>
-            <a-select-option :value="1">在职</a-select-option>
-            <a-select-option :value="0">离职</a-select-option>
-          </a-select>
-        </div>
-        <a-button type="primary" size="small" :loading="loading" @click="load">
-          <SearchOutlined />查询
-        </a-button>
-        <a-button size="small" @click="reset">重置</a-button>
-      </div>
-    </div>
+    <FilterBar @search="load" @reset="reset">
+      <a-select v-model:value="campus" class="filter-select" style="width: 150px" @change="load">
+        <a-select-option value="all">全部校区</a-select-option>
+        <a-select-option v-for="item in options?.campuses ?? []" :key="item.id" :value="item.id">
+          {{ item.name }}
+        </a-select-option>
+      </a-select>
+
+      <a-select v-model:value="role" class="filter-select" style="width: 120px" @change="load">
+        <a-select-option value="all">全部角色</a-select-option>
+        <a-select-option v-for="item in roleOptions" :key="item.value" :value="item.value">
+          {{ item.label }}
+        </a-select-option>
+      </a-select>
+
+      <a-select v-model:value="status" class="filter-select" style="width: 110px" @change="load">
+        <a-select-option value="all">全部状态</a-select-option>
+        <a-select-option :value="1">在职</a-select-option>
+        <a-select-option :value="0">离职</a-select-option>
+      </a-select>
+
+      <template #search>
+        <a-input
+          v-model:value="keyword"
+          class="filter-search"
+          placeholder="姓名 / 手机 / 职位"
+          allow-clear
+          @press-enter="load"
+        >
+          <template #prefix>
+            <SearchOutlined class="search-icon" />
+          </template>
+        </a-input>
+      </template>
+    </FilterBar>
 
     <div class="table-card">
       <div class="table-toolbar">
         <div class="table-toolbar-left">
-          <span class="muted" style="font-size: 12px">数据来源：校宝员工名单与教学工作量</span>
+          <span class="muted" style="font-size: 12px">数据来源：原系统员工名单与教学工作量</span>
         </div>
         <a-button type="primary" size="small" class="primary-btn" @click="openCreate">
           <PlusOutlined />新建员工
@@ -329,8 +345,16 @@ onMounted(() => {
           <template #bodyCell="{ column, record }">
             <span v-if="column.dataIndex === 'campusName'">{{ record.campusName || '—' }}</span>
             <span v-else-if="column.dataIndex === 'role'">
-              <a-tag :color="record.role === 'teacher' ? 'blue' : record.role === 'finance' ? 'purple' : 'default'">
+              <a-tag :color="roleColor[record.role] ?? 'default'" class="role-chip">
                 {{ roleText[record.role] ?? record.role }}
+              </a-tag>
+              <a-tag
+                v-for="extra in record.extraRoles ?? []"
+                :key="extra"
+                :color="roleColor[extra] ?? 'default'"
+                class="role-chip"
+              >
+                兼{{ roleText[extra] ?? extra }}
               </a-tag>
             </span>
             <span v-else-if="column.dataIndex === 'title'">{{ record.title || '—' }}</span>
@@ -372,8 +396,20 @@ onMounted(() => {
             <a-input v-model:value="form.phone" :maxlength="32" placeholder="可用于登录系统" />
           </a-form-item>
           <a-form-item label="角色" required>
-            <a-select v-model:value="form.role">
+            <a-select v-model:value="form.role" @change="onPrimaryRoleChange">
               <a-select-option v-for="item in roleOptions" :key="item.value" :value="item.value">
+                {{ item.label }}
+              </a-select-option>
+            </a-select>
+          </a-form-item>
+          <a-form-item label="兼任角色">
+            <a-select
+              v-model:value="form.extraRoles"
+              mode="multiple"
+              allow-clear
+              placeholder="可多选，如同时兼任教师"
+            >
+              <a-select-option v-for="item in extraRoleOptions" :key="item.value" :value="item.value">
                 {{ item.label }}
               </a-select-option>
             </a-select>
@@ -483,6 +519,12 @@ onMounted(() => {
 .row-actions {
   display: inline-flex;
   gap: 4px;
+}
+
+.role-chip {
+  margin-inline-end: 4px;
+  font-size: 11px;
+  line-height: 18px;
 }
 
 .row-btn {

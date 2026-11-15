@@ -4,7 +4,7 @@
 
   <sql id="stockWhere">
     <where>
-      m.source IN ('校宝教材设置', '本地录入')
+      m.source IN ('历史教材设置', '本地录入')
       <if test="keyword != null and keyword != ''">
         AND m.name LIKE CONCAT('%', #{keyword}, '%')
       </if>
@@ -49,7 +49,7 @@
 
   <sql id="settingWhere">
     <where>
-      m.source IN ('校宝教材设置', '本地录入')
+      m.source IN ('历史教材设置', '本地录入')
       <if test="keyword != null and keyword != ''">
         AND m.name LIKE CONCAT('%', #{keyword}, '%')
       </if>
@@ -78,7 +78,7 @@
 
   <sql id="incidentalWhere">
     <where>
-      m.source = '校宝杂费设置'
+      m.source = '历史杂费设置'
       <if test="keyword != null and keyword != ''">
         AND m.name LIKE CONCAT('%', #{keyword}, '%')
       </if>
@@ -106,14 +106,14 @@
 
   <select id="selectCategories" resultType="java.lang.String">
     SELECT category FROM material
-    WHERE source IN ('校宝教材设置', '本地录入') AND category IS NOT NULL AND category != ''
+    WHERE source IN ('历史教材设置', '本地录入') AND category IS NOT NULL AND category != ''
     GROUP BY category
     ORDER BY MIN(id)
   </select>
 
   <sql id="changeWhere">
     <where>
-      c.source IN ('校宝库存变动', '本地录入')
+      c.source IN ('历史库存变动', '本地录入')
       <if test="keyword != null and keyword != ''">
         AND (c.material_name LIKE CONCAT('%', #{keyword}, '%')
              OR c.student_name LIKE CONCAT('%', #{keyword}, '%')
@@ -168,14 +168,14 @@
 
   <select id="selectChangeRooms" resultType="java.lang.String">
     SELECT room_name FROM material_stock_change
-    WHERE source IN ('校宝库存变动', '本地录入')
+    WHERE source IN ('历史库存变动', '本地录入')
     GROUP BY room_name
     ORDER BY MIN(id)
   </select>
 
   <select id="selectChangeMaterials" resultType="java.lang.String">
     SELECT material_name FROM material_stock_change
-    WHERE source IN ('校宝库存变动', '本地录入')
+    WHERE source IN ('历史库存变动', '本地录入')
     GROUP BY material_name
     ORDER BY MIN(id)
   </select>

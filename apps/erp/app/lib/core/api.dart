@@ -32,7 +32,8 @@ class Api {
 
   static Future<T> put<T>(String path, [Object? body]) => _send<T>('PUT', path, body: body);
 
-  static Future<T> delete<T>(String path) => _send<T>('DELETE', path);
+  static Future<T> delete<T>(String path, [Map<String, dynamic>? query]) =>
+      _send<T>('DELETE', path, query: query);
 
   /// 表单文件上传（multipart），用于班级相册等图片上传场景。
   ///

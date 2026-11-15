@@ -1,6 +1,6 @@
 -- 幻彩教育 ERP 数据库结构（MySQL 8.0，单租户，两校区）
 -- 说明：所有业务表统一带 campus_id，便于按校区隔离与后续多校区扩展。
--- 校宝导入数据通过 ext_id 保存原始系统主键，保证幂等重跑。
+-- 历史导入数据通过 ext_id 保存原始系统主键，保证幂等重跑。
 
 CREATE DATABASE IF NOT EXISTS huancai_erp
   DEFAULT CHARACTER SET utf8mb4
@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS campus (
   address     VARCHAR(255) DEFAULT NULL,
   phone       VARCHAR(32)  DEFAULT NULL,
   status      TINYINT      NOT NULL DEFAULT 1 COMMENT '1启用 0停用',
-  ext_id      VARCHAR(64)  DEFAULT NULL COMMENT '校宝原始ID',
+  ext_id      VARCHAR(64)  DEFAULT NULL COMMENT '原始ID',
   created_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
@@ -36,7 +36,8 @@ CREATE TABLE IF NOT EXISTS staff (
   phone         VARCHAR(32)  DEFAULT NULL,
   account       VARCHAR(64)  DEFAULT NULL COMMENT '登录账号',
   password_hash VARCHAR(100) DEFAULT NULL COMMENT 'BCrypt',
-  role          VARCHAR(32)  NOT NULL DEFAULT 'teacher' COMMENT 'admin/manager/teacher/consultant/finance',
+  role          VARCHAR(32)  NOT NULL DEFAULT 'teacher' COMMENT 'admin/manager/finance/reception/consultant/teacher/assistant',
+  extra_roles   VARCHAR(128) DEFAULT NULL COMMENT '兼任角色，逗号分隔',
   title         VARCHAR(64)  DEFAULT NULL,
   menu_permissions TEXT      DEFAULT NULL COMMENT '可见菜单路径 JSON 数组，空表示仅工作台；admin 不受限制',
   status        TINYINT      NOT NULL DEFAULT 1 COMMENT '1在职 0离职',
@@ -62,35 +63,50 @@ CREATE TABLE IF NOT EXISTS staff_session (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='员工登录会话';
 
 -- ---------------------------------------------------------------
+-- 权限模板（组织架构 - 员工菜单权限预设）
+-- ---------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS permission_template (
+  id          BIGINT       NOT NULL AUTO_INCREMENT,
+  name        VARCHAR(64)  NOT NULL COMMENT '模板名称',
+  role        VARCHAR(32)  DEFAULT NULL COMMENT '适用角色，空表示通用',
+  builtin     TINYINT      NOT NULL DEFAULT 0 COMMENT '1内置角色模板（不可删） 0自定义模板',
+  permissions TEXT         DEFAULT NULL COMMENT '可见菜单路径 JSON 数组',
+  created_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_permission_template_role (role)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='权限模板';
+
+-- ---------------------------------------------------------------
 -- 学员
 -- ---------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS student (
   id                  BIGINT       NOT NULL AUTO_INCREMENT,
   campus_id           BIGINT       NOT NULL,
-  campus_text         VARCHAR(64)  DEFAULT NULL COMMENT '校宝花名册报读校区原文（可多校区）',
-  ext_id              VARCHAR(64)  DEFAULT NULL COMMENT '校宝学员ID',
+  campus_text         VARCHAR(64)  DEFAULT NULL COMMENT '历史花名册报读校区原文（可多校区）',
+  ext_id              VARCHAR(64)  DEFAULT NULL COMMENT '历史学员ID',
   student_no          VARCHAR(64)  DEFAULT NULL COMMENT '学号',
   name                VARCHAR(64)  NOT NULL,
   gender              VARCHAR(8)   NOT NULL DEFAULT '未知' COMMENT '男/女/未知',
   birthday            DATE         DEFAULT NULL,
-  age_text            VARCHAR(16)  DEFAULT NULL COMMENT '年龄（校宝原文，可为“未知”）',
+  age_text            VARCHAR(16)  DEFAULT NULL COMMENT '年龄（原始文，可为“未知”）',
   phone               VARCHAR(32)  DEFAULT NULL COMMENT '主要联系电话',
   primary_relation    VARCHAR(16)  DEFAULT NULL COMMENT '所属关系(主要)：父亲/母亲/其他',
   secondary_relation  VARCHAR(16)  DEFAULT NULL COMMENT '所属关系(次要)',
   secondary_phone     VARCHAR(32)  DEFAULT NULL COMMENT '次要电话',
   other_relation      VARCHAR(16)  DEFAULT NULL COMMENT '所属关系(其他)',
   other_phone         VARCHAR(32)  DEFAULT NULL COMMENT '其他电话',
-  follow_status       TINYINT      NOT NULL DEFAULT 0 COMMENT '校宝家是否关注 1是 0否',
+  follow_status       TINYINT      NOT NULL DEFAULT 0 COMMENT '家长端是否关注 1是 0否',
   card_no             VARCHAR(32)  DEFAULT NULL COMMENT '磁卡绑定',
   face_status         VARCHAR(16)  DEFAULT NULL COMMENT '人脸录入状态',
   is_star             TINYINT      NOT NULL DEFAULT 0 COMMENT '是否星标 1是 0否',
   balance             DECIMAL(10,2) NOT NULL DEFAULT 0 COMMENT '账户余额（元）',
-  debt                DECIMAL(10,2) NOT NULL DEFAULT 0 COMMENT '欠费（元，校宝花名册口径）',
+  debt                DECIMAL(10,2) NOT NULL DEFAULT 0 COMMENT '欠费（元，历史花名册口径）',
   points              INT          NOT NULL DEFAULT 0 COMMENT '积分',
   course_count        INT          NOT NULL DEFAULT 0 COMMENT '在读课程数',
   status              VARCHAR(16)  NOT NULL DEFAULT '在读' COMMENT '在读/停课/休学/结课/意向/流失',
   source              VARCHAR(32)  DEFAULT NULL COMMENT '来源：转介绍/地推/美团/抖音/自然到访/老生续费',
-  channel_name        VARCHAR(64)  DEFAULT NULL COMMENT '渠道名称（校宝花名册）',
+  channel_name        VARCHAR(64)  DEFAULT NULL COMMENT '渠道名称（历史花名册）',
   school              VARCHAR(128) DEFAULT NULL COMMENT '公立学校',
   public_school_class VARCHAR(32)  DEFAULT NULL COMMENT '公立校班级',
   grade               VARCHAR(32)  DEFAULT NULL COMMENT '年级',
@@ -214,7 +230,7 @@ CREATE TABLE IF NOT EXISTS class_group (
   course_id         BIGINT       DEFAULT NULL,
   name              VARCHAR(64)  NOT NULL,
   teacher_id        BIGINT       DEFAULT NULL,
-  teacher_text      VARCHAR(64)  DEFAULT NULL COMMENT '校宝教师姓名原文',
+  teacher_text      VARCHAR(64)  DEFAULT NULL COMMENT '历史教师姓名原文',
   capacity          INT          NOT NULL DEFAULT 0,
   enrolled_count    INT          NOT NULL DEFAULT 0,
   room              VARCHAR(64)  DEFAULT NULL,
@@ -222,18 +238,18 @@ CREATE TABLE IF NOT EXISTS class_group (
   start_date        DATE         DEFAULT NULL,
   end_date          DATE         DEFAULT NULL,
   status            VARCHAR(16)  NOT NULL DEFAULT '已开班' COMMENT '开放招生/已开班/满班/已结班',
-  sp_class_id       BIGINT       DEFAULT NULL COMMENT '校宝班级ID',
+  sp_class_id       BIGINT       DEFAULT NULL COMMENT '历史班级ID',
   lesson_class_name VARCHAR(64)  DEFAULT NULL COMMENT '班型',
   assist_name       VARCHAR(64)  DEFAULT NULL COMMENT '助教',
-  class_time_desc   VARCHAR(128) DEFAULT NULL COMMENT '校宝上课时间原文',
+  class_time_desc   VARCHAR(128) DEFAULT NULL COMMENT '原系统上课时间原文',
   stu_rate          DECIMAL(5,2) DEFAULT NULL COMMENT '满班率%',
   up_rate           VARCHAR(16)  DEFAULT NULL COMMENT '升班率',
-  schedule_count    INT          NOT NULL DEFAULT 0 COMMENT '课次数（校宝班级列表口径）',
+  schedule_count    INT          NOT NULL DEFAULT 0 COMMENT '课次数（历史班级列表口径）',
   enrolling         TINYINT      NOT NULL DEFAULT 1 COMMENT '招生中 1是 0否',
   create_by         VARCHAR(64)  DEFAULT NULL COMMENT '创建人',
   fee_standard      VARCHAR(255) DEFAULT NULL COMMENT '收费标准',
   is_collection     TINYINT      NOT NULL DEFAULT 0 COMMENT '是否合集',
-  source            VARCHAR(16)  NOT NULL DEFAULT '校宝排课' COMMENT '校宝班级列表/校宝排课',
+  source            VARCHAR(16)  NOT NULL DEFAULT '历史排课' COMMENT '历史班级列表/历史排课',
   ext_id            VARCHAR(64)  DEFAULT NULL,
   created_at        DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at        DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -245,7 +261,7 @@ CREATE TABLE IF NOT EXISTS class_group (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='班级';
 
 -- ---------------------------------------------------------------
--- 班级学员（在读名单快照，来自校宝班级学员列表）
+-- 班级学员（在读名单快照，来自历史班级学员列表）
 -- ---------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS class_student (
   id             BIGINT        NOT NULL AUTO_INCREMENT,
@@ -258,7 +274,7 @@ CREATE TABLE IF NOT EXISTS class_student (
   used_lessons   DECIMAL(6,1)  NOT NULL DEFAULT 0,
   remain_lessons DECIMAL(6,1)  NOT NULL DEFAULT 0,
   remark         VARCHAR(255)  DEFAULT NULL,
-  ext_id         VARCHAR(64)   DEFAULT NULL COMMENT '校宝班级学员关系ID',
+  ext_id         VARCHAR(64)   DEFAULT NULL COMMENT '历史班级学员关系ID',
   created_at     DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   UNIQUE KEY uk_class_student (class_id, student_id),
@@ -340,20 +356,20 @@ CREATE TABLE IF NOT EXISTS schedule (
   room        VARCHAR(64)  DEFAULT NULL,
   topic       VARCHAR(128) DEFAULT NULL,
   status      VARCHAR(16)  NOT NULL DEFAULT '待上课' COMMENT '待上课/已上课/已取消',
-  class_name     VARCHAR(128) DEFAULT NULL COMMENT '校宝原班级名称快照',
-  course_name    VARCHAR(128) DEFAULT NULL COMMENT '校宝原课程名称快照',
-  teacher_name   VARCHAR(64)  DEFAULT NULL COMMENT '校宝原教师名称快照',
-  assistant_name VARCHAR(64)  DEFAULT NULL COMMENT '校宝原助教名称快照',
+  class_name     VARCHAR(128) DEFAULT NULL COMMENT '原始班级名称快照',
+  course_name    VARCHAR(128) DEFAULT NULL COMMENT '原始课程名称快照',
+  teacher_name   VARCHAR(64)  DEFAULT NULL COMMENT '原始教师名称快照',
+  assistant_name VARCHAR(64)  DEFAULT NULL COMMENT '原始助教名称快照',
   lesson_mode    TINYINT      DEFAULT NULL COMMENT '1=班级 2=一对一',
-  teaching_log_id BIGINT      DEFAULT NULL COMMENT '校宝记上课ID，>0 表示已上课',
+  teaching_log_id BIGINT      DEFAULT NULL COMMENT '原系统记上课ID，>0 表示已上课',
   should_count   INT          DEFAULT NULL COMMENT '应到人数',
   actual_count   INT          DEFAULT NULL COMMENT '实到人数',
   period_start   DATETIME     DEFAULT NULL,
   period_end     DATETIME     DEFAULT NULL,
-  ext_class_id   BIGINT       DEFAULT NULL COMMENT '校宝班级ID',
-  ext_teacher_id BIGINT       DEFAULT NULL COMMENT '校宝教师ID',
-  ext_assistant_id BIGINT     DEFAULT NULL COMMENT '校宝助教ID',
-  ext_school_id  BIGINT       DEFAULT NULL COMMENT '校宝校区ID',
+  ext_class_id   BIGINT       DEFAULT NULL COMMENT '历史班级ID',
+  ext_teacher_id BIGINT       DEFAULT NULL COMMENT '历史教师ID',
+  ext_assistant_id BIGINT     DEFAULT NULL COMMENT '历史助教ID',
+  ext_school_id  BIGINT       DEFAULT NULL COMMENT '历史校区ID',
   ext_id      VARCHAR(64)  DEFAULT NULL,
   created_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -458,15 +474,15 @@ CREATE TABLE IF NOT EXISTS sales_order (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='订单';
 
 -- ---------------------------------------------------------------
--- 校宝订单快照（订单列表 / 订单详情只读数据源）
+-- 历史订单快照（订单列表 / 订单详情只读数据源）
 -- ---------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS sp_order (
   id                  BIGINT        NOT NULL AUTO_INCREMENT,
-  sp_id               BIGINT        DEFAULT NULL COMMENT '校宝订单ID；本地闭环办理的订单为空',
+  sp_id               BIGINT        DEFAULT NULL COMMENT '历史订单ID；本地闭环办理的订单为空',
   order_no            VARCHAR(32)   NOT NULL COMMENT '订单号',
   order_no_num        BIGINT        GENERATED ALWAYS AS (CAST(order_no AS UNSIGNED)) STORED COMMENT '订单号数值，用于排序',
   campus_id           BIGINT        DEFAULT NULL,
-  school_id           BIGINT        DEFAULT NULL COMMENT '校宝校区ID',
+  school_id           BIGINT        DEFAULT NULL COMMENT '历史校区ID',
   campus_name         VARCHAR(100)  DEFAULT NULL,
   student_id          BIGINT        DEFAULT NULL COMMENT '对应本地学员，匹配不到为空',
   stu_name            VARCHAR(100)  NOT NULL,
@@ -495,9 +511,9 @@ CREATE TABLE IF NOT EXISTS sp_order (
   is_online_payment   TINYINT       NOT NULL DEFAULT 0,
   has_multi_lesson_enroll TINYINT   NOT NULL DEFAULT 0,
   deal_date           DATETIME      NOT NULL COMMENT '经办日期',
-  created_time        DATETIME      NOT NULL COMMENT '校宝创建时间',
+  created_time        DATETIME      NOT NULL COMMENT '原系统创建时间',
   expiry_date         DATETIME      DEFAULT NULL,
-  raw_json            LONGTEXT      DEFAULT NULL COMMENT '校宝原始订单 JSON',
+  raw_json            LONGTEXT      DEFAULT NULL COMMENT '原始订单 JSON',
   void_reason         VARCHAR(100)  DEFAULT NULL COMMENT '作废原因',
   void_at             DATETIME      DEFAULT NULL COMMENT '作废时间',
   PRIMARY KEY (id),
@@ -511,7 +527,7 @@ CREATE TABLE IF NOT EXISTS sp_order (
   KEY idx_sp_order_type (type_code),
   KEY idx_sp_order_creator (creator),
   KEY idx_sp_order_salesman (salesman)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='校宝订单快照';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='历史订单快照';
 
 -- ---------------------------------------------------------------
 -- 收款记录
@@ -561,7 +577,7 @@ CREATE TABLE IF NOT EXISTS consult (
   salesway         VARCHAR(32)  DEFAULT NULL,
   scene            VARCHAR(64)  DEFAULT NULL,
   salesman_name    VARCHAR(64)  DEFAULT NULL COMMENT '招生顾问',
-  follow_state     TINYINT      DEFAULT NULL COMMENT '校宝跟进状态码',
+  follow_state     TINYINT      DEFAULT NULL COMMENT '原系统跟进状态码',
   follow_state_text VARCHAR(32) DEFAULT NULL,
   enrolled         TINYINT(1)   DEFAULT 0,
   interest         VARCHAR(32)  DEFAULT NULL,
@@ -585,19 +601,15 @@ CREATE TABLE IF NOT EXISTS consult (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='咨询线索';
 
 -- ---------------------------------------------------------------
--- 基础数据：两个校区
+-- 基础数据：单校区（鲅鱼圈幻彩学堂）
 -- ---------------------------------------------------------------
 INSERT INTO campus (code, name, short_name, status)
-SELECT 'byq', '鲅鱼圈幻彩国学堂', '鲅鱼圈', 1
+SELECT 'byq', '鲅鱼圈幻彩学堂', '鲅鱼圈', 1
 WHERE NOT EXISTS (SELECT 1 FROM campus WHERE code = 'byq');
-
-INSERT INTO campus (code, name, short_name, status)
-SELECT 'xm', '新民幻彩国学堂', '新民', 1
-WHERE NOT EXISTS (SELECT 1 FROM campus WHERE code = 'xm');
 
 -- ---------------------------------------------------------------
 -- 营销中心（满折 / 满减 / 赠送课时）
--- 数据本地闭环，不回写校宝
+-- 数据本地闭环，不回写原系统
 -- ---------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS marketing_activity (
   id            BIGINT        NOT NULL AUTO_INCREMENT,
@@ -615,7 +627,7 @@ CREATE TABLE IF NOT EXISTS marketing_activity (
   trade_count   INT           NOT NULL DEFAULT 0 COMMENT '付款交易数',
   paid_amount   DECIMAL(12,2) NOT NULL DEFAULT 0 COMMENT '实付金额',
   remark        VARCHAR(255)  DEFAULT NULL,
-  ext_id        VARCHAR(64)   DEFAULT NULL COMMENT '校宝原始ID',
+  ext_id        VARCHAR(64)   DEFAULT NULL COMMENT '原始ID',
   created_at    DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at    DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
@@ -919,6 +931,19 @@ CREATE TABLE IF NOT EXISTS wx_parent_student (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='家长与学员绑定关系';
 
 -- ---------------------------------------------------------------
+-- 家长端订阅消息额度
+-- ---------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS wx_subscribe_quota (
+  id           BIGINT       NOT NULL AUTO_INCREMENT,
+  parent_id    BIGINT       NOT NULL,
+  template_id  VARCHAR(128) NOT NULL COMMENT '订阅消息模板ID',
+  remain_count INT          NOT NULL DEFAULT 0 COMMENT '剩余可发送次数（用户每授权一次+1，发送成功-1）',
+  updated_at   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_wx_subscribe_quota (parent_id, template_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='家长端小程序订阅消息剩余次数';
+
+-- ---------------------------------------------------------------
 -- 家校服务：消息推送
 -- ---------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS wx_message (
@@ -951,6 +976,61 @@ CREATE TABLE IF NOT EXISTS wx_message_receiver (
   KEY idx_wx_receiver_parent (parent_id, read_flag),
   KEY idx_wx_receiver_message (message_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='家校服务-消息接收记录';
+
+CREATE TABLE IF NOT EXISTS wx_message_target (
+  id           BIGINT      NOT NULL AUTO_INCREMENT,
+  message_id   BIGINT      NOT NULL,
+  student_id   BIGINT      NOT NULL,
+  student_name VARCHAR(64) DEFAULT NULL COMMENT '学员姓名快照',
+  created_at   DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_wx_target (message_id, student_id),
+  KEY idx_wx_target_student (student_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='家校服务-消息目标学员';
+
+-- ---------------------------------------------------------------
+-- 家校服务：活动海报推送
+-- ---------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS wx_activity_poster (
+  id              BIGINT       NOT NULL AUTO_INCREMENT,
+  title           VARCHAR(128) NOT NULL,
+  description     VARCHAR(500) DEFAULT NULL COMMENT '推送说明，作为消息正文',
+  audience_type   VARCHAR(32)  NOT NULL DEFAULT '学员' COMMENT '年级/班级/学员 组合摘要',
+  grade_text      VARCHAR(255) DEFAULT NULL COMMENT '年级快照',
+  class_name_text VARCHAR(512) DEFAULT NULL COMMENT '班级名称快照',
+  target_count    INT          NOT NULL DEFAULT 0 COMMENT '目标学员数',
+  receiver_count  INT          NOT NULL DEFAULT 0 COMMENT '触达家长数（发送时已绑定）',
+  message_id      BIGINT       DEFAULT NULL COMMENT '关联 wx_message.id（消息通知与已读统计）',
+  sender          VARCHAR(64)  DEFAULT NULL COMMENT '发送人',
+  start_date      DATE         DEFAULT NULL COMMENT '为空长期有效',
+  end_date        DATE         DEFAULT NULL,
+  sent_at         DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  created_at      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_wx_poster_msg (message_id),
+  KEY idx_wx_poster_sent (sent_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='家校服务-活动海报推送';
+
+CREATE TABLE IF NOT EXISTS wx_activity_poster_image (
+  id         BIGINT       NOT NULL AUTO_INCREMENT,
+  poster_id  BIGINT       NOT NULL,
+  url        VARCHAR(512) NOT NULL COMMENT '/uploads/activity-poster/...',
+  sort_no    INT          NOT NULL DEFAULT 0,
+  created_at DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_wx_poster_image (poster_id, sort_no)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='家校服务-活动海报图片';
+
+CREATE TABLE IF NOT EXISTS wx_activity_poster_target (
+  id           BIGINT      NOT NULL AUTO_INCREMENT,
+  poster_id    BIGINT      NOT NULL,
+  student_id   BIGINT      NOT NULL,
+  student_name VARCHAR(64) DEFAULT NULL COMMENT '学员姓名快照',
+  created_at   DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_wx_poster_target (poster_id, student_id),
+  KEY idx_wx_poster_target_student (student_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='家校服务-活动海报目标学员';
 
 -- ---------------------------------------------------------------
 -- 家校服务：班级休课

@@ -1,6 +1,6 @@
-"""把校宝学员花名册（27 列）的字段导入 student 表。
+"""把历史学员花名册（27 列）的字段导入 student 表。
 
-- 数据源：data/schoolpal/student_roster_20261025.xls（3,400 行）
+- 数据源：data/legacy/student_roster_20261025.xls（3,400 行）
 - 匹配方式：姓名 + 主要联系电话（唯一），退化到唯一姓名
 - 幂等：按 student.id 逐行 UPDATE，可反复重跑
 """
@@ -10,7 +10,7 @@ import subprocess
 
 import xlrd
 
-ROSTER = r"d:\Code\Projects\Huancai\data\schoolpal\student_roster_20261025.xls"
+ROSTER = r"d:\Code\Projects\Huancai\data\legacy\student_roster_20261025.xls"
 MYSQL = r"D:\Code\Projects\Huancai\tools\mysql-8.0.28-winx64\bin\mysql.exe"
 DB_ARGS = ["-h", "127.0.0.1", "-P", "3307", "-u", "hc", "-phc123456",
            "-D", "huancai_erp", "--default-character-set=utf8mb4"]
@@ -81,6 +81,14 @@ def col(name):
     return header.index(name)
 
 
+def col_endswith(suffix):
+    """按列名后缀取列：源快照的列名前缀可能随来源变化，只依赖后缀匹配。"""
+    for i, h in enumerate(header):
+        if str(h).endswith(suffix):
+            return i
+    raise KeyError(suffix)
+
+
 lines = ["USE huancai_erp;", "START TRANSACTION;"]
 stats = {"rows": 0, "matched_key": 0, "matched_name": 0, "unmatched": [],
          "follow": 0, "card": 0, "course": 0, "points": 0, "balance": 0,
@@ -109,7 +117,7 @@ for r in range(1, sheet.nrows):
     secondary_phone = digits(txt(sheet.cell_value(r, col("次要电话"))))
     other_relation = txt(sheet.cell_value(r, col("所属关系(其他)")))
     other_phone = digits(txt(sheet.cell_value(r, col("其他电话"))))
-    follow = 1 if txt(sheet.cell_value(r, col("校宝家是否关注"))) == "关注" else 0
+    follow = 1 if txt(sheet.cell_value(r, col_endswith("是否关注"))) == "关注" else 0
     card_no = txt(sheet.cell_value(r, col("磁卡绑定")))
     if card_no == "无":
         card_no = ""

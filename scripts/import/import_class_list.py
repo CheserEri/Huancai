@@ -1,7 +1,7 @@
-"""把校宝「班级列表」页 64 个班级的完整字段导入 class_group。
+"""把原系统「班级列表」页 64 个班级的完整字段导入 class_group。
 
-- 数据源：data/schoolpal/classes.json（班级列表页 grid 数据，64 行）
-- 匹配：优先 sp_class_id，其次 ext_id = 校宝班级ID（排课导入时用过），最后 ext_id = SP-CLASS-xxx
+- 数据源：data/legacy/classes.json（班级列表页 grid 数据，64 行）
+- 匹配：优先 sp_class_id，其次 ext_id = 历史班级ID（排课导入时用过），最后 ext_id = SP-CLASS-xxx
 - 幂等：可反复重跑；不会新增重复班级
 """
 import json
@@ -9,7 +9,7 @@ import os
 import re
 import subprocess
 
-BASE = r"d:\Code\Projects\Huancai\data\schoolpal"
+BASE = r"d:\Code\Projects\Huancai\data\legacy"
 MYSQL = r"D:\Code\Projects\Huancai\tools\mysql-8.0.28-winx64\bin\mysql.exe"
 DB_ARGS = ["-h", "127.0.0.1", "-P", "3307", "-u", "hc", "-phc123456",
            "-D", "huancai_erp", "--default-character-set=utf8mb4"]
@@ -76,7 +76,7 @@ for cid, ext, sp in one(
         existing[("ext", ext)] = cid
 
 lines = ["USE huancai_erp;", "START TRANSACTION;",
-         "UPDATE class_group SET source = '校宝排课' WHERE source IS NULL OR source = '';"]
+         "UPDATE class_group SET source = '历史排课' WHERE source IS NULL OR source = '';"]
 stats = {"updated": 0, "inserted": 0, "no_teacher": [], "no_course": []}
 for idx, c in enumerate(classes, start=1):
     sp_id = str(c["id"])
@@ -136,7 +136,7 @@ for idx, c in enumerate(classes, start=1):
             f"sp_class_id={sp_id}, lesson_class_name={lesson_class}, assist_name={assist}, "
             f"class_time_desc={time_desc}, stu_rate={rate}, up_rate={up_rate}, schedule_count={schedule_count}, "
             f"enrolling={enrolling}, create_by={create_by}, fee_standard={fee_standard}, "
-            f"is_collection={is_collection}, source='校宝班级列表', ext_id={ext_val} WHERE id={cid};"
+            f"is_collection={is_collection}, source='历史班级列表', ext_id={ext_val} WHERE id={cid};"
         )
         stats["updated"] += 1
     else:
@@ -150,7 +150,7 @@ for idx, c in enumerate(classes, start=1):
             f"{capacity}, {enrolled}, "
             f"{room}, {stext}, {start}, {close}, {q(status, 16)}, {sp_id}, {lesson_class}, {assist}, "
             f"{time_desc}, {rate}, {up_rate}, {schedule_count}, {enrolling}, {create_by}, {fee_standard}, "
-            f"{is_collection}, '校宝班级列表', {q(ext_new, 64)}, {created}, {created});"
+            f"{is_collection}, '历史班级列表', {q(ext_new, 64)}, {created}, {created});"
         )
         stats["inserted"] += 1
 
@@ -158,7 +158,7 @@ for idx, c in enumerate(classes, start=1):
 lines.append(
     "UPDATE class_group cg SET schedule_count = "
     "(SELECT COUNT(*) FROM schedule s WHERE s.class_id = cg.id) "
-    "WHERE cg.source = '校宝排课';"
+    "WHERE cg.source = '历史排课';"
 )
 lines.append("COMMIT;")
 lines.append(

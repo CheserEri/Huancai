@@ -16,6 +16,8 @@ import cn.huancai.erp.module.wxapp.mapper.WxParentMapper;
 import cn.huancai.erp.module.wxapp.mapper.WxParentSessionMapper;
 import cn.huancai.erp.module.wxapp.mapper.WxParentStudentMapper;
 import cn.huancai.erp.module.wxapp.vo.WxActivityVO;
+import cn.huancai.erp.module.wxapp.vo.WxAlbumPhotoVO;
+import cn.huancai.erp.module.wxapp.vo.WxAlbumVO;
 import cn.huancai.erp.module.wxapp.vo.WxChildVO;
 import cn.huancai.erp.module.wxapp.vo.WxCommentVO;
 import cn.huancai.erp.module.wxapp.vo.WxCourseBalanceVO;
@@ -25,6 +27,8 @@ import cn.huancai.erp.module.wxapp.vo.WxUpcomingLessonVO;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
@@ -45,6 +49,7 @@ import java.util.UUID;
 @Service
 public class WxAppService {
 
+    private static final Logger LOG = LoggerFactory.getLogger(WxAppService.class);
     private static final int SESSION_DAYS = 30;
     private static final int COMMENT_PAGE_SIZE = 10;
 
@@ -263,6 +268,26 @@ public class WxAppService {
         return data;
     }
 
+    /** 班级相册：按学员所在班级返回相册与照片。 */
+    public List<WxAlbumVO> albums(Long parentId, Long studentId) {
+        requireChild(parentId, studentId);
+        List<WxAlbumVO> albums = contentMapper.selectStudentAlbums(studentId);
+        if (albums.isEmpty()) {
+            return albums;
+        }
+        Map<Long, WxAlbumVO> byClass = new LinkedHashMap<>();
+        for (WxAlbumVO album : albums) {
+            byClass.put(album.getClassId(), album);
+        }
+        for (WxAlbumPhotoVO photo : contentMapper.selectStudentAlbumPhotos(studentId)) {
+            WxAlbumVO album = byClass.get(photo.getClassId());
+            if (album != null) {
+                album.getPhotos().add(photo);
+            }
+        }
+        return albums;
+    }
+
     public Map<String, Object> comments(Long parentId, Long studentId, int page) {
         requireChild(parentId, studentId);
         int current = Math.max(page, 1);
@@ -432,14 +457,19 @@ public class WxAppService {
             throw new IllegalArgumentException("缺少微信登录凭证");
         }
         try {
-            @SuppressWarnings("unchecked")
-            Map<String, Object> body = restClient.get()
+            // 微信接口固定以 text/plain 返回 JSON，直接映射成 Map 会因缺少转换器抛异常，故先取字符串再解析
+            String raw = restClient.get()
                     .uri("https://api.weixin.qq.com/sns/jscode2session?appid={appid}&secret={secret}"
                                     + "&js_code={code}&grant_type=authorization_code",
                             appid, secret, code)
                     .retrieve()
-                    .body(Map.class);
+                    .body(String.class);
+            Map<String, Object> body = raw == null || raw.isBlank()
+                    ? Map.of()
+                    : objectMapper.readValue(raw, new TypeReference<Map<String, Object>>() {
+                    });
             if (body == null || body.get("openid") == null) {
+                LOG.warn("微信 code2session 返回异常：appid={}, body={}", appid, body);
                 String message = body == null ? "微信登录失败" : String.valueOf(body.get("errmsg"));
                 throw new IllegalArgumentException("微信登录失败：" + message);
             }
@@ -447,6 +477,7 @@ public class WxAppService {
         } catch (IllegalArgumentException ex) {
             throw ex;
         } catch (Exception ex) {
+            LOG.warn("微信 code2session 调用失败：appid={}", appid, ex);
             throw new IllegalArgumentException("微信登录服务暂不可用，请稍后重试");
         }
     }

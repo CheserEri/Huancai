@@ -35,7 +35,7 @@ class _EnrollFormState extends State<EnrollForm> {
   int? _classId;
   int? _templateId;
   int _tierIndex = -1;
-  int? _activityId;
+  List<int> _activityIds = const [];
   String _payMethod = '现金';
   DateTime? _expireDate;
   bool _loading = true;
@@ -74,19 +74,20 @@ class _EnrollFormState extends State<EnrollForm> {
   List<Map<String, dynamic>> get _tiers => mapList(_template?['prices']);
   List<Map<String, dynamic>> get _courseClasses =>
       _courseId == null ? _classes : _classes.where((item) => intOf(item['courseId']) == _courseId).toList();
-  List<Map<String, dynamic>> get _activityChoices => [
-        {'id': 0, 'name': '不使用优惠'},
-        ..._activityTemplates,
-      ];
+  List<Map<String, dynamic>> get _selectedActivities =>
+      _activityTemplates.where((item) => _activityIds.contains(intOf(item['id']))).toList();
+  String get _activityNames => _selectedActivities.map((item) => str(item['name'])).join('、');
 
   double get _lessonsValue => doubleOf(_lessons.text);
   double get _unitPriceValue => doubleOf(_unitPrice.text);
   double get _courseAmount => round2(_lessonsValue * _unitPriceValue);
+  /// 价格模板附带教材费，与 PC 端报名字段一致，计入应收并随订单保存。
+  double get _materialFee => round2(doubleOf(_template?['materialFee']));
   double get _discountValue => doubleOf(_discount.text);
   double get _giftValue => doubleOf(_gift.text);
-  /// 应收为优惠前原价，应付为应收减优惠，实收必须等于应付（不支持赊账）。
-  double get _shouldPay => round2(_courseAmount);
-  double get _payable => round2((_courseAmount - _discountValue).clamp(0, double.infinity));
+  /// 应收为优惠前原价（含教材费），应付为应收减优惠，实收必须等于应付（不支持赊账）。
+  double get _shouldPay => round2(_courseAmount + _materialFee);
+  double get _payable => round2((_shouldPay - _discountValue).clamp(0, double.infinity));
   double get _receivedValue {
     final text = _received.text.trim();
     return text.isEmpty ? _payable : doubleOf(text);
@@ -139,18 +140,29 @@ class _EnrollFormState extends State<EnrollForm> {
       _classId = null;
       _templateId = null;
       _tierIndex = -1;
+      _activityIds = const [];
       _lessons.clear();
       _unitPrice.clear();
       _gift.text = '0';
       _discount.text = '0';
       final defaultTemplateId = intOf(picked['defaultPriceTemplateId']);
-      if (defaultTemplateId > 0) {
-        final matched = _priceTemplates.where((item) => intOf(item['id']) == defaultTemplateId).toList();
-        if (matched.isNotEmpty) {
-          _templateId = defaultTemplateId;
-          final tiers = mapList(matched.first['prices']);
-          if (tiers.isNotEmpty) _applyTier(tiers.first, 0);
+      // 与 PC 端一致：优先课程默认模板，未配置默认模板时取该课程第一个模板；
+      // 都没有模板时回退课程原价。
+      final templates = _priceTemplates.where((item) => intList(item['courseIds']).contains(_courseId)).toList();
+      final preferred = templates.where((item) => intOf(item['id']) == defaultTemplateId).toList();
+      final template = preferred.isNotEmpty ? preferred.first : (templates.isEmpty ? null : templates.first);
+      if (template != null) {
+        _templateId = intOf(template['id']);
+        final tiers = mapList(template['prices']);
+        if (tiers.isNotEmpty) {
+          _applyTier(tiers.first, 0);
+        } else {
+          final listPrice = doubleOf(picked['listPrice']);
+          if (listPrice > 0) _unitPrice.text = amountInput(listPrice);
         }
+      } else {
+        final listPrice = doubleOf(picked['listPrice']);
+        if (listPrice > 0) _unitPrice.text = amountInput(listPrice);
       }
     });
   }
@@ -211,11 +223,14 @@ class _EnrollFormState extends State<EnrollForm> {
   }
 
   Future<void> _pickActivity() async {
-    final current = _activityId == null ? _activityChoices.first : _pick(_activityTemplates, _activityId);
-    final picked = await showOptionPicker<Map<String, dynamic>>(
+    if (_activityTemplates.isEmpty) {
+      showToast(context, '暂无可用活动模板');
+      return;
+    }
+    final picked = await showMultiOptionPicker<Map<String, dynamic>>(
       context: context,
-      title: '选择活动模板',
-      items: _activityChoices,
+      title: '选择活动模板（可多选叠加）',
+      items: _activityTemplates,
       labelOf: (item) => str(item['name']),
       subtitleOf: (item) {
         final type = str(item['type']);
@@ -223,39 +238,42 @@ class _EnrollFormState extends State<EnrollForm> {
         final end = str(item['endDate']);
         return end.isEmpty ? type : '$type · 至 ${dateOnly(end)}';
       },
-      selected: current,
+      selected: _selectedActivities,
     );
     if (picked == null) return;
     setState(() {
-      final id = intOf(picked['id']);
-      _activityId = id == 0 ? null : id;
-      _gift.text = '0';
+      _activityIds = picked.map((item) => intOf(item['id'])).toList();
       _applyActivityTemplate();
     });
   }
 
-  /// 与 PC 端口径一致：报课优惠取满足课时门槛的最高档，按折扣/立减/赠送课时分别计算。
+  /// 与 PC 端口径一致：报课优惠取满足课时门槛的最高档，多选时折扣/立减累加，
+  /// 优惠总额不超过课程金额，赠送课时累加。
   void _applyActivityTemplate() {
-    final template = _pick(_activityTemplates, _activityId);
-    if (template == null) return;
-    final rules = mapList(template['rules']);
-    if (rules.isEmpty) return;
-    Map<String, dynamic> rule = rules.first;
-    if (str(template['type']) == '报课优惠') {
-      final matched = rules.where((item) => _lessonsValue >= doubleOf(item['lessons'])).toList()
-        ..sort((a, b) => doubleOf(b['lessons']).compareTo(doubleOf(a['lessons'])));
-      if (matched.isEmpty) return;
-      rule = matched.first;
+    var discountTotal = 0.0;
+    var giftTotal = 0.0;
+    for (final template in _selectedActivities) {
+      final rules = mapList(template['rules']);
+      if (rules.isEmpty) continue;
+      Map<String, dynamic> rule = rules.first;
+      if (str(template['type']) == '报课优惠') {
+        final matched = rules.where((item) => _lessonsValue >= doubleOf(item['lessons'])).toList()
+          ..sort((a, b) => doubleOf(b['lessons']).compareTo(doubleOf(a['lessons'])));
+        if (matched.isEmpty) continue;
+        rule = matched.first;
+      }
+      final value = doubleOf(rule['discountValue']);
+      final mode = str(rule['discountMode']);
+      if (mode == '折扣') {
+        discountTotal += _courseAmount * (1 - value / 10);
+      } else if (mode == '立减') {
+        discountTotal += value;
+      } else {
+        giftTotal += value;
+      }
     }
-    final value = doubleOf(rule['discountValue']);
-    final mode = str(rule['discountMode']);
-    if (mode == '折扣') {
-      _discount.text = amountInput(round2(_courseAmount * (1 - value / 10)));
-    } else if (mode == '立减') {
-      _discount.text = amountInput(round2(value).clamp(0, _courseAmount));
-    } else {
-      _gift.text = amountInput(value);
-    }
+    _discount.text = amountInput(round2(discountTotal).clamp(0, _courseAmount));
+    _gift.text = amountInput(round2(giftTotal));
   }
 
   Future<void> _pickExpireDate() async {
@@ -281,6 +299,7 @@ class _EnrollFormState extends State<EnrollForm> {
   }
 
   Future<void> _submit() async {
+    if (_submitting) return;
     if (_courseId == null) {
       showToast(context, '请选择报读课程');
       return;
@@ -311,19 +330,47 @@ class _EnrollFormState extends State<EnrollForm> {
         'received': round2(_receivedValue),
         'payMethod': _payMethod,
         if (_templateId != null) 'priceTemplateId': _templateId,
-        if (_activityId != null) 'localActivityTemplateIds': [_activityId],
+        'localActivityTemplateIds': _activityIds,
+        if (_materialFee > 0)
+          'materials': [
+            {'materialId': null, 'name': '教材费', 'price': _materialFee, 'quantity': 1},
+          ],
         if (_expireDate != null) 'expireDate': dateText(_expireDate!),
         if (_remark.text.trim().isNotEmpty) 'remark': _remark.text.trim(),
       });
       if (!mounted) return;
-      setState(() => _submitting = false);
-      showToast(context, '${str(result['typeName'], '缴费')}成功，订单号 ${str(result['orderNo'], '-')}');
+      final typeName = str(result['typeName'], '缴费');
+      final orderNo = str(result['orderNo'], '-');
+      final paid = _receivedValue;
+      // 成功后立即清空表单，防止误以为未成功而重复提交生成两笔订单。
+      setState(() {
+        _submitting = false;
+        _resetForNext();
+      });
+      await showPaymentSuccessDialog(context, title: '$typeName成功', orderNo: orderNo, summary: '实收 ¥${money(paid)}');
+      if (!mounted) return;
       widget.onDone();
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() => _submitting = false);
       showToast(context, e.message);
     }
+  }
+
+  /// 提交成功后复位表单，保留支付方式。
+  void _resetForNext() {
+    _courseId = null;
+    _classId = null;
+    _templateId = null;
+    _tierIndex = -1;
+    _activityIds = const [];
+    _expireDate = null;
+    _lessons.clear();
+    _unitPrice.clear();
+    _gift.text = '0';
+    _discount.text = '0';
+    _received.clear();
+    _remark.clear();
   }
 
   @override
@@ -337,7 +384,7 @@ class _EnrollFormState extends State<EnrollForm> {
     final tierLabel = _tierIndex >= 0 && _tierIndex < _tiers.length
         ? '${countText(doubleOf(_tiers[_tierIndex]['lessons']))} 课时档'
         : '';
-    final activityName = _activityId == null ? '' : str(_pick(_activityTemplates, _activityId)?['name']);
+    final activityName = _activityNames;
 
     return Column(
       children: [
@@ -408,7 +455,7 @@ class _EnrollFormState extends State<EnrollForm> {
                       ],
                     ),
                     const SizedBox(height: 10),
-                    PickerField(label: '活动模板', value: activityName, hint: '不使用优惠', onTap: _pickActivity),
+                    PickerField(label: '活动模板', value: activityName, hint: '可多选叠加，不选则不使用优惠', onTap: _pickActivity),
                     const SizedBox(height: 10),
                     PickerField(
                       label: '有效期至',
@@ -430,6 +477,16 @@ class _EnrollFormState extends State<EnrollForm> {
                         Expanded(child: MetricTile(label: '应付金额', value: money(_payable), unit: '元', align: CrossAxisAlignment.end)),
                       ],
                     ),
+                    if (_materialFee > 0) ...[
+                      const SizedBox(height: 6),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          '含价格模板教材费 ¥${money(_materialFee)}',
+                          style: const TextStyle(fontSize: 12, color: AppColors.muted),
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 12),
                     TextField(
                       controller: _received,
@@ -459,7 +516,7 @@ class _EnrollFormState extends State<EnrollForm> {
 
   void _onAmountChanged() {
     setState(() {
-      if (_activityId != null) _applyActivityTemplate();
+      if (_activityIds.isNotEmpty) _applyActivityTemplate();
     });
   }
 

@@ -1,0 +1,79 @@
+.msg-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin: 12rpx 8rpx 22rpx;
+}
+
+.msg-head-title {
+  font-size: 34rpx;
+  font-weight: 600;
+  letter-spacing: 1rpx;
+}
+
+.msg-card {
+  padding: 28rpx 30rpx;
+}
+
+.msg-card.unread {
+  border-left: 6rpx solid var(--brand);
+}
+
+.msg-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.msg-name-line {
+  display: flex;
+  align-items: center;
+  margin-top: 16rpx;
+}
+
+.msg-name {
+  flex: 1;
+  font-size: 30rpx;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.msg-dot {
+  width: 14rpx;
+  height: 14rpx;
+  margin-left: 12rpx;
+  border-radius: 50%;
+  background: var(--brand);
+  flex-shrink: 0;
+}
+
+.msg-content {
+  display: -webkit-box;
+  margin-top: 12rpx;
+  overflow: hidden;
+  color: var(--text-2);
+  font-size: 26rpx;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.msg-content.open {
+  display: block;
+  -webkit-line-clamp: unset;
+}
+
+.msg-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 18rpx;
+  padding-top: 16rpx;
+  border-top: 1rpx solid var(--line);
+}
+
+.msg-more {
+  color: var(--brand);
+  font-size: 23rpx;
+}

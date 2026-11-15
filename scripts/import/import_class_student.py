@@ -1,8 +1,8 @@
 import os
 import json
 
-MAP_DIR = r"d:\Code\Projects\Huancai\data\schoolpal\map"
-ROSTER = r"d:\Code\Projects\Huancai\data\schoolpal\class_roster.json"
+MAP_DIR = r"d:\Code\Projects\Huancai\data\legacy\map"
+ROSTER = r"d:\Code\Projects\Huancai\data\legacy\class_roster.json"
 OUT = os.path.join(os.environ.get("TEMP", "."), "hc-import", "import_class_student.sql")
 os.makedirs(os.path.dirname(OUT), exist_ok=True)
 
@@ -45,7 +45,7 @@ with open(os.path.join(MAP_DIR, "class.tsv"), encoding="utf-8-sig") as f:
         if len(parts) >= 3 and parts[0]:
             class_map[parts[0].strip()] = (parts[1].strip(), parts[2].strip())
 
-# 兜底：校宝班级ID -> (班级名, 校区) -> 本地 class_group
+# 兜底：历史班级ID -> (班级名, 校区) -> 本地 class_group
 ext_name = {}
 with open(os.path.join(MAP_DIR, "class_ext_name.tsv"), encoding="utf-8-sig") as f:
     for line in f:
@@ -75,7 +75,7 @@ JOIN class_group cg ON cg.id = a.class_id
 WHERE a.class_id IS NOT NULL
 GROUP BY a.campus_id, a.class_id, a.student_id;
 """.strip(),
-    "-- 校宝班级学员快照覆盖（在读班级的课时余额与入班日期）",
+    "-- 历史班级学员快照覆盖（在读班级的课时余额与入班日期）",
 ]
 
 matched = 0

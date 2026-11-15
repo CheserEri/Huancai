@@ -141,12 +141,27 @@
     ORDER BY ge.exam_date DESC, gs.id DESC
   </select>
 
+  <insert id="syncParentReceivers">
+    INSERT IGNORE INTO wx_message_receiver (message_id, parent_id, student_id, student_name, read_flag, created_at)
+    SELECT t.message_id, ps.parent_id, t.student_id, t.student_name, 0, NOW()
+    FROM wx_message_target t
+    JOIN wx_message m ON m.id = t.message_id
+    JOIN wx_parent_student ps ON ps.student_id = t.student_id
+    WHERE ps.parent_id = #{parentId}
+      AND (m.sent_at &gt;= DATE_SUB(NOW(), INTERVAL 30 DAY)
+           OR EXISTS (SELECT 1 FROM wx_activity_poster p
+                       WHERE p.message_id = m.id
+                         AND (p.start_date IS NULL OR p.start_date &lt;= CURDATE())
+                         AND (p.end_date IS NULL OR p.end_date &gt;= CURDATE())))
+  </insert>
+
   <select id="selectParentMessages" resultType="cn.huancai.erp.module.wxapp.vo.WxParentMessageVO">
     SELECT r.id,
            r.message_id   AS messageId,
            m.title,
            m.content,
            m.msg_type     AS msgType,
+           p.id           AS posterId,
            r.student_id   AS studentId,
            r.student_name AS studentName,
            r.read_flag    AS readFlag,
@@ -154,6 +169,7 @@
            m.sent_at      AS sentAt
     FROM wx_message_receiver r
     JOIN wx_message m ON m.id = r.message_id
+    LEFT JOIN wx_activity_poster p ON p.message_id = m.id
     WHERE r.parent_id = #{parentId}
     <if test="studentId != null">AND r.student_id = #{studentId}</if>
     ORDER BY m.sent_at DESC, r.id DESC
@@ -172,6 +188,76 @@
     SET read_flag = 1, read_at = NOW()
     WHERE id = #{id} AND parent_id = #{parentId}
   </update>
+
+  <select id="selectParentPosters" resultType="cn.huancai.erp.module.homeservice.vo.WxParentPosterVO">
+    SELECT p.id,
+           p.message_id  AS messageId,
+           p.title,
+           p.description,
+           p.start_date  AS startDate,
+           p.end_date    AS endDate,
+           p.sent_at     AS sentAt,
+           CASE WHEN EXISTS (SELECT 1 FROM wx_message_receiver r
+                              WHERE r.message_id = p.message_id
+                                AND r.parent_id = #{parentId}
+                                AND r.read_flag = 1)
+                THEN 1 ELSE 0 END AS readFlag,
+           (SELECT COUNT(*) FROM wx_activity_poster_image i WHERE i.poster_id = p.id) AS imageCount
+    FROM wx_activity_poster p
+    WHERE (p.start_date IS NULL OR p.start_date &lt;= CURDATE())
+      AND (p.end_date IS NULL OR p.end_date &gt;= CURDATE())
+      AND EXISTS (SELECT 1 FROM wx_activity_poster_target t
+                   JOIN wx_parent_student ps ON ps.student_id = t.student_id
+                   WHERE t.poster_id = p.id AND ps.parent_id = #{parentId})
+    ORDER BY p.sent_at DESC, p.id DESC
+  </select>
+
+  <select id="selectPosterImagesByPosters" resultType="cn.huancai.erp.module.homeservice.vo.PosterImageVO">
+    SELECT id,
+           poster_id AS posterId,
+           url,
+           sort_no   AS sortNo
+    FROM wx_activity_poster_image
+    WHERE poster_id IN
+    <foreach collection="posterIds" item="id" open="(" separator="," close=")">#{id}</foreach>
+    ORDER BY poster_id, sort_no, id
+  </select>
+
+  <update id="markPosterRead">
+    UPDATE wx_message_receiver r
+    JOIN wx_activity_poster p ON p.message_id = r.message_id
+    SET r.read_flag = 1, r.read_at = NOW()
+    WHERE p.id = #{posterId} AND r.parent_id = #{parentId} AND r.read_flag = 0
+  </update>
+
+  <select id="selectStudentAlbums" resultType="cn.huancai.erp.module.wxapp.vo.WxAlbumVO">
+    SELECT cg.id          AS classId,
+           cg.name        AS className,
+           co.name        AS courseName,
+           COUNT(p.id)    AS photoCount,
+           MAX(p.created_at) AS latestAt
+    FROM class_student cs
+    JOIN class_group cg ON cg.id = cs.class_id
+    LEFT JOIN course co ON co.id = cg.course_id
+    JOIN class_photo p ON p.class_id = cs.class_id
+    WHERE cs.student_id = #{studentId} AND cs.status = '在读'
+    GROUP BY cg.id, cg.name, co.name
+    ORDER BY latestAt DESC
+  </select>
+
+  <select id="selectStudentAlbumPhotos" resultType="cn.huancai.erp.module.wxapp.vo.WxAlbumPhotoVO">
+    SELECT p.id,
+           p.class_id    AS classId,
+           cg.name       AS className,
+           p.url,
+           p.uploader,
+           p.created_at  AS createdAt
+    FROM class_photo p
+    JOIN class_group cg ON cg.id = p.class_id
+    WHERE p.class_id IN (SELECT cs.class_id FROM class_student cs
+                          WHERE cs.student_id = #{studentId} AND cs.status = '在读')
+    ORDER BY p.created_at DESC, p.id DESC
+  </select>
 
   <select id="selectUpcoming" resultType="cn.huancai.erp.module.wxapp.vo.WxUpcomingLessonVO">
     SELECT s.id,

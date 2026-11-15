@@ -18,7 +18,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-/** 校宝订单镜像查询。数据由一次性迁移脚本导入，页面保持只读，写操作仍在校宝端完成。 */
+/** 历史订单镜像查询。数据由一次性迁移脚本导入，页面保持只读，写操作仍在平台端完成。 */
 @Service
 public class SpOrderService {
 
@@ -33,7 +33,7 @@ public class SpOrderService {
             1, "待支付", 2, "已完成", 3, "已作废", 4, "已失效"
     );
     private static final Map<Integer, String> SOURCE_NAMES = Map.of(
-            0, "其他", 1, "线下办理", 2, "校宝秀", 3, "导入", 4, "校宝家", 5, "线上办理"
+            0, "其他", 1, "线下办理", 2, "展示页", 3, "导入", 4, "家长端", 5, "线上办理"
     );
     private static final Set<String> SORT_FIELDS = Set.of("orderNo", "stuName", "dealDate");
 
@@ -100,7 +100,7 @@ public class SpOrderService {
         data.put("courses", orderMapper.selectCourseNames());
         data.put("items", orderMapper.selectMaterialNames());
         data.put("tags", orderMapper.selectTags());
-        // 校宝历史订单没有回写售前人员类型，保留筛选入口但无选项。
+        // 历史订单没有回写售前人员类型，保留筛选入口但无选项。
         data.put("followUpTypes", List.of());
         return data;
     }

@@ -5,7 +5,9 @@
   <sql id="whereClause">
     <where>
       <if test="campusId != null">AND sf.campus_id = #{campusId}</if>
-      <if test="role != null and role != ''">AND sf.role = #{role}</if>
+      <if test="role != null and role != ''">
+        AND (sf.role = #{role} OR FIND_IN_SET(#{role}, COALESCE(sf.extra_roles, '')))
+      </if>
       <if test="status != null">AND sf.status = #{status}</if>
       <if test="keyword != null and keyword != ''">
         AND (sf.name LIKE CONCAT('%', #{keyword}, '%')
@@ -22,6 +24,7 @@
       sf.phone,
       sf.account,
       sf.role,
+      sf.extra_roles AS extraRolesText,
       sf.title,
       sf.menu_permissions AS menuPermissions,
       sf.status,
@@ -40,8 +43,8 @@
     SELECT
       COUNT(*)                                              AS total,
       COALESCE(SUM(sf.status = 1), 0)                       AS active,
-      COALESCE(SUM(sf.role = 'teacher'), 0)                 AS teachers,
-      COALESCE(SUM(sf.role = 'consultant'), 0)              AS consultants
+      COALESCE(SUM(sf.role = 'teacher' OR FIND_IN_SET('teacher', COALESCE(sf.extra_roles, ''))), 0) AS teachers,
+      COALESCE(SUM(sf.role = 'consultant' OR FIND_IN_SET('consultant', COALESCE(sf.extra_roles, ''))), 0) AS consultants
     FROM staff sf
     <include refid="whereClause"/>
   </select>

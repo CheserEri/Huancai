@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import {
   CreditCardOutlined,
   DownOutlined,
@@ -8,6 +8,7 @@ import {
   SearchOutlined,
 } from '@ant-design/icons-vue'
 import { message } from 'ant-design-vue'
+import FilterBar from '../components/FilterBar.vue'
 import {
   createStudent,
   fetchStudentSummary,
@@ -18,6 +19,7 @@ import {
 } from '../api/client'
 
 const router = useRouter()
+const route = useRoute()
 
 const tabKeys = ['students', 'roster', 'enrollment', 'classAssign', 'score']
 const tabLabels = ['学员', '花名册', '报读列表', '分班列表', '学员成绩']
@@ -99,23 +101,6 @@ function clearFilters() {
   sort.value = undefined
   search()
 }
-
-type Chip = { key: string; label: string; clear: () => void }
-
-const chips = computed<Chip[]>(() => {
-  const list: Chip[] = []
-  const push = (key: string, label: string, clear: () => void) => list.push({ key, label, clear })
-  if (status.value !== 'all') push('status', `学员状态：${status.value}`, () => { status.value = 'all'; search() })
-  if (campus.value !== 'all') push('campus', `报读校区：${campus.value === 1 ? '鲅鱼圈幻彩国学堂' : '新民幻彩国学堂'}`, () => { campus.value = 'all'; search() })
-  if (gender.value !== 'all') push('gender', `性别：${gender.value}`, () => { gender.value = 'all'; search() })
-  if (cardBound.value !== 'all') push('card', `磁卡：${Number(cardBound.value) === 1 ? '已绑定' : '未绑定'}`, () => { cardBound.value = 'all'; search() })
-  if (debt.value !== 'all') push('debt', `欠费：${Number(debt.value) === 1 ? '有欠费' : '无欠费'}`, () => { debt.value = 'all'; search() })
-  if (isStar.value !== 'all') push('star', `星标：${Number(isStar.value) === 1 ? '已星标' : '无标记'}`, () => { isStar.value = 'all'; search() })
-  if (studentType.value !== 'all') push('type', `新老生：${studentType.value === 'new' ? '新生' : '老生'}`, () => { studentType.value = 'all'; search() })
-  if (grade.value !== 'all') push('grade', `年级：${grade.value}`, () => { grade.value = 'all'; search() })
-  if (keyword.value.trim()) push('keyword', `姓名：${keyword.value.trim()}`, () => { keyword.value = ''; search() })
-  return list
-})
 
 const extraColumns = [
   { title: '是否星标', dataIndex: 'isStar', width: 90 },
@@ -333,6 +318,11 @@ async function saveForm() {
 }
 
 onMounted(() => {
+  // 工作台「剩余欠费人数」跳转过来时，切到学员列表并只展示有欠费的学员
+  if (route.query.debt === '1') {
+    tab.value = 'students'
+    debt.value = 1
+  }
   load()
 })
 </script>
@@ -353,12 +343,12 @@ onMounted(() => {
       <div class="table-card tab-panel">
         <template v-if="tab === 'enrollment'">
           <div class="panel-title">报读列表</div>
-          <p class="panel-desc">本系统的报名、续费、补费、转课、退费、充值流水已按校宝口径落在「报名订单」页面，数据来自校宝报读明细（1,645 条）。</p>
+          <p class="panel-desc">本系统的报名、续费、补费、转课、退费、充值流水已按原系统口径落在「报名订单」页面，数据来自历史报读明细（1,645 条）。</p>
           <a-button type="primary" @click="goOrder">前往报名订单</a-button>
         </template>
         <template v-else-if="tab === 'classAssign'">
           <div class="panel-title">分班列表</div>
-          <p class="panel-desc">校宝班级学员名单已全量导入（10,684 条 / 394 个班级），可在「班级」页逐个班级查看名单与排课。</p>
+          <p class="panel-desc">历史班级学员名单已全量导入（10,684 条 / 394 个班级），可在「班级」页逐个班级查看名单与排课。</p>
           <a-button type="primary" @click="goClass">前往班级管理</a-button>
         </template>
         <template v-else>
@@ -370,101 +360,79 @@ onMounted(() => {
     </template>
 
     <template v-else>
-      <div class="filter-card">
-        <div class="filter-flat">
-          <a-button size="small" disabled title="校宝批量导入模板未随本次同步提供">批量导入</a-button>
+      <FilterBar @search="search" @reset="clearFilters">
+        <a-button disabled title="原系统批量导入模板未随本次同步提供">批量导入</a-button>
 
-          <a-select v-model:value="status" size="small" style="width: 100px" @change="search">
-            <a-select-option value="all">学员状态</a-select-option>
-            <a-select-option value="在读">在读</a-select-option>
-            <a-select-option value="停课">停课</a-select-option>
-            <a-select-option value="结课">结课</a-select-option>
-          </a-select>
+        <a-select v-model:value="status" class="filter-select" style="width: 116px" @change="search">
+          <a-select-option value="all">学员状态</a-select-option>
+          <a-select-option value="在读">在读</a-select-option>
+          <a-select-option value="停课">停课</a-select-option>
+          <a-select-option value="结课">结课</a-select-option>
+        </a-select>
 
-          <a-select v-model:value="campus" size="small" style="width: 115px" @change="search">
-            <a-select-option value="all">报读校区</a-select-option>
-            <a-select-option :value="1">鲅鱼圈幻彩国学堂</a-select-option>
-            <a-select-option :value="2">新民幻彩国学堂</a-select-option>
-          </a-select>
+        <a-select v-model:value="campus" class="filter-select" style="width: 140px" @change="search">
+          <a-select-option value="all">报读校区</a-select-option>
+          <a-select-option :value="1">鲅鱼圈幻彩国学堂</a-select-option>
+          <a-select-option :value="2">新民幻彩国学堂</a-select-option>
+        </a-select>
 
-          <a-select v-model:value="gender" size="small" style="width: 82px" @change="search">
-            <a-select-option value="all">性别</a-select-option>
-            <a-select-option value="男">男</a-select-option>
-            <a-select-option value="女">女</a-select-option>
-          </a-select>
+        <a-select v-model:value="gender" class="filter-select" style="width: 96px" @change="search">
+          <a-select-option value="all">性别</a-select-option>
+          <a-select-option value="男">男</a-select-option>
+          <a-select-option value="女">女</a-select-option>
+        </a-select>
 
-          <a-select v-model:value="cardBound" size="small" style="width: 120px" @change="search">
-            <a-select-option value="all">是否绑定磁卡</a-select-option>
-            <a-select-option :value="1">已绑定</a-select-option>
-            <a-select-option :value="0">未绑定</a-select-option>
-          </a-select>
+        <a-select v-model:value="cardBound" class="filter-select" style="width: 130px" @change="search">
+          <a-select-option value="all">是否绑定磁卡</a-select-option>
+          <a-select-option :value="1">已绑定</a-select-option>
+          <a-select-option :value="0">未绑定</a-select-option>
+        </a-select>
 
-          <a-select v-model:value="debt" size="small" style="width: 100px" @change="search">
-            <a-select-option value="all">是否欠费</a-select-option>
-            <a-select-option :value="1">有欠费</a-select-option>
-            <a-select-option :value="0">无欠费</a-select-option>
-          </a-select>
+        <a-select v-model:value="debt" class="filter-select" style="width: 110px" @change="search">
+          <a-select-option value="all">是否欠费</a-select-option>
+          <a-select-option :value="1">有欠费</a-select-option>
+          <a-select-option :value="0">无欠费</a-select-option>
+        </a-select>
 
-          <a-select v-model:value="studentType" size="small" style="width: 92px" @change="search">
-            <a-select-option value="all">新老生</a-select-option>
-            <a-select-option value="new">新生</a-select-option>
-            <a-select-option value="old">老生</a-select-option>
-          </a-select>
+        <a-select v-model:value="isStar" class="filter-select" style="width: 110px" @change="search">
+          <a-select-option value="all">是否星标</a-select-option>
+          <a-select-option :value="1">已星标</a-select-option>
+          <a-select-option :value="0">无标记</a-select-option>
+        </a-select>
 
-          <span class="filter-spacer" />
+        <a-select v-model:value="studentType" class="filter-select" style="width: 110px" @change="search">
+          <a-select-option value="all">新老生</a-select-option>
+          <a-select-option value="new">新生</a-select-option>
+          <a-select-option value="old">老生</a-select-option>
+        </a-select>
 
+        <a-select v-model:value="grade" class="filter-select" style="width: 110px" @change="search">
+          <a-select-option value="all">全部年级</a-select-option>
+          <a-select-option v-for="item in gradeOptions" :key="item" :value="item">{{ item }}</a-select-option>
+        </a-select>
+
+        <template #search>
           <a-input
             v-model:value="keyword"
-            size="small"
-            style="width: 210px"
+            class="filter-search"
             placeholder="请输入学员姓名"
             allow-clear
             @press-enter="search"
           >
-            <template #suffix><SearchOutlined class="search-icon" @click="search" /></template>
-          </a-input>
-
-          <a-popover trigger="click" placement="bottomRight">
-            <template #content>
-              <div class="more-filter">
-                <div class="more-row">
-                  <span>是否星标</span>
-                  <a-select v-model:value="isStar" size="small" style="width: 140px">
-                    <a-select-option value="all">全部</a-select-option>
-                    <a-select-option :value="1">已星标</a-select-option>
-                    <a-select-option :value="0">无标记</a-select-option>
-                  </a-select>
-                </div>
-                <div class="more-row">
-                  <span>年级</span>
-                  <a-select v-model:value="grade" size="small" style="width: 140px">
-                    <a-select-option value="all">全部年级</a-select-option>
-                    <a-select-option v-for="item in gradeOptions" :key="item" :value="item">{{ item }}</a-select-option>
-                  </a-select>
-                </div>
-                <div class="more-actions">
-                  <a-button type="primary" size="small" @click="search">应用</a-button>
-                </div>
-              </div>
+            <template #prefix>
+              <SearchOutlined class="search-icon" />
             </template>
-            <a-button size="small">更多筛选 <DownOutlined /></a-button>
-          </a-popover>
-
-          <a v-if="chips.length" class="clear-link" @click="clearFilters">清空筛选</a>
-        </div>
-
-        <div v-if="chips.length" class="chip-row">
-          <a-tag v-for="chip in chips" :key="chip.key" closable @close="chip.clear">{{ chip.label }}</a-tag>
-        </div>
-      </div>
+          </a-input>
+        </template>
+      </FilterBar>
 
       <div class="table-card">
         <div class="action-row">
           <a-button type="primary" size="small" @click="openCreate">新建学员</a-button>
           <a-button size="small" @click="exportCsv"><ExportOutlined />导出当前结果</a-button>
-          <a-button size="small" disabled title="校宝通知公告接口未同步">发送通知公告</a-button>
-          <a-button size="small" disabled title="校宝批量调整接口未同步">批量调整</a-button>
-          <a-button size="small" disabled title="校宝二维码打印接口未同步">批量打印二维码</a-button>
+          <a-button size="small" disabled title="原系统通知公告接口未同步">发送通知公告</a-button>
+          <a-button size="small" disabled title="原系统批量调整接口未同步">批量调整</a-button>
+          <a-button size="small" disabled title="原系统二维码打印接口未同步">批量打印二维码</a-button>
           <span class="filter-spacer" />
           <a-popover trigger="click" placement="bottomRight">
             <template #content>
@@ -536,7 +504,7 @@ onMounted(() => {
         </a-table>
 
         <div class="source-note">
-          数据来源：校宝学员花名册（3,400 条，2026-10 同步）。姓名、电话、所属关系、校区、状态、余额、欠费等均为校宝源数据原样。
+          数据来源：历史学员花名册（3,400 条，2026-10 同步）。姓名、电话、所属关系、校区、状态、余额、欠费等均为原系统源数据原样。
         </div>
       </div>
     </template>
@@ -647,46 +615,11 @@ onMounted(() => {
   border-radius: 1px;
 }
 
-.filter-flat {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-}
 .filter-spacer {
   flex: 1;
 }
 .search-icon {
   color: #8f959e;
-  cursor: pointer;
-}
-.clear-link {
-  font-size: 12px;
-  color: var(--text-2);
-  margin-left: 4px;
-}
-
-.chip-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 10px;
-}
-
-.more-filter {
-  width: 240px;
-}
-.more-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 10px;
-  font-size: 12px;
-  color: var(--text-2);
-}
-.more-actions {
-  text-align: right;
 }
 
 .action-row {

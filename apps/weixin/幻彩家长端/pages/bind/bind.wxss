@@ -1,0 +1,88 @@
+.intro {
+  padding: 16rpx 8rpx 34rpx;
+}
+
+.intro-title {
+  display: block;
+  font-size: 46rpx;
+  font-weight: 700;
+  letter-spacing: 1rpx;
+  color: var(--text);
+}
+
+.intro-sub {
+  display: block;
+  margin-top: 16rpx;
+  font-size: 25rpx;
+  line-height: 1.75;
+  color: var(--text-2);
+}
+
+.form {
+  padding: 14rpx 30rpx 38rpx;
+}
+
+.field {
+  padding: 28rpx 0;
+  border-bottom: 1rpx solid var(--line);
+}
+
+.label {
+  display: block;
+  font-size: 23rpx;
+  letter-spacing: 0.5rpx;
+  color: var(--text-3);
+}
+
+.input {
+  margin-top: 16rpx;
+  height: 64rpx;
+  font-size: 34rpx;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.ph {
+  color: #c3c7cc;
+  font-weight: 400;
+  font-size: 30rpx;
+}
+
+.error {
+  margin-top: 24rpx;
+  padding: 18rpx 22rpx;
+  border-radius: 18rpx;
+  background: var(--brand-soft);
+  color: var(--brand);
+  font-size: 23rpx;
+  line-height: 1.6;
+}
+
+.submit {
+  margin-top: 44rpx;
+}
+
+.tips {
+  padding: 14rpx 12rpx;
+}
+
+.tip {
+  position: relative;
+  padding-left: 28rpx;
+  margin-bottom: 16rpx;
+  font-size: 23rpx;
+  line-height: 1.65;
+  color: var(--text-3);
+}
+
+.tip::before {
+  content: '';
+  position: absolute;
+  left: 8rpx;
+  top: 13rpx;
+  width: 8rpx;
+  height: 8rpx;
+  border-radius: 50%;
+  background: var(--brand);
+  opacity: 0.45;
+}

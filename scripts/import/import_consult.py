@@ -3,7 +3,7 @@ import os
 import re
 from datetime import datetime, timezone, timedelta
 
-SRC = r"d:\Code\Projects\Huancai\data\schoolpal\consult_raw.json"
+SRC = r"d:\Code\Projects\Huancai\data\legacy\consult_raw.json"
 REF_STAFF = os.path.join(os.environ.get("TEMP", "."), "hc-import", "ref_staff.tsv")
 OUT = os.path.join(os.environ.get("TEMP", "."), "hc-import", "import_consult.sql")
 

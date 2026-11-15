@@ -1,0 +1,223 @@
+.banner {
+  position: relative;
+  overflow: hidden;
+  padding: 40rpx 34rpx 42rpx;
+  margin-bottom: 8rpx;
+  border-radius: 36rpx;
+  background: linear-gradient(145deg, #e8544c 0%, #cc222e 52%, #a0131e 100%);
+  color: #fff;
+  box-shadow: 0 22rpx 44rpx -20rpx rgba(160, 19, 30, 0.6);
+}
+
+.banner-orb {
+  position: absolute;
+  right: -90rpx;
+  top: -120rpx;
+  width: 300rpx;
+  height: 300rpx;
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 60%, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0) 70%);
+}
+
+.banner-eyebrow {
+  display: block;
+  font-size: 19rpx;
+  letter-spacing: 4rpx;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.banner-title {
+  display: block;
+  margin-top: 12rpx;
+  font-size: 44rpx;
+  font-weight: 700;
+  letter-spacing: 1rpx;
+}
+
+.banner-sub {
+  display: block;
+  margin-top: 12rpx;
+  font-size: 23rpx;
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.act {
+  overflow: hidden;
+  padding-left: 32rpx;
+}
+
+.act::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 34rpx;
+  bottom: 34rpx;
+  width: 6rpx;
+  border-radius: 0 3rpx 3rpx 0;
+  background: linear-gradient(180deg, #ef5a52, var(--brand));
+}
+
+.act.ended::before {
+  background: linear-gradient(180deg, #d7dbe0, #bfc5cb);
+}
+
+.act-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.act-type {
+  font-size: 21rpx;
+  color: var(--text-3);
+}
+
+.act-name {
+  display: block;
+  margin-top: 18rpx;
+  font-size: 33rpx;
+  font-weight: 600;
+  line-height: 1.45;
+  color: var(--text);
+}
+
+.act-rules {
+  margin-top: 18rpx;
+  padding: 18rpx 24rpx;
+  border-radius: 20rpx;
+  background: linear-gradient(150deg, #fff7f6, #fffafa);
+  border: 1rpx solid rgba(200, 32, 43, 0.06);
+}
+
+.rule {
+  display: flex;
+  align-items: flex-start;
+  padding: 6rpx 0;
+}
+
+.rule-dot {
+  width: 9rpx;
+  height: 9rpx;
+  border-radius: 50%;
+  background: var(--brand);
+  margin: 15rpx 14rpx 0 0;
+  flex-shrink: 0;
+}
+
+.rule-text {
+  flex: 1;
+  font-size: 25rpx;
+  color: #a3151f;
+  line-height: 1.65;
+}
+
+.act-foot {
+  margin-top: 18rpx;
+}
+
+.act-remark {
+  margin-top: 16rpx;
+  padding-top: 16rpx;
+  border-top: 1rpx dashed #eceef0;
+  font-size: 23rpx;
+  color: var(--text-3);
+  line-height: 1.65;
+}
+
+.act.ended {
+  opacity: 0.62;
+}
+
+.foot-note {
+  padding: 26rpx 0 12rpx;
+  text-align: center;
+  font-size: 21rpx;
+  color: #b6bbc1;
+}
+
+.subscribe {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 26rpx 30rpx;
+}
+
+.subscribe-info {
+  flex: 1;
+  margin-right: 20rpx;
+}
+
+.subscribe-title {
+  display: block;
+  font-size: 29rpx;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.subscribe-hint {
+  display: block;
+  margin-top: 8rpx;
+  font-size: 21rpx;
+  line-height: 1.5;
+  color: var(--text-3);
+}
+
+.subscribe-btn {
+  width: 190rpx;
+  height: 66rpx;
+  margin: 0;
+  padding: 0 16rpx;
+  font-size: 25rpx;
+  flex-shrink: 0;
+}
+
+.poster {
+  padding: 26rpx 0 22rpx;
+  overflow: hidden;
+}
+
+.poster-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 0 30rpx;
+}
+
+.poster-title {
+  flex: 1;
+  margin-right: 16rpx;
+  font-size: 32rpx;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.4;
+}
+
+.poster-desc {
+  padding: 10rpx 30rpx 0;
+  font-size: 24rpx;
+  color: var(--text-3);
+  line-height: 1.6;
+}
+
+.poster-swiper {
+  height: 760rpx;
+  margin-top: 18rpx;
+  background: #f7f8fa;
+}
+
+.poster-image {
+  width: 100%;
+  height: 100%;
+}
+
+.poster-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16rpx 30rpx 0;
+}
+
+.poster-tap {
+  font-size: 21rpx;
+  color: var(--brand);
+}

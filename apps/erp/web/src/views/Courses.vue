@@ -2,6 +2,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { DownOutlined, SearchOutlined } from '@ant-design/icons-vue'
 import { Modal, message } from 'ant-design-vue'
+import FilterBar from '../components/FilterBar.vue'
 import {
   batchCourses,
   createCourse,
@@ -871,7 +872,7 @@ function switchTab(key: TabKey) {
 }
 
 function openFaq() {
-  message.info('校宝「课程常见问题」帮助内容未迁移到本系统')
+  message.info('原系统「课程常见问题」帮助内容未迁移到本系统')
 }
 
 onMounted(async () => {
@@ -905,82 +906,71 @@ onMounted(async () => {
         <a-button @click="message.info('批量导入模板功能暂未开放，可在课程列表逐个新建')">批量导入</a-button>
       </div>
 
-      <div class="filter-line">
+      <FilterBar @search="search" @reset="resetFilters">
         <a-select
           v-model:value="campusId"
-          class="plain-select"
+          class="filter-select"
           placeholder="开课校区"
           allow-clear
-          :bordered="false"
-          style="width: 96px"
+          style="width: 130px"
           @change="search"
         >
           <a-select-option v-for="item in courseOptions.campuses" :key="item.id" :value="item.id">
             {{ item.name }}
           </a-select-option>
         </a-select>
-        <span class="filter-divider">|</span>
         <a-select
           v-model:value="category"
-          class="plain-select"
+          class="filter-select"
           placeholder="课程类别"
           allow-clear
-          :bordered="false"
-          style="width: 100px"
+          style="width: 130px"
           @change="search"
         >
           <a-select-option v-for="item in courseOptions.categories" :key="item.id" :value="item.name">
             {{ item.name }}
           </a-select-option>
         </a-select>
-        <span class="filter-divider">|</span>
         <a-select
           v-model:value="lessonMode"
-          class="plain-select"
+          class="filter-select"
           placeholder="授课模式"
           allow-clear
-          :bordered="false"
-          style="width: 100px"
+          style="width: 116px"
           @change="search"
         >
           <a-select-option value="班课">班课</a-select-option>
           <a-select-option value="一对一">一对一</a-select-option>
         </a-select>
-        <span class="filter-divider">|</span>
         <a-select
           v-model:value="chargeMode"
-          class="plain-select"
+          class="filter-select"
           placeholder="收费模式"
           allow-clear
-          :bordered="false"
-          style="width: 100px"
+          style="width: 116px"
           @change="search"
         >
           <a-select-option value="按课时">按课时</a-select-option>
           <a-select-option value="按时间">按时间</a-select-option>
           <a-select-option value="按期">按期</a-select-option>
         </a-select>
-        <span class="filter-divider">|</span>
         <a-select
           v-model:value="status"
-          class="plain-select"
+          class="filter-select"
           placeholder="课程状态"
           allow-clear
-          :bordered="false"
-          style="width: 100px"
+          style="width: 116px"
           @change="search"
         >
           <a-select-option :value="1">开售</a-select-option>
           <a-select-option :value="0">停售</a-select-option>
         </a-select>
-        <span class="filter-divider">|</span>
         <a-select
           v-model:value="subject"
-          class="plain-select"
+          class="filter-select"
           placeholder="科目"
           allow-clear
-          :bordered="false"
-          style="width: 88px"
+          style="width: 100px"
           @change="search"
         >
           <a-select-option v-for="item in courseOptions.subjects" :key="item.id" :value="item.name">
@@ -988,24 +978,20 @@ onMounted(async () => {
           </a-select-option>
         </a-select>
 
-        <span class="filter-spacer" />
-
-        <div class="name-search">
-          <span class="name-label">课程名称</span>
+        <template #search>
           <a-input
             v-model:value="keyword"
-            class="name-input"
-            placeholder="请输入课程名称"
+            class="filter-search"
+            placeholder="搜索课程名称"
             allow-clear
-            :bordered="false"
             @press-enter="search"
           >
-            <template #suffix>
-              <SearchOutlined class="search-icon" @click="search" />
+            <template #prefix>
+              <SearchOutlined class="search-icon" />
             </template>
           </a-input>
-        </div>
-      </div>
+        </template>
+      </FilterBar>
 
       <div v-if="activeChips.length" class="chip-line">
         <span class="chip-text">已选筛选：</span>
@@ -1668,30 +1654,6 @@ onMounted(async () => {
   flex-wrap: wrap;
   gap: 6px 12px;
   padding: 2px 0 10px;
-}
-
-.plain-select {
-  font-size: 13px;
-  color: var(--text-2);
-}
-
-.plain-select :deep(.ant-select-selector) {
-  padding-left: 0;
-  padding-right: 18px;
-}
-
-.plain-select :deep(.ant-select-selection-placeholder) {
-  color: var(--text-2);
-  padding-left: 0;
-}
-
-.filter-divider {
-  color: #e5e6eb;
-}
-
-.filter-spacer {
-  flex: 1;
-  min-width: 12px;
 }
 
 .name-search {

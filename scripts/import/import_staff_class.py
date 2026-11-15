@@ -2,7 +2,7 @@ import json
 import os
 import re
 
-BASE = r"d:\Code\Projects\Huancai\data\schoolpal"
+BASE = r"d:\Code\Projects\Huancai\data\legacy"
 OUT = os.path.join(os.environ.get("TEMP", "."), "hc-import", "import_staff_class.sql")
 os.makedirs(os.path.dirname(OUT), exist_ok=True)
 
@@ -74,7 +74,7 @@ for idx, e in enumerate(employees, start=1):
         f"{q((e.get('users') or [{}])[0].get('roleNames'))}, {1 if e.get('isActive') else 0}, {q('SP-EMP-%02d' % idx)});"
     )
 
-# 校宝“课程/科目”（班级挂在 lessonName 上）
+# 原系统“课程/科目”（班级挂在 lessonName 上）
 lessons = {}
 for c in classes:
     ln = c.get("lessonName")

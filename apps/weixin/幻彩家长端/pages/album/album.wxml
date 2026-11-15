@@ -1,0 +1,64 @@
+<view class="page">
+  <view class="child-bar" wx:if="{{child}}">
+    <view class="child-info">
+      <text class="child-dot">{{child.initial}}</text>
+      <text class="child-name">{{child.name}}</text>
+      <text class="muted" wx:if="{{child.grade}}">{{child.grade}}</text>
+    </view>
+    <text class="switch" bindtap="switchChild">切换孩子</text>
+  </view>
+
+  <view class="card loading-card" wx:if="{{loading}}">
+    <text class="muted">正在加载班级相册…</text>
+  </view>
+
+  <view class="card empty" wx:elif="{{error}}">
+    <view class="empty-icon">!</view>
+    <view>{{error}}</view>
+    <button class="btn plain-btn" bindtap="retry">重新加载</button>
+  </view>
+
+  <view class="card empty" wx:elif="{{noChild}}">
+    <view class="empty-icon">+</view>
+    <view>还没有绑定孩子</view>
+    <button class="btn plain-btn" bindtap="goBind">绑定孩子</button>
+  </view>
+
+  <block wx:else>
+    <view class="album-summary" wx:if="{{totalPhotos > 0}}">
+      <text>共 {{albums.length}} 个班级相册 · {{totalPhotos}} 张照片</text>
+      <text class="muted">点击照片可放大查看</text>
+    </view>
+
+    <view class="card empty" wx:if="{{!albums.length}}">
+      <view class="empty-icon">相</view>
+      <view>暂无班级相册照片</view>
+      <view class="muted empty-desc">班级老师上传照片后即可在这里查看</view>
+    </view>
+
+    <view class="card album-card" wx:for="{{albums}}" wx:key="classId" wx:for-item="album" wx:for-index="albumIndex">
+      <view class="album-head">
+        <view class="album-title">
+          <text class="album-name">{{album.className}}</text>
+          <text class="muted" wx:if="{{album.courseName}}">{{album.courseName}}</text>
+        </view>
+        <view class="album-meta">
+          <text class="album-count">{{album.photoCount}} 张</text>
+          <text class="muted" wx:if="{{album.latestText}}">{{album.latestText}}</text>
+        </view>
+      </view>
+      <view class="photo-grid">
+        <view
+          class="photo-item"
+          wx:for="{{album.photos}}"
+          wx:key="id"
+          data-album-index="{{albumIndex}}"
+          data-index="{{index}}"
+          bindtap="preview"
+        >
+          <image class="photo" src="{{item.src}}" mode="aspectFill"></image>
+        </view>
+      </view>
+    </view>
+  </block>
+</view>

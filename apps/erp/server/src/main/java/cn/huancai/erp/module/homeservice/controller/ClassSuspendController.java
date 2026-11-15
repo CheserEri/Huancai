@@ -2,6 +2,7 @@ package cn.huancai.erp.module.homeservice.controller;
 
 import cn.huancai.erp.common.ApiResult;
 import cn.huancai.erp.module.homeservice.dto.SuspendBatchForm;
+import cn.huancai.erp.module.homeservice.dto.SuspendNotifyForm;
 import cn.huancai.erp.module.homeservice.service.ClassSuspendService;
 import cn.huancai.erp.module.homeservice.vo.SuspendCandidateVO;
 import cn.huancai.erp.module.homeservice.vo.SuspendVO;
@@ -48,6 +49,15 @@ public class ClassSuspendController {
     public ApiResult<Map<String, Object>> batch(@RequestBody SuspendBatchForm form) {
         try {
             return ApiResult.ok(suspendService.suspend(form));
+        } catch (IllegalArgumentException ex) {
+            return ApiResult.fail(ex.getMessage());
+        }
+    }
+
+    @PostMapping("/notify")
+    public ApiResult<Map<String, Object>> notify(@RequestBody SuspendNotifyForm form) {
+        try {
+            return ApiResult.ok(suspendService.notify(form.getIds()));
         } catch (IllegalArgumentException ex) {
             return ApiResult.fail(ex.getMessage());
         }

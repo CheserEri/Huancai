@@ -4,7 +4,7 @@
 
   <sql id="whereClause">
     <where>
-      m.source IN ('校宝教材购买记录', '本地录入')
+      m.source IN ('历史教材购买记录', '本地录入')
       <if test="orderNo != null and orderNo != ''">
         AND m.ext_order_no LIKE CONCAT('%', #{orderNo}, '%')
       </if>

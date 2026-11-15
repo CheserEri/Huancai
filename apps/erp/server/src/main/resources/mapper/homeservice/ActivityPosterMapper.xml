@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.huancai.erp.module.homeservice.mapper.ActivityPosterMapper">
+
+  <select id="selectPosterPage" resultType="cn.huancai.erp.module.homeservice.vo.PosterVO">
+    SELECT p.id,
+           p.title,
+           p.description,
+           p.audience_type   AS audienceType,
+           p.grade_text      AS gradeText,
+           p.class_name_text AS classNameText,
+           p.target_count    AS targetCount,
+           p.receiver_count  AS receiverCount,
+           (SELECT COUNT(*) FROM wx_message_receiver r
+             WHERE r.message_id = p.message_id AND r.read_flag = 1) AS readCount,
+           p.message_id      AS messageId,
+           p.sender,
+           p.start_date      AS startDate,
+           p.end_date        AS endDate,
+           p.sent_at         AS sentAt,
+           (SELECT COUNT(*) FROM wx_activity_poster_image i WHERE i.poster_id = p.id) AS imageCount,
+           (SELECT i.url FROM wx_activity_poster_image i
+             WHERE i.poster_id = p.id ORDER BY i.sort_no, i.id LIMIT 1) AS coverUrl
+    FROM wx_activity_poster p
+    <where>
+      <if test="keyword != null and keyword != ''">
+        AND (p.title LIKE CONCAT('%', #{keyword}, '%') OR p.description LIKE CONCAT('%', #{keyword}, '%'))
+      </if>
+      <if test="start != null">AND p.sent_at &gt;= #{start}</if>
+      <if test="end != null">AND p.sent_at &lt; DATE_ADD(#{end}, INTERVAL 1 DAY)</if>
+    </where>
+    ORDER BY p.sent_at DESC, p.id DESC
+  </select>
+
+  <select id="selectImages" resultType="cn.huancai.erp.module.homeservice.vo.PosterImageVO">
+    SELECT id, url, sort_no AS sortNo
+    FROM wx_activity_poster_image
+    WHERE poster_id = #{posterId}
+    ORDER BY sort_no, id
+  </select>
+
+  <insert id="insertPosterTargets">
+    INSERT IGNORE INTO wx_activity_poster_target (poster_id, student_id, student_name, created_at)
+    VALUES
+    <foreach collection="students" item="item" separator=",">
+      (#{posterId}, #{item.id}, #{item.name}, NOW())
+    </foreach>
+  </insert>
+
+  <delete id="deletePosterTargets">
+    DELETE FROM wx_activity_poster_target WHERE poster_id = #{posterId}
+  </delete>
+
+  <delete id="deletePosterImages">
+    DELETE FROM wx_activity_poster_image WHERE poster_id = #{posterId}
+  </delete>
+
+  <delete id="deleteMessageTargets">
+    DELETE FROM wx_message_target WHERE message_id = #{messageId}
+  </delete>
+
+  <delete id="deleteMessageReceivers">
+    DELETE FROM wx_message_receiver WHERE message_id = #{messageId}
+  </delete>
+
+  <delete id="deleteMessage">
+    DELETE FROM wx_message WHERE id = #{messageId}
+  </delete>
+
+</mapper>

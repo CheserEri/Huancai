@@ -1,0 +1,16 @@
+# 依赖
+node_modules/
+miniprogram_npm/
+
+# 开发者工具本地缓存与私有配置
+.tmp/
+project.private.config.json
+幻彩家长端/.tmp/
+幻彩家长端/project.private.config.json
+
+# 系统与编辑器
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.log

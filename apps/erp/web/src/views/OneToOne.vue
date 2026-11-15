@@ -96,7 +96,7 @@ onMounted(load)
     <div class="table-card">
       <div class="table-toolbar">
         <div class="table-toolbar-left">
-          <span class="muted" style="font-size: 12px">数据来源：校宝一对一排课（lesson_mode = 2）</span>
+          <span class="muted" style="font-size: 12px">数据来源：原系统一对一排课（lesson_mode = 2）</span>
         </div>
       </div>
 

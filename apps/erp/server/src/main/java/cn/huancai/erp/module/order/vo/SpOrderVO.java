@@ -5,7 +5,7 @@ import lombok.Data;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
-/** 校宝订单列表 / 详情展示对象。 */
+/** 历史订单列表 / 详情展示对象。 */
 @Data
 public class SpOrderVO {
 

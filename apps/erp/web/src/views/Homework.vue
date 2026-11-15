@@ -61,7 +61,7 @@ const rows = ref<HomeworkRow[]>([])
         </template>
       </a-table>
 
-      <div class="muted" style="margin-top: 12px; font-size: 12px">数据来源：校宝作业模块（待开通权限）</div>
+      <div class="muted" style="margin-top: 12px; font-size: 12px">数据来源：原系统作业模块（待开通权限）</div>
     </div>
   </div>
 </template>

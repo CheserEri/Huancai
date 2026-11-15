@@ -105,9 +105,9 @@ onMounted(load)
     <div class="filter-card">
       <div class="intro muted">
         <span v-if="summary">
-          成长档案数据来源：校宝课堂点评（共 {{ intText(summary.total) }} 条），按学员聚合展示
+          成长档案数据来源：原系统课堂点评（共 {{ intText(summary.total) }} 条），按学员聚合展示
         </span>
-        <span v-else>成长档案数据来源：校宝课堂点评，按学员聚合展示</span>
+        <span v-else>成长档案数据来源：原系统课堂点评，按学员聚合展示</span>
       </div>
       <div class="filter-row">
         <div class="filter-item">

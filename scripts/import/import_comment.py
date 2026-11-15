@@ -2,8 +2,8 @@ import os
 import json
 import glob
 
-CHUNK_DIR = r"d:\Code\Projects\Huancai\data\schoolpal\comment_chunks"
-MAP_DIR = r"d:\Code\Projects\Huancai\data\schoolpal\map"
+CHUNK_DIR = r"d:\Code\Projects\Huancai\data\legacy\comment_chunks"
+MAP_DIR = r"d:\Code\Projects\Huancai\data\legacy\map"
 OUT = os.path.join(os.environ.get("TEMP", "."), "hc-import", "import_comment.sql")
 os.makedirs(os.path.dirname(OUT), exist_ok=True)
 

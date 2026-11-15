@@ -355,7 +355,7 @@ onMounted(async () => {
       <div class="table-toolbar">
         <div class="table-toolbar-left">
           <span class="muted" style="font-size: 12px">
-            数据来源：校宝课堂点评（2025-03 ~ 2026-10，共 15,331 条，覆盖 921 节已上课）｜小红花、点评图片等字段校宝未同步，未展示
+            数据来源：原系统课堂点评（2025-03 ~ 2026-10，共 15,331 条，覆盖 921 节已上课）｜小红花、点评图片等字段原系统未同步，未展示
           </span>
         </div>
       </div>

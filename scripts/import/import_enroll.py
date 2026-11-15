@@ -2,12 +2,12 @@ import os
 import re
 import xlrd
 
-ROSTER = r"d:\Code\Projects\Huancai\data\schoolpal\student_roster_20261025.xls"
-ENROLL = r"d:\Code\Projects\Huancai\data\schoolpal\enroll_20261025.xls"
+ROSTER = r"d:\Code\Projects\Huancai\data\legacy\student_roster_20261025.xls"
+ENROLL = r"d:\Code\Projects\Huancai\data\legacy\enroll_20261025.xls"
 OUT = os.path.join(os.environ.get("TEMP", "."), "hc-import", "import_enroll.sql")
 os.makedirs(os.path.dirname(OUT), exist_ok=True)
 
-MARK = "[校宝报读导入]"
+MARK = "[历史报读导入]"
 
 
 def txt(v):
@@ -111,8 +111,8 @@ lines = [
     "USE huancai_erp;",
     "START TRANSACTION;",
     "DELETE FROM payment WHERE order_id IN (SELECT id FROM sales_order WHERE order_no LIKE 'QB-E-%');",
-    "DELETE FROM lesson_txn WHERE biz_type = 'import' AND note LIKE '[校宝报读导入]%';",
-    "DELETE FROM enrollment WHERE remark LIKE '[校宝报读导入]%';",
+    "DELETE FROM lesson_txn WHERE biz_type = 'import' AND note LIKE '[历史报读导入]%';",
+    "DELETE FROM enrollment WHERE remark LIKE '[历史报读导入]%';",
     "DELETE FROM sales_order WHERE order_no LIKE 'QB-E-%';",
 ]
 
@@ -173,7 +173,7 @@ for r in range(1, es.nrows):
         stats["pending"].append((sname, phone))
         lines.append(
             "INSERT INTO student (campus_id, name, gender, phone, status, source, remark) VALUES "
-            f"({campus_id}, {q(sname)}, '未知', {q(phone)}, '在读', '校宝导入', {q(MARK + '花名册无记录，按报读数据补齐')});"
+            f"({campus_id}, {q(sname)}, '未知', {q(phone)}, '在读', '历史导入', {q(MARK + '花名册无记录，按报读数据补齐')});"
         )
         lines.append("SET @sid = LAST_INSERT_ID();")
 

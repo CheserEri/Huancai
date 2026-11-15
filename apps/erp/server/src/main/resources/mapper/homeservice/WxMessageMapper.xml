@@ -22,6 +22,7 @@
         AND (m.title LIKE CONCAT('%', #{keyword}, '%') OR m.content LIKE CONCAT('%', #{keyword}, '%'))
       </if>
       <if test="msgType != null and msgType != ''">AND m.msg_type = #{msgType}</if>
+      <if test="msgType == null or msgType == ''">AND m.msg_type &lt;&gt; '活动海报'</if>
       <if test="start != null">AND m.sent_at &gt;= #{start}</if>
       <if test="end != null">AND m.sent_at &lt; DATE_ADD(#{end}, INTERVAL 1 DAY)</if>
     </where>
@@ -60,11 +61,10 @@
     ORDER BY s.name
   </select>
 
-  <select id="selectAllBoundStudents" resultType="cn.huancai.erp.module.homeservice.vo.MessageStudentVO">
-    SELECT DISTINCT s.id, s.name
-    FROM wx_parent_student ps
-    JOIN student s ON s.id = ps.student_id
-    ORDER BY s.name
+  <select id="selectAllStudents" resultType="cn.huancai.erp.module.homeservice.vo.MessageStudentVO">
+    SELECT id, name FROM student
+    WHERE status = '在读'
+    ORDER BY name
   </select>
 
   <select id="selectStudentsByIds" resultType="cn.huancai.erp.module.homeservice.vo.MessageStudentVO">
@@ -74,11 +74,44 @@
     ORDER BY name
   </select>
 
+  <select id="selectStudentsByAudience" resultType="cn.huancai.erp.module.homeservice.vo.MessageStudentVO">
+    SELECT DISTINCT s.id, s.name
+    FROM student s
+    <trim prefix="WHERE" prefixOverrides="OR">
+      <if test="grades != null and grades.size() > 0">
+        OR (s.grade IN
+        <foreach collection="grades" item="grade" open="(" separator="," close=")">#{grade}</foreach>
+        AND s.status = '在读')
+      </if>
+      <if test="classIds != null and classIds.size() > 0">
+        OR (s.id IN (
+          SELECT cs.student_id FROM class_student cs
+          WHERE cs.status = '在读' AND cs.class_id IN
+          <foreach collection="classIds" item="classId" open="(" separator="," close=")">#{classId}</foreach>
+        ))
+      </if>
+      <if test="studentIds != null and studentIds.size() > 0">
+        OR (s.id IN
+        <foreach collection="studentIds" item="studentId" open="(" separator="," close=")">#{studentId}</foreach>
+        )
+      </if>
+    </trim>
+    ORDER BY s.name
+  </select>
+
   <select id="selectParentsByStudentIds" resultType="cn.huancai.erp.module.homeservice.vo.MessageParentVO">
     SELECT student_id AS studentId, parent_id AS parentId
     FROM wx_parent_student
     WHERE student_id IN
     <foreach collection="ids" item="id" open="(" separator="," close=")">#{id}</foreach>
   </select>
+
+  <insert id="insertTargets">
+    INSERT IGNORE INTO wx_message_target (message_id, student_id, student_name, created_at)
+    VALUES
+    <foreach collection="students" item="item" separator=",">
+      (#{messageId}, #{item.id}, #{item.name}, NOW())
+    </foreach>
+  </insert>
 
 </mapper>

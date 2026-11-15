@@ -4,7 +4,7 @@ import lombok.Data;
 
 import java.util.List;
 
-/** 校宝订单分页结果。 */
+/** 历史订单分页结果。 */
 @Data
 public class SpOrderPageVO {
 

@@ -194,7 +194,7 @@ const infoRows = computed(() => {
     ['收费标准', d.feeStandard],
     ['班级状态', statusText.value],
     ['数据来源', d.source],
-    ['校宝班级ID', d.spClassId],
+    ['历史班级ID', d.spClassId],
     ['创建时间', d.createdAt ? String(d.createdAt).replace('T', ' ').slice(0, 16) : null],
   ]
   return rows.map(([label, value]) => ({ key: label, label, value: show(value) }))

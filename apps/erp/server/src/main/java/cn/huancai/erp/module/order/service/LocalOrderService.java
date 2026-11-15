@@ -53,7 +53,7 @@ import java.util.stream.Collectors;
 /**
  * 本地闭环办理服务：报名/续费、余额充值、退费、转课。
  *
- * <p>校宝是正在使用的生产系统，本服务<b>不向校宝写入任何数据</b>。
+ * <p>原系统是正在使用的生产系统，本服务<b>不向原系统写入任何数据</b>。
  * 办理结果全部落在本地：sp_order（订单展示）、enrollment（报读与课时）、
  * lesson_txn（课时流水）、student（余额/欠费）。</p>
  */
@@ -958,7 +958,7 @@ public class LocalOrderService {
                     + plain(remain) + " 课时）");
         }
 
-        // 转出金额按原报读单价折算，与校宝「本次转出金额」口径一致。
+        // 转出金额按原报读单价折算，与原系统「本次转出金额」口径一致。
         BigDecimal fromUnitPrice = resolveEnrollmentUnitPrice(from);
         BigDecimal outAmount = money(outLessons.multiply(fromUnitPrice));
 
@@ -1088,7 +1088,7 @@ public class LocalOrderService {
                 student.getBalance(), to.getRemainLessons());
     }
 
-    /** 转课订单摘要：与校宝「转出/转入 + 应退或应收」的展示口径一致。 */
+    /** 转课订单摘要：与原系统「转出/转入 + 应退或应收」的展示口径一致。 */
     private String buildTransferContent(Course fromCourse, Course toCourse, String toClassName,
                                         BigDecimal outLessons, BigDecimal fromUnitPrice,
                                         BigDecimal outAmount, BigDecimal inLessons,
@@ -1464,7 +1464,7 @@ public class LocalOrderService {
     }
 
     /**
-     * 写入本地订单。本地订单号从 900000001 起，sp_id 为空（区别于校宝订单）。
+     * 写入本地订单。本地订单号从 900000001 起，sp_id 为空（区别于历史订单）。
      * synchronized 保证单实例下取号与插入不并发冲突。
      */
     private synchronized SpOrder insertOrder(Student student, Long campusId, String campusName,

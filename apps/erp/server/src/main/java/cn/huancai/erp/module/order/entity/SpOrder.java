@@ -8,7 +8,7 @@ import lombok.Data;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
-/** 校宝订单快照（只读镜像）。 */
+/** 历史订单快照（只读镜像）。 */
 @Data
 @TableName("sp_order")
 public class SpOrder {
