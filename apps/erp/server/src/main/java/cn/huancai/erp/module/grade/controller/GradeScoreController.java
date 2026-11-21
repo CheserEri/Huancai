@@ -8,11 +8,13 @@ import cn.huancai.erp.module.grade.entity.GradeExamClass;
 import cn.huancai.erp.module.grade.entity.GradePart;
 import cn.huancai.erp.module.grade.entity.GradeRule;
 import cn.huancai.erp.module.grade.entity.GradeScore;
+import cn.huancai.erp.module.grade.entity.GradeStudentPaper;
 import cn.huancai.erp.module.grade.mapper.GradeExamClassMapper;
 import cn.huancai.erp.module.grade.mapper.GradeExamMapper;
 import cn.huancai.erp.module.grade.mapper.GradePartMapper;
 import cn.huancai.erp.module.grade.mapper.GradeRuleMapper;
 import cn.huancai.erp.module.grade.mapper.GradeScoreMapper;
+import cn.huancai.erp.module.grade.mapper.GradeStudentPaperMapper;
 import cn.huancai.erp.module.grade.service.GradeRankService;
 import cn.huancai.erp.module.grade.vo.GradeAnalysisVO;
 import cn.huancai.erp.module.grade.vo.GradeClassExamVO;
@@ -28,11 +30,17 @@ import cn.huancai.erp.module.teaching.mapper.ClassStudentMapper;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -41,6 +49,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.UUID;
 
 /**
  * 成绩录入 / 查询 / 分析。
@@ -51,39 +60,45 @@ import java.util.Objects;
 public class GradeScoreController {
 
     private static final List<String> ENTERED_STATUS = List.of("正常", "缺考", "免考");
-    private static final List<String> LEVEL_COLORS = List.of("优秀", "良好", "合格", "待提高");
+    private static final List<String> LEVEL_COLORS = List.of("优秀", "良好", "一般", "待提高");
 
     private final GradeExamMapper examMapper;
     private final GradeExamClassMapper examClassMapper;
     private final GradePartMapper partMapper;
     private final GradeScoreMapper scoreMapper;
+    private final GradeStudentPaperMapper paperMapper;
     private final GradeRuleMapper ruleMapper;
     private final GradeRankService rankService;
     private final ClassGroupMapper classGroupMapper;
     private final ClassStudentMapper classStudentMapper;
     private final StudentMapper studentMapper;
     private final ObjectMapper objectMapper;
+    private final String uploadDir;
 
     public GradeScoreController(GradeExamMapper examMapper,
                                 GradeExamClassMapper examClassMapper,
                                 GradePartMapper partMapper,
                                 GradeScoreMapper scoreMapper,
+                                GradeStudentPaperMapper paperMapper,
                                 GradeRuleMapper ruleMapper,
                                 GradeRankService rankService,
                                 ClassGroupMapper classGroupMapper,
                                 ClassStudentMapper classStudentMapper,
                                 StudentMapper studentMapper,
-                                ObjectMapper objectMapper) {
+                                ObjectMapper objectMapper,
+                                @Value("${app.upload-dir:./uploads}") String uploadDir) {
         this.examMapper = examMapper;
         this.examClassMapper = examClassMapper;
         this.partMapper = partMapper;
         this.scoreMapper = scoreMapper;
+        this.paperMapper = paperMapper;
         this.ruleMapper = ruleMapper;
         this.rankService = rankService;
         this.classGroupMapper = classGroupMapper;
         this.classStudentMapper = classStudentMapper;
         this.studentMapper = studentMapper;
         this.objectMapper = objectMapper;
+        this.uploadDir = uploadDir;
     }
 
     /** 录入网格数据：考试 + 班级 + 分项 + 在读学员成绩。 */
@@ -184,6 +199,9 @@ public class GradeScoreController {
     public ApiResult<List<GradeClassExamVO>> classGrades(@PathVariable Long classId) {
         List<GradeClassExamVO> exams = scoreMapper.selectClassExams(classId);
         if (!exams.isEmpty()) {
+            Map<Long, GradeExam> examMap = new HashMap<>();
+            List<Long> examIds = exams.stream().map(GradeClassExamVO::getExamId).distinct().toList();
+            examMapper.selectBatchIds(examIds).forEach(exam -> examMap.put(exam.getId(), exam));
             Map<Long, List<GradeScore>> scoresByExam = new HashMap<>();
             scoreMapper.selectList(new LambdaQueryWrapper<GradeScore>().eq(GradeScore::getClassId, classId))
                     .forEach(score -> scoresByExam.computeIfAbsent(score.getExamId(), key -> new ArrayList<>()).add(score));
@@ -193,8 +211,12 @@ public class GradeScoreController {
                         .toList();
                 BigDecimal fullScore = item.getFullScore() == null || item.getFullScore().signum() <= 0
                         ? BigDecimal.valueOf(100) : item.getFullScore();
-                item.setPassRate(rate(valid, resolveLine("合格", "及格", fullScore, 0.6)));
-                item.setExcellentRate(rate(valid, resolveLine("优秀", null, fullScore, 0.85)));
+                GradeExam exam = examMap.get(item.getExamId());
+                BigDecimal passLine = exam == null
+                        ? fullScore.multiply(BigDecimal.valueOf(0.6)).setScale(1, RoundingMode.HALF_UP)
+                        : passLineOf(exam, fullScore);
+                item.setPassRate(rate(valid, passLine));
+                item.setExcellentRate(levelRate(autoLevels(valid, fullScore, passLine), valid.size(), "优秀"));
             }
         }
         return ApiResult.ok(exams);
@@ -227,8 +249,7 @@ public class GradeScoreController {
                 new LambdaQueryWrapper<GradeScore>().eq(GradeScore::getExamId, examId));
         BigDecimal fullScore = exam.getFullScore() == null || exam.getFullScore().signum() <= 0
                 ? BigDecimal.valueOf(100) : exam.getFullScore();
-        BigDecimal passLine = resolveLine("合格", "及格", fullScore, 0.6);
-        BigDecimal excellentLine = resolveLine("优秀", null, fullScore, 0.85);
+        BigDecimal passLine = passLineOf(exam, fullScore);
 
         GradeAnalysisVO vo = new GradeAnalysisVO();
         vo.setExamId(exam.getId());
@@ -237,6 +258,7 @@ public class GradeScoreController {
         vo.setExamDate(exam.getExamDate());
         vo.setScoringMode(exam.getScoringMode());
         vo.setFullScore(fullScore);
+        vo.setPassLine(passLine);
         vo.setStudentCount(studentCount);
 
         List<GradeScore> entered = scores.stream().filter(item -> ENTERED_STATUS.contains(item.getStatus())).toList();
@@ -248,14 +270,15 @@ public class GradeScoreController {
         List<GradeScore> valid = scores.stream()
                 .filter(item -> "正常".equals(item.getStatus()) && item.getTotalScore() != null)
                 .toList();
+        Map<Long, String> autoLevels = autoLevels(valid, fullScore, passLine);
         vo.setAvgScore(average(valid));
         vo.setMaxScore(valid.stream().map(GradeScore::getTotalScore).max(BigDecimal::compareTo).orElse(null));
         vo.setMinScore(valid.stream().map(GradeScore::getTotalScore).min(BigDecimal::compareTo).orElse(null));
         vo.setPassRate(rate(valid, passLine));
-        vo.setExcellentRate(rate(valid, excellentLine));
+        vo.setExcellentRate(levelRate(autoLevels, valid.size(), "优秀"));
 
         vo.setDistributions(distributions(valid, fullScore, exam.getScoringMode()));
-        vo.setLevels(levelCounts(scores));
+        vo.setLevels(levelCounts(autoLevels));
 
         List<GradeAnalysisVO.ClassStat> classStats = new ArrayList<>();
         for (Long classId : classIds) {
@@ -268,7 +291,14 @@ public class GradeScoreController {
             stat.setMaxScore(classScores.stream().map(GradeScore::getTotalScore).max(BigDecimal::compareTo).orElse(null));
             stat.setMinScore(classScores.stream().map(GradeScore::getTotalScore).min(BigDecimal::compareTo).orElse(null));
             stat.setPassRate(rate(classScores, passLine));
-            stat.setExcellentRate(rate(classScores, excellentLine));
+            Map<Long, String> classLevels = new HashMap<>();
+            for (GradeScore score : classScores) {
+                String level = autoLevels.get(score.getStudentId());
+                if (level != null) {
+                    classLevels.put(score.getStudentId(), level);
+                }
+            }
+            stat.setExcellentRate(levelRate(classLevels, classScores.size(), "优秀"));
             classStats.add(stat);
         }
         classStats.sort(Comparator.comparing(GradeAnalysisVO.ClassStat::getClassName));
@@ -296,13 +326,101 @@ public class GradeScoreController {
             row.setStudentName(studentNames.get(score.getStudentId()));
             row.setClassName(classNames.get(score.getClassId()));
             row.setTotalScore(score.getTotalScore());
-            row.setLevel(score.getLevel());
+            row.setLevel(autoLevels.get(score.getStudentId()));
             rankings.add(row);
         }
         vo.setRankings(rankings);
         return ApiResult.ok(vo);
     }
 
+
+    /** 上传学员试卷图片（每位学员每场考试一张，重新上传会替换旧图）。 */
+    @PostMapping("/student-paper")
+    @Transactional
+    public ApiResult<Map<String, String>> uploadStudentPaper(@RequestParam Long examId,
+                                                             @RequestParam Long studentId,
+                                                             @RequestParam("file") MultipartFile file) {
+        if (examMapper.selectById(examId) == null) {
+            return ApiResult.fail("考试不存在");
+        }
+        if (file == null || file.isEmpty()) {
+            return ApiResult.fail("请选择要上传的图片");
+        }
+        String contentType = file.getContentType();
+        if (contentType == null || !contentType.startsWith("image/")) {
+            return ApiResult.fail("只能上传图片文件");
+        }
+        if (file.getSize() > 10L * 1024 * 1024) {
+            return ApiResult.fail("单张图片不能超过 10MB");
+        }
+        GradeStudentPaper paper = paperMapper.selectOne(new LambdaQueryWrapper<GradeStudentPaper>()
+                .eq(GradeStudentPaper::getExamId, examId)
+                .eq(GradeStudentPaper::getStudentId, studentId));
+        String oldUrl = paper == null ? null : paper.getUrl();
+        try {
+            Path dir = Paths.get(uploadDir, "grade-paper", "student", String.valueOf(examId),
+                    String.valueOf(studentId)).toAbsolutePath().normalize();
+            Files.createDirectories(dir);
+            String filename = UUID.randomUUID().toString().replace("-", "") + imageExtension(file);
+            file.transferTo(dir.resolve(filename).toFile());
+            String url = "/uploads/grade-paper/student/" + examId + "/" + studentId + "/" + filename;
+            if (paper == null) {
+                paper = new GradeStudentPaper();
+                paper.setExamId(examId);
+                paper.setStudentId(studentId);
+                paper.setUrl(url);
+                paperMapper.insert(paper);
+            } else {
+                paper.setUrl(url);
+                paperMapper.updateById(paper);
+            }
+            deleteStoredFile(oldUrl);
+            return ApiResult.ok(Map.of("url", url));
+        } catch (Exception ex) {
+            return ApiResult.fail("上传试卷图片失败：" + ex.getMessage());
+        }
+    }
+
+    /** 删除学员试卷图片（同时清理服务器文件）。 */
+    @DeleteMapping("/student-paper")
+    @Transactional
+    public ApiResult<Void> deleteStudentPaper(@RequestParam Long examId, @RequestParam Long studentId) {
+        GradeStudentPaper paper = paperMapper.selectOne(new LambdaQueryWrapper<GradeStudentPaper>()
+                .eq(GradeStudentPaper::getExamId, examId)
+                .eq(GradeStudentPaper::getStudentId, studentId));
+        if (paper != null) {
+            paperMapper.deleteById(paper.getId());
+            deleteStoredFile(paper.getUrl());
+        }
+        return ApiResult.ok(null);
+    }
+
+    private void deleteStoredFile(String url) {
+        String prefix = "/uploads/";
+        if (url == null || !url.startsWith(prefix)) {
+            return;
+        }
+        try {
+            Path target = Paths.get(uploadDir, url.substring(prefix.length())).toAbsolutePath().normalize();
+            Files.deleteIfExists(target);
+        } catch (IOException ignored) {
+            // 文件清理失败不影响业务数据
+        }
+    }
+
+    private String imageExtension(MultipartFile file) {
+        String name = file.getOriginalFilename();
+        if (name != null) {
+            int dot = name.lastIndexOf('.');
+            if (dot >= 0) {
+                String ext = name.substring(dot).toLowerCase();
+                if (ext.matches("\\.(jpg|jpeg|png|gif|webp|bmp)")) {
+                    return ext;
+                }
+            }
+        }
+        return ".jpg";
+    }
 
     private String checkEditable(GradeScoreSaveForm form) {
         if (form.getExamId() == null || form.getClassId() == null) {
@@ -420,6 +538,68 @@ public class GradeScoreController {
         return fullScore.multiply(BigDecimal.valueOf(ratio)).setScale(1, RoundingMode.HALF_UP);
     }
 
+    /** 考试的及格线：优先取考试配置，未配置时按满分的 60%。 */
+    private BigDecimal passLineOf(GradeExam exam, BigDecimal fullScore) {
+        if (exam.getPassScore() != null && exam.getPassScore().signum() > 0) {
+            return exam.getPassScore();
+        }
+        return fullScore.multiply(BigDecimal.valueOf(0.6)).setScale(1, RoundingMode.HALF_UP);
+    }
+
+    /**
+     * 自动评级：按班级内排名 + 得分率（距满分）+ 超出及格线的幅度综合计算。
+     * 低于及格线统一为「待提高」，及格后至少为「一般」。
+     */
+    private Map<Long, String> autoLevels(List<GradeScore> valid, BigDecimal fullScore, BigDecimal passLine) {
+        Map<Long, String> result = new HashMap<>();
+        Map<Long, List<GradeScore>> byClass = new HashMap<>();
+        for (GradeScore score : valid) {
+            byClass.computeIfAbsent(score.getClassId(), key -> new ArrayList<>()).add(score);
+        }
+        for (List<GradeScore> group : byClass.values()) {
+            List<GradeScore> sorted = new ArrayList<>(group);
+            sorted.sort(Comparator.comparing(GradeScore::getTotalScore).reversed());
+            int total = sorted.size();
+            BigDecimal previous = null;
+            int rank = 0;
+            for (int i = 0; i < total; i++) {
+                GradeScore score = sorted.get(i);
+                if (previous == null || score.getTotalScore().compareTo(previous) != 0) {
+                    rank = i + 1;
+                    previous = score.getTotalScore();
+                }
+                result.put(score.getStudentId(), autoLevel(score.getTotalScore(), fullScore, passLine, rank, total));
+            }
+        }
+        return result;
+    }
+
+    private String autoLevel(BigDecimal score, BigDecimal fullScore, BigDecimal passLine, int rank, int total) {
+        double ratio = score.doubleValue() / fullScore.doubleValue();
+        double passRatio = passLine.doubleValue() / fullScore.doubleValue();
+        if (ratio < passRatio) {
+            return "待提高";
+        }
+        double rankScore = total <= 1 ? 1.0 : 1.0 - (rank - 1.0) / (total - 1.0);
+        double overPass = passRatio >= 1.0 ? 0.0 : Math.max(0.0, (ratio - passRatio) / (1.0 - passRatio));
+        double composite = 0.5 * ratio + 0.25 * rankScore + 0.25 * overPass;
+        if (composite >= 0.85) {
+            return "优秀";
+        }
+        if (composite >= 0.68) {
+            return "良好";
+        }
+        return "一般";
+    }
+
+    private BigDecimal levelRate(Map<Long, String> levels, int total, String level) {
+        if (total <= 0) {
+            return null;
+        }
+        long hit = levels.values().stream().filter(level::equals).count();
+        return BigDecimal.valueOf(hit * 100.0 / total).setScale(1, RoundingMode.HALF_UP);
+    }
+
     private List<GradeAnalysisVO.Distribution> distributions(List<GradeScore> valid, BigDecimal fullScore, String mode) {
         String[] labels = fullScore.compareTo(BigDecimal.valueOf(100)) == 0
                 ? new String[]{"0-59", "60-69", "70-79", "80-89", "90-100"}
@@ -440,14 +620,14 @@ public class GradeScoreController {
         return list;
     }
 
-    private List<GradeAnalysisVO.LevelCount> levelCounts(List<GradeScore> scores) {
+    private List<GradeAnalysisVO.LevelCount> levelCounts(Map<Long, String> levels) {
         Map<String, Integer> counter = new LinkedHashMap<>();
         for (String level : LEVEL_COLORS) {
             counter.put(level, 0);
         }
-        for (GradeScore score : scores) {
-            if (score.getLevel() != null && !score.getLevel().isBlank()) {
-                counter.merge(score.getLevel().trim(), 1, Integer::sum);
+        for (String level : levels.values()) {
+            if (level != null && !level.isBlank()) {
+                counter.merge(level, 1, Integer::sum);
             }
         }
         List<GradeAnalysisVO.LevelCount> list = new ArrayList<>();

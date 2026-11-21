@@ -2,6 +2,7 @@ package cn.huancai.erp.module.order.controller;
 
 import cn.huancai.erp.common.ApiResult;
 import cn.huancai.erp.module.order.dto.SpOrderQuery;
+import cn.huancai.erp.module.order.dto.UpdateOrderRequest;
 import cn.huancai.erp.module.order.dto.VoidOrderRequest;
 import cn.huancai.erp.module.order.service.DailySettlementService;
 import cn.huancai.erp.module.order.service.SpOrderService;
@@ -76,6 +77,16 @@ public class SpOrderController {
     public ApiResult<SpOrderVO> voidOrder(@PathVariable Long id, @RequestBody VoidOrderRequest request) {
         try {
             return ApiResult.ok(orderService.voidOrder(id, request.reason()));
+        } catch (IllegalArgumentException e) {
+            return ApiResult.fail(e.getMessage());
+        }
+    }
+
+    /** 修改订单：基础信息 / 金额 / 课时分项权限校验，写学员操作日志。 */
+    @PostMapping("/{id}/update")
+    public ApiResult<SpOrderVO> update(@PathVariable Long id, @RequestBody UpdateOrderRequest request) {
+        try {
+            return ApiResult.ok(orderService.updateOrder(id, request));
         } catch (IllegalArgumentException e) {
             return ApiResult.fail(e.getMessage());
         }

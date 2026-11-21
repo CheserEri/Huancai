@@ -93,10 +93,19 @@ public final class LocalOrderRequests {
             Long studentId,
             Long campusId,
             List<Long> enrollmentIds,
+            List<BatchRefundItem> items,
             BigDecimal balanceAmount,
             String payMethod,
             String creator,
             String reason
+    ) {
+    }
+
+    /** 单条报读的退费明细：课时与金额均可由有权限的员工调整。 */
+    public record BatchRefundItem(
+            Long enrollmentId,
+            BigDecimal lessons,
+            BigDecimal amount
     ) {
     }
 

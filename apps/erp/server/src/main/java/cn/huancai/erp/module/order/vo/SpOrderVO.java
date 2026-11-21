@@ -1,9 +1,11 @@
 package cn.huancai.erp.module.order.vo;
 
+import cn.huancai.erp.module.order.entity.SpOrderItem;
 import lombok.Data;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 /** 历史订单列表 / 详情展示对象。 */
 @Data
@@ -46,8 +48,12 @@ public class SpOrderVO {
     private Boolean hasMultiLessonEnroll;
     private LocalDateTime dealDate;
     private LocalDateTime createdTime;
+    /** 最后修改时间，仅订单被编辑后才有值。 */
+    private LocalDateTime updatedTime;
     private LocalDateTime expiryDate;
     private String rawJson;
     private String voidReason;
     private LocalDateTime voidAt;
+    /** 订单明细（含课时），修改订单时展示与调整。 */
+    private List<SpOrderItem> items;
 }

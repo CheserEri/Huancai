@@ -24,4 +24,6 @@ public class GradeEntryStudentVO {
     private String status;
     private String remark;
     private Integer rankClass;
+    /** 该学员的试卷图片地址，未上传时为 null。 */
+    private String paperImage;
 }

@@ -24,6 +24,8 @@ public class Staff {
     private String title;
     /** 可见菜单路径 JSON 数组；为空表示仅工作台，admin 角色不受此限制。 */
     private String menuPermissions;
+    /** 绑定的权限模板；模板内容调整时自动同步到该员工，为空表示手工配置。 */
+    private Long permissionTemplateId;
     private Integer status;
     private String extId;
     private LocalDateTime createdAt;

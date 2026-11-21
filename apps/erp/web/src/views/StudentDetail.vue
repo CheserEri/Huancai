@@ -48,6 +48,7 @@ import {
   type StudentLessonTxn,
   type UpgradeQuote,
 } from '../api/client'
+import { printTicketLocally } from '../api/localPrint'
 
 const route = useRoute()
 const router = useRouter()
@@ -474,6 +475,24 @@ function confirmDelete() {
 async function printTicket(item: StudentDetail['enrollments'][number]) {
   const s = student.value
   if (!s) return
+  const local = await printTicketLocally({
+    campus: s.campusText ?? '',
+    studentName: s.name,
+    phone: s.phone,
+    courseName: item.courseName,
+    className: item.className ?? '',
+    teacher: item.teacher ?? '',
+    remainLessons: item.remainLessons,
+    expireDate: item.expireDate ?? '',
+  })
+  if (local.ok) {
+    message.success('听课证已发送到小票打印机')
+    return
+  }
+  if (local.reachable) {
+    message.error(local.message || '听课证打印失败')
+    return
+  }
   try {
     await printEnrollmentTicket(Number(s.id), Number(item.id))
     message.success('听课证已发送到小票打印机')
@@ -553,12 +572,14 @@ async function submitExpire() {
   }
 }
 
-// ---------------- 退费（按课程 / 账户余额，可多选全退） ----------------
+// ---------------- 退费（按课程 / 账户余额，可多选并调整课时、金额） ----------------
 interface RefundRow {
   key: string
   kind: 'course' | 'balance'
   name: string
-  remainLessons: number
+  maxLessons: number
+  lessons: number
+  maxAmount: number
   amount: number
   disabled: boolean
 }
@@ -567,31 +588,14 @@ const refundOpen = ref(false)
 const refundSaving = ref(false)
 const refundSelected = ref<string[]>([])
 const refundForm = reactive({ payMethod: '现金', reason: '' })
+const refundRows = ref<RefundRow[]>([])
 
-const refundRows = computed<RefundRow[]>(() => {
-  const rows: RefundRow[] = enrollments.value
-    .filter((item) => item.status === '生效' || item.status === '停课')
-    .map((item) => {
-      const amount = Math.max(0, Number(item.accountBalance ?? 0))
-      return {
-        key: `course-${item.id}`,
-        kind: 'course' as const,
-        name: item.courseName,
-        remainLessons: Math.max(0, Number(item.remainLessons ?? 0)),
-        amount: round2(amount),
-        disabled: amount <= 0,
-      }
-    })
-  const balance = Math.max(0, Number(student.value?.balance ?? 0))
-  rows.push({
-    key: 'balance',
-    kind: 'balance',
-    name: '账户剩余未用学费',
-    remainLessons: 0,
-    amount: round2(balance),
-    disabled: balance <= 0,
-  })
-  return rows
+/** 管理员、财务或单独分配了「修改退费课时/金额」操作权限的员工可编辑。 */
+const canEditRefundAmounts = computed(() => {
+  const user = authState.user
+  if (!user) return false
+  if (user.role === 'admin' || user.role === 'finance') return true
+  return authState.permissions.includes('*') || authState.permissions.includes('/student/refund-edit')
 })
 
 const refundSelectableRows = computed(() => refundRows.value.filter((row) => !row.disabled))
@@ -608,7 +612,7 @@ const refundTotal = computed(() =>
   round2(
     refundRows.value
       .filter((row) => !row.disabled && refundSelected.value.includes(row.key))
-      .reduce((sum, row) => sum + row.amount, 0),
+      .reduce((sum, row) => sum + Number(row.amount || 0), 0),
   ),
 )
 
@@ -616,7 +620,39 @@ function round2(value: number) {
   return Math.round((Number(value) || 0) * 100) / 100
 }
 
+function buildRefundRows() {
+  const rows: RefundRow[] = enrollments.value
+    .filter((item) => item.status === '生效' || item.status === '停课')
+    .map((item) => {
+      const maxAmount = round2(Math.max(0, Number(item.accountBalance ?? 0)))
+      const maxLessons = Math.max(0, Number(item.remainLessons ?? 0))
+      return {
+        key: `course-${item.id}`,
+        kind: 'course' as const,
+        name: item.courseName,
+        maxLessons,
+        lessons: maxLessons,
+        maxAmount,
+        amount: maxAmount,
+        disabled: maxAmount <= 0,
+      }
+    })
+  const balance = round2(Math.max(0, Number(student.value?.balance ?? 0)))
+  rows.push({
+    key: 'balance',
+    kind: 'balance',
+    name: '账户剩余未用学费',
+    maxLessons: 0,
+    lessons: 0,
+    maxAmount: balance,
+    amount: balance,
+    disabled: balance <= 0,
+  })
+  refundRows.value = rows
+}
+
 function openRefund() {
+  buildRefundRows()
   const available = refundSelectableRows.value
   if (!available.length) {
     message.warning('该学员暂无可退费的课程或账户余额')
@@ -624,8 +660,7 @@ function openRefund() {
   }
   refundForm.payMethod = '现金'
   refundForm.reason = ''
-  const balanceRow = available.find((row) => row.kind === 'balance')
-  refundSelected.value = balanceRow ? [balanceRow.key] : []
+  refundSelected.value = available.map((row) => row.key)
   refundOpen.value = true
 }
 
@@ -642,26 +677,92 @@ async function submitRefund() {
     message.warning('请选择要退费的课程或账户余额')
     return
   }
-  const enrollmentIds = enrollments.value
-    .filter((item) => selected.some((row) => row.kind === 'course' && row.key === `course-${item.id}`))
-    .map((item) => item.id)
-  const balanceAmount = round2(
-    selected.filter((row) => row.kind === 'balance').reduce((sum, row) => sum + row.amount, 0),
-  )
-  if (!enrollmentIds.length && !(balanceAmount > 0)) {
+
+  const changes: string[] = []
+  const items: Array<{ enrollmentId: number; lessons: number; amount: number }> = []
+  let balanceAmount = 0
+  for (const row of selected) {
+    if (row.kind === 'balance') {
+      if (row.amount <= 0) {
+        message.warning('账户剩余未用学费退费金额必须大于 0')
+        return
+      }
+      balanceAmount = round2(row.amount)
+      if (round2(row.amount) !== round2(row.maxAmount)) {
+        changes.push(`账户剩余未用学费 ￥${moneyText(row.maxAmount)} → ￥${moneyText(row.amount)}`)
+      }
+      continue
+    }
+    const lessons = Number(row.lessons || 0)
+    const amount = round2(row.amount)
+    if (lessons < 0 || lessons > row.maxLessons) {
+      message.warning(`「${row.name}」退费课时需在 0 - ${row.maxLessons} 之间`)
+      return
+    }
+    if (amount < 0 || amount > row.maxAmount) {
+      message.warning(`「${row.name}」退费金额需在 ￥0 - ￥${moneyText(row.maxAmount)} 之间`)
+      return
+    }
+    if (lessons <= 0 && amount <= 0) {
+      message.warning(`「${row.name}」退费课时与金额不能同时为 0`)
+      return
+    }
+    items.push({ enrollmentId: Number(row.key.replace('course-', '')), lessons, amount })
+    if (lessons !== row.maxLessons || amount !== row.maxAmount) {
+      const diff: string[] = []
+      if (lessons !== row.maxLessons) diff.push(`退费课时 ${row.maxLessons} → ${lessons}`)
+      if (amount !== row.maxAmount) diff.push(`绑定学费 ￥${moneyText(row.maxAmount)} → ￥${moneyText(amount)}`)
+      changes.push(`「${row.name}」${diff.join('，')}`)
+    }
+  }
+
+  if (!items.length && balanceAmount <= 0) {
     message.warning('所选项目没有可退金额')
     return
   }
+  if (changes.length && !canEditRefundAmounts.value) {
+    message.warning('仅管理员、财务或已分配退费修改权限的员工可修改退费课时与金额')
+    return
+  }
+
+  const total = round2(
+    items.reduce((sum, item) => sum + item.amount, 0) + balanceAmount,
+  )
+  const payload = {
+    studentId,
+    items,
+    balanceAmount,
+    payMethod: refundForm.payMethod,
+    reason: refundForm.reason.trim() || undefined,
+  }
+
+  if (changes.length) {
+    Modal.confirm({
+      title: '确认修改退费课时/金额？',
+      content: `本次调整：${changes.join('；')}。确认后将立即退费并写入操作日志，且不可撤销。`,
+      okText: '确认提交',
+      cancelText: '返回检查',
+      onOk: () => performRefund(payload, total),
+    })
+    return
+  }
+  await performRefund(payload, total)
+}
+
+async function performRefund(
+  payload: {
+    studentId: number
+    items: Array<{ enrollmentId: number; lessons: number; amount: number }>
+    balanceAmount: number
+    payMethod: string
+    reason?: string
+  },
+  total: number,
+) {
   refundSaving.value = true
   try {
-    const res = await refundStudentBatch({
-      studentId,
-      enrollmentIds,
-      balanceAmount,
-      payMethod: refundForm.payMethod,
-      reason: refundForm.reason.trim() || undefined,
-    })
-    message.success(`退费成功，应退合计 ￥${moneyText(refundTotal.value)}（订单 ${res.orderNo}）`)
+    const res = await refundStudentBatch(payload)
+    message.success(`退费成功，应退合计 ￥${moneyText(total)}（订单 ${res.orderNo}）`)
     refundOpen.value = false
     await load()
   } catch (e) {
@@ -1675,22 +1776,45 @@ onMounted(async () => {
           </template>
 
           <template v-else-if="tab === 'log'">
-            <a-timeline v-if="detail?.txns?.length">
-              <a-timeline-item
-                v-for="item in detail.txns"
-                :key="item.id"
-                :color="Number(item.lessons) > 0 ? 'green' : 'blue'"
-              >
-                <div class="sd-txn-line">
-                  <span class="sd-txn-time">{{ formatDateTime(item.createdAt) }}</span>
-                  <b :class="Number(item.lessons) > 0 ? 'sd-txn-add' : 'sd-txn-sub'">
-                    {{ Number(item.lessons) > 0 ? '+' : '' }}{{ item.lessons }} 课时
-                  </b>
-                  <span class="sd-muted">{{ item.note || item.bizType || '—' }}</span>
-                </div>
-              </a-timeline-item>
-            </a-timeline>
-            <a-empty v-else description="暂无课时流水记录" />
+            <template v-if="detail?.operationLogs?.length">
+              <div class="sd-log-title">操作记录</div>
+              <a-timeline>
+                <a-timeline-item
+                  v-for="item in detail.operationLogs"
+                  :key="`log-${item.id}`"
+                  color="orange"
+                >
+                  <div class="sd-txn-line">
+                    <span class="sd-txn-time">{{ formatDateTime(item.createdAt) }}</span>
+                    <b>{{ item.type }}</b>
+                    <span class="sd-muted">操作人：{{ item.operatorName || '系统' }}</span>
+                  </div>
+                  <div class="sd-log-content">{{ item.content }}</div>
+                </a-timeline-item>
+              </a-timeline>
+            </template>
+            <template v-if="detail?.txns?.length">
+              <div class="sd-log-title">课时流水</div>
+              <a-timeline>
+                <a-timeline-item
+                  v-for="item in detail.txns"
+                  :key="item.id"
+                  :color="Number(item.lessons) > 0 ? 'green' : 'blue'"
+                >
+                  <div class="sd-txn-line">
+                    <span class="sd-txn-time">{{ formatDateTime(item.createdAt) }}</span>
+                    <b :class="Number(item.lessons) > 0 ? 'sd-txn-add' : 'sd-txn-sub'">
+                      {{ Number(item.lessons) > 0 ? '+' : '' }}{{ item.lessons }} 课时
+                    </b>
+                    <span class="sd-muted">{{ item.note || item.bizType || '—' }}</span>
+                  </div>
+                </a-timeline-item>
+              </a-timeline>
+            </template>
+            <a-empty
+              v-if="!detail?.operationLogs?.length && !detail?.txns?.length"
+              description="暂无操作日志"
+            />
           </template>
 
           <template v-else-if="tab === 'chat'">
@@ -1846,11 +1970,11 @@ onMounted(async () => {
       <a-empty v-else-if="!loading" description="未找到该学员" />
     </a-spin>
 
-    <!-- 退费：可只退某门课程或账户余额，也可多选全退 -->
+    <!-- 退费：可只退某门课程或账户余额；有权限的员工可调整退费课时与金额 -->
     <a-modal
       v-model:open="refundOpen"
       title="退费"
-      width="660px"
+      width="760px"
       ok-text="确认退费"
       cancel-text="取消"
       :confirm-loading="refundSaving"
@@ -1864,7 +1988,12 @@ onMounted(async () => {
           :disabled="!refundSelectableRows.length"
           @change="onToggleRefundAll"
         >全选（全退）</a-checkbox>
-        <span class="rf-tip">可只退一门课程或账户余额，也可多选一次性全退</span>
+        <span v-if="canEditRefundAmounts" class="rf-tip">
+          可调整退费课时与绑定学费；提交前会二次确认，并记录操作人与操作内容
+        </span>
+        <span v-else class="rf-tip">
+          仅管理员、财务或已分配「修改退费课时/金额」权限的员工可调整课时与金额
+        </span>
       </div>
       <a-checkbox-group v-model:value="refundSelected" class="rf-list">
         <div
@@ -1875,12 +2004,39 @@ onMounted(async () => {
         >
           <a-checkbox :value="row.key" :disabled="row.disabled">
             <span class="rf-name">{{ row.name }}</span>
-            <span v-if="row.kind === 'course'" class="rf-sub">剩余 {{ row.remainLessons }} 课时</span>
-            <span v-else class="rf-sub">账户余额</span>
+            <span v-if="row.kind === 'course'" class="rf-sub">
+              剩余 {{ row.maxLessons }} 课时 · 可退 ￥{{ moneyText(row.maxAmount) }}
+            </span>
+            <span v-else class="rf-sub">账户余额 · 可退 ￥{{ moneyText(row.maxAmount) }}</span>
           </a-checkbox>
-          <span class="rf-amount">
-            {{ row.disabled && row.amount <= 0 ? '无可退金额' : `￥${moneyText(row.amount)}` }}
-          </span>
+          <div v-if="!row.disabled" class="rf-fields">
+            <label v-if="row.kind === 'course'" class="rf-field">
+              <span>退费课时</span>
+              <a-input-number
+                v-model:value="row.lessons"
+                :min="0"
+                :max="row.maxLessons"
+                :step="0.5"
+                :precision="1"
+                :disabled="!canEditRefundAmounts"
+                size="small"
+                class="rf-input"
+              />
+            </label>
+            <label class="rf-field">
+              <span>退费金额</span>
+              <a-input-number
+                v-model:value="row.amount"
+                :min="0"
+                :max="row.maxAmount"
+                :precision="2"
+                :disabled="!canEditRefundAmounts"
+                size="small"
+                class="rf-input"
+              />
+            </label>
+          </div>
+          <span v-else class="rf-amount">无可退金额</span>
         </div>
       </a-checkbox-group>
       <div class="rf-total">
@@ -3083,6 +3239,19 @@ onMounted(async () => {
   color: #adb4bc;
   font-size: 12px;
 }
+.sd-log-title {
+  margin: 4px 0 12px;
+  color: #30404f;
+  font-weight: 600;
+}
+.sd-log-content {
+  margin-top: 4px;
+  padding-left: 157px;
+  color: #6b7885;
+  font-size: 12px;
+  line-height: 1.6;
+  word-break: break-all;
+}
 .sd-empty-note {
   margin-top: 12px;
   font-size: 12px;
@@ -3233,6 +3402,23 @@ onMounted(async () => {
   color: #ff6b00;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
+}
+.rf-fields {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.rf-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 0;
+  font-size: 12px;
+  color: #6b7885;
+  white-space: nowrap;
+}
+.rf-input {
+  width: 96px;
 }
 .rf-row.is-disabled .rf-name,
 .rf-row.is-disabled .rf-sub,

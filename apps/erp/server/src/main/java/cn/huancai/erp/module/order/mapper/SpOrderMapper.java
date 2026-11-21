@@ -34,10 +34,16 @@ public interface SpOrderMapper extends BaseMapper<SpOrder> {
     @Select("SELECT DISTINCT name FROM material WHERE status = '正常' ORDER BY name")
     List<String> selectMaterialNames();
 
-    /** 本地闭环订单号：年月日 + 4 位当日流水，例如 202611070001。 */
-    @Select("SELECT GREATEST(" +
-            "CAST(DATE_FORMAT(NOW(), '%Y%m%d') AS UNSIGNED) * 10000 + 1, " +
-            "COALESCE(MAX(CAST(order_no AS UNSIGNED)), 0) + 1" +
-            ") FROM sp_order WHERE order_no LIKE CONCAT(DATE_FORMAT(NOW(), '%Y%m%d'), '%')")
+    /** 旧系统停用时的最新订单号，本地新订单号从它之后继续递增。 */
+    String LEGACY_LATEST_ORDER_NO = "33752";
+
+    /**
+     * 本地闭环订单号：接续旧系统最新订单号递增，例如 33753、33754。
+     *
+     * <p>历史导入订单用的是日期型长号（202611160030），只统计纯数字短号，
+     * 避免被日期型订单号覆盖。</p>
+     */
+    @Select("SELECT GREATEST(COALESCE(MAX(CAST(order_no AS UNSIGNED)), 0), " + LEGACY_LATEST_ORDER_NO + ") + 1 "
+            + "FROM sp_order WHERE CHAR_LENGTH(order_no) <= 8 AND order_no REGEXP '^[0-9]+'")
     long selectNextLocalOrderNo();
 }

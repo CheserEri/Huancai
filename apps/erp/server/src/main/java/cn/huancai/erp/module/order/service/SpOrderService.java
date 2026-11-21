@@ -1,24 +1,37 @@
 package cn.huancai.erp.module.order.service;
 
+import cn.huancai.erp.common.OperatorResolver;
 import cn.huancai.erp.module.campus.entity.Campus;
 import cn.huancai.erp.module.campus.mapper.CampusMapper;
 import cn.huancai.erp.module.order.dto.SpOrderQuery;
+import cn.huancai.erp.module.order.dto.UpdateOrderRequest;
 import cn.huancai.erp.module.order.entity.SpOrder;
+import cn.huancai.erp.module.order.entity.SpOrderItem;
+import cn.huancai.erp.module.order.mapper.SpOrderItemMapper;
 import cn.huancai.erp.module.order.mapper.SpOrderMapper;
 import cn.huancai.erp.module.order.vo.SpOrderPageVO;
 import cn.huancai.erp.module.order.vo.SpOrderSummaryVO;
 import cn.huancai.erp.module.order.vo.SpOrderVO;
+import cn.huancai.erp.module.student.entity.Enrollment;
+import cn.huancai.erp.module.student.entity.StudentOperationLog;
+import cn.huancai.erp.module.student.mapper.EnrollmentMapper;
+import cn.huancai.erp.module.student.mapper.StudentOperationLogMapper;
+import cn.huancai.erp.module.teaching.entity.ClassStudent;
+import cn.huancai.erp.module.teaching.mapper.ClassStudentMapper;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-/** 历史订单镜像查询。数据由一次性迁移脚本导入，页面保持只读，写操作仍在平台端完成。 */
+/** 历史订单镜像查询。数据由一次性迁移脚本导入，写操作只落本地库。 */
 @Service
 public class SpOrderService {
 
@@ -39,10 +52,26 @@ public class SpOrderService {
 
     private final SpOrderMapper orderMapper;
     private final CampusMapper campusMapper;
+    private final SpOrderItemMapper orderItemMapper;
+    private final EnrollmentMapper enrollmentMapper;
+    private final ClassStudentMapper classStudentMapper;
+    private final StudentOperationLogMapper studentOperationLogMapper;
+    private final OperatorResolver operatorResolver;
 
-    public SpOrderService(SpOrderMapper orderMapper, CampusMapper campusMapper) {
+    public SpOrderService(SpOrderMapper orderMapper,
+                          CampusMapper campusMapper,
+                          SpOrderItemMapper orderItemMapper,
+                          EnrollmentMapper enrollmentMapper,
+                          ClassStudentMapper classStudentMapper,
+                          StudentOperationLogMapper studentOperationLogMapper,
+                          OperatorResolver operatorResolver) {
         this.orderMapper = orderMapper;
         this.campusMapper = campusMapper;
+        this.orderItemMapper = orderItemMapper;
+        this.enrollmentMapper = enrollmentMapper;
+        this.classStudentMapper = classStudentMapper;
+        this.studentOperationLogMapper = studentOperationLogMapper;
+        this.operatorResolver = operatorResolver;
     }
 
     public SpOrderPageVO query(SpOrderQuery query) {
@@ -67,6 +96,9 @@ public class SpOrderService {
             return null;
         }
         enrich(List.of(row));
+        row.setItems(orderItemMapper.selectList(new LambdaQueryWrapper<SpOrderItem>()
+                .eq(SpOrderItem::getOrderId, id)
+                .orderByAsc(SpOrderItem::getId)));
         return row;
     }
 
@@ -88,6 +120,187 @@ public class SpOrderService {
         order.setVoidAt(LocalDateTime.now());
         orderMapper.updateById(order);
         return detail(id);
+    }
+
+    /**
+     * 修改订单：基础信息 / 金额 / 明细课时按权限逐项校验，课时差值同步报读与班级成员，
+     * 并写入学员操作日志（含操作人与修改前后差异）。
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public SpOrderVO updateOrder(Long id, UpdateOrderRequest request) {
+        SpOrder order = orderMapper.selectById(id);
+        if (order == null) {
+            throw new IllegalArgumentException("订单不存在");
+        }
+        if (order.getStatusCode() != null && order.getStatusCode() == 3) {
+            throw new IllegalArgumentException("已作废订单不可修改");
+        }
+        String reason = request.reason() == null ? "" : request.reason().trim();
+        if (reason.length() < 5 || reason.length() > 100) {
+            throw new IllegalArgumentException("修改原因需填写 5~100 个字");
+        }
+
+        List<SpOrderItem> currentItems = orderItemMapper.selectList(new LambdaQueryWrapper<SpOrderItem>()
+                .eq(SpOrderItem::getOrderId, id)
+                .orderByAsc(SpOrderItem::getId));
+        List<String> changes = new ArrayList<>();
+
+        String content = trimToNull(request.content());
+        String payMethod = trimToNull(request.payMethod());
+        LocalDateTime dealDate = request.dealDate();
+        BigDecimal shouldPay = request.shouldPay();
+        BigDecimal realPay = request.realPay();
+
+        boolean basicChanged = false;
+        if (content != null && !content.equals(order.getContent())) {
+            changes.add("交易内容「" + textOrDash(order.getContent()) + "」→「" + content + "」");
+            basicChanged = true;
+        }
+        if (payMethod != null && !payMethod.equals(order.getPayMethod())) {
+            changes.add("付款方式「" + textOrDash(order.getPayMethod()) + "」→「" + payMethod + "」");
+            basicChanged = true;
+        }
+        if (dealDate != null && !dealDate.equals(order.getDealDate())) {
+            changes.add("交易时间 " + timeText(order.getDealDate()) + " → " + timeText(dealDate));
+            basicChanged = true;
+        }
+
+        boolean amountChanged = false;
+        if (shouldPay != null && shouldPay.compareTo(nz(order.getShouldPay())) != 0) {
+            changes.add("应收/应退 " + money(order.getShouldPay()) + " → " + money(shouldPay));
+            amountChanged = true;
+        }
+        if (realPay != null && realPay.compareTo(nz(order.getRealPay())) != 0) {
+            changes.add("实收/实退 " + money(order.getRealPay()) + " → " + money(realPay));
+            amountChanged = true;
+        }
+
+        Map<Long, BigDecimal> lessonsChanges = new LinkedHashMap<>();
+        if (request.items() != null) {
+            for (UpdateOrderRequest.ItemLessons line : request.items()) {
+                if (line == null || line.id() == null) {
+                    continue;
+                }
+                SpOrderItem item = currentItems.stream()
+                        .filter(row -> row.getId().equals(line.id()))
+                        .findFirst()
+                        .orElseThrow(() -> new IllegalArgumentException("订单明细不存在，无法修改课时"));
+                if (line.lessons() == null) {
+                    continue;
+                }
+                if (line.lessons().signum() < 0) {
+                    throw new IllegalArgumentException("课程课时不能为负数");
+                }
+                if (line.lessons().compareTo(nz(item.getLessons())) == 0) {
+                    continue;
+                }
+                changes.add("课程「" + textOrDash(item.getCourseName()) + "」课时 "
+                        + plain(item.getLessons()) + " → " + plain(line.lessons()));
+                lessonsChanges.put(item.getId(), line.lessons());
+            }
+        }
+
+        if (changes.isEmpty()) {
+            throw new IllegalArgumentException("未检测到任何修改");
+        }
+        if (basicChanged && !operatorResolver.hasPermission("/order/edit")) {
+            throw new IllegalArgumentException("缺少修改订单权限，请联系管理员开通");
+        }
+        if (amountChanged && !operatorResolver.hasPermission("/order/edit-amount")) {
+            throw new IllegalArgumentException("缺少修改订单金额权限，请联系管理员开通");
+        }
+        if (!lessonsChanges.isEmpty() && !operatorResolver.hasPermission("/order/edit-lessons")) {
+            throw new IllegalArgumentException("缺少修改订单课时权限，请联系管理员开通");
+        }
+
+        if (basicChanged || amountChanged) {
+            if (content != null) {
+                order.setContent(content);
+            }
+            if (payMethod != null) {
+                order.setPayMethod(payMethod);
+            }
+            if (dealDate != null) {
+                order.setDealDate(dealDate);
+            }
+            if (shouldPay != null) {
+                order.setShouldPay(shouldPay);
+            }
+            if (realPay != null) {
+                order.setRealPay(realPay);
+            }
+            if (amountChanged) {
+                if (Boolean.TRUE.equals(order.getIsReturn())) {
+                    order.setArrearage(BigDecimal.ZERO);
+                } else {
+                    BigDecimal arrearage = nz(order.getShouldPay())
+                            .subtract(nz(order.getRealPay()))
+                            .subtract(nz(order.getCredit()));
+                    order.setArrearage(arrearage.max(BigDecimal.ZERO));
+                }
+            }
+            orderMapper.updateById(order);
+        }
+
+        if (!lessonsChanges.isEmpty()) {
+            for (SpOrderItem item : currentItems) {
+                BigDecimal newLessons = lessonsChanges.get(item.getId());
+                if (newLessons == null) {
+                    continue;
+                }
+                BigDecimal delta = newLessons.subtract(nz(item.getLessons()));
+                item.setLessons(newLessons);
+                orderItemMapper.updateById(item);
+                syncEnrollmentLessons(item.getEnrollmentId(), delta);
+            }
+        }
+
+        // 只要有字段或课时变化，就记录最后修改时间，供详情页展示
+        order.setUpdatedTime(LocalDateTime.now());
+        orderMapper.updateById(order);
+
+        writeOperationLog(order, "订单 " + order.getOrderNo() + " 修改："
+                + String.join("；", changes) + "；原因：" + reason);
+        return detail(id);
+    }
+
+    /** 课时差值同步报读与班级成员，remain 允许为负。 */
+    private void syncEnrollmentLessons(Long enrollmentId, BigDecimal delta) {
+        if (enrollmentId == null || delta.signum() == 0) {
+            return;
+        }
+        Enrollment enrollment = enrollmentMapper.selectById(enrollmentId);
+        if (enrollment == null) {
+            return;
+        }
+        enrollment.setTotalLessons(nz(enrollment.getTotalLessons()).add(delta));
+        enrollment.setRemainLessons(nz(enrollment.getRemainLessons()).add(delta));
+        enrollment.setUpdatedAt(LocalDateTime.now());
+        enrollmentMapper.updateById(enrollment);
+        if (enrollment.getClassId() == null || enrollment.getStudentId() == null) {
+            return;
+        }
+        ClassStudent member = classStudentMapper.selectOne(new LambdaQueryWrapper<ClassStudent>()
+                .eq(ClassStudent::getClassId, enrollment.getClassId())
+                .eq(ClassStudent::getStudentId, enrollment.getStudentId())
+                .last("LIMIT 1"));
+        if (member == null) {
+            return;
+        }
+        member.setTotalLessons(nz(member.getTotalLessons()).add(delta));
+        member.setRemainLessons(nz(member.getRemainLessons()).add(delta));
+        classStudentMapper.updateById(member);
+    }
+
+    private void writeOperationLog(SpOrder order, String content) {
+        StudentOperationLog log = new StudentOperationLog();
+        log.setCampusId(order.getCampusId());
+        log.setStudentId(order.getStudentId());
+        log.setType("订单修改");
+        log.setContent(content);
+        log.setOperatorId(operatorResolver.currentStaffId());
+        log.setOperatorName(operatorResolver.resolve(null));
+        studentOperationLogMapper.insert(log);
     }
 
     public Map<String, Object> options() {
@@ -164,5 +377,25 @@ public class SpOrderService {
         }
         String trimmed = value.trim();
         return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private BigDecimal nz(BigDecimal value) {
+        return value == null ? BigDecimal.ZERO : value;
+    }
+
+    private String plain(BigDecimal value) {
+        return nz(value).stripTrailingZeros().toPlainString();
+    }
+
+    private String money(BigDecimal value) {
+        return "￥" + nz(value).setScale(2, RoundingMode.HALF_UP).toPlainString();
+    }
+
+    private String timeText(LocalDateTime value) {
+        return value == null ? "-" : value.toString().replace('T', ' ');
+    }
+
+    private String textOrDash(String value) {
+        return value == null || value.isBlank() ? "-" : value;
     }
 }

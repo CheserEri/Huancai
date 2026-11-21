@@ -16,5 +16,7 @@ public class PermissionTemplateVO {
     private Integer builtin;
     /** 可见菜单路径。 */
     private List<String> permissions;
+    /** 绑定该模板的员工数，模板调整时会同步给这些人。 */
+    private Integer staffCount;
     private LocalDateTime updatedAt;
 }

@@ -31,9 +31,11 @@ import cn.huancai.erp.module.teaching.mapper.ClassStudentMapper;
 import cn.huancai.erp.module.student.entity.Enrollment;
 import cn.huancai.erp.module.student.entity.LessonTxn;
 import cn.huancai.erp.module.student.entity.Student;
+import cn.huancai.erp.module.student.entity.StudentOperationLog;
 import cn.huancai.erp.module.student.mapper.EnrollmentMapper;
 import cn.huancai.erp.module.student.mapper.LessonTxnMapper;
 import cn.huancai.erp.module.student.mapper.StudentMapper;
+import cn.huancai.erp.module.student.mapper.StudentOperationLogMapper;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -82,6 +84,7 @@ public class LocalOrderService {
     private final PriceTemplateCourseMapper priceTemplateCourseMapper;
     private final PriceTemplatePriceMapper priceTemplatePriceMapper;
     private final SpOrderItemMapper spOrderItemMapper;
+    private final StudentOperationLogMapper studentOperationLogMapper;
     private final OperatorResolver operatorResolver;
 
     public LocalOrderService(SpOrderMapper spOrderMapper,
@@ -99,6 +102,7 @@ public class LocalOrderService {
                              PriceTemplateCourseMapper priceTemplateCourseMapper,
                              PriceTemplatePriceMapper priceTemplatePriceMapper,
                              SpOrderItemMapper spOrderItemMapper,
+                             StudentOperationLogMapper studentOperationLogMapper,
                              OperatorResolver operatorResolver) {
         this.spOrderMapper = spOrderMapper;
         this.studentMapper = studentMapper;
@@ -115,6 +119,7 @@ public class LocalOrderService {
         this.priceTemplateCourseMapper = priceTemplateCourseMapper;
         this.priceTemplatePriceMapper = priceTemplatePriceMapper;
         this.spOrderItemMapper = spOrderItemMapper;
+        this.studentOperationLogMapper = studentOperationLogMapper;
         this.operatorResolver = operatorResolver;
     }
 
@@ -825,8 +830,8 @@ public class LocalOrderService {
     }
 
     /**
-     * 批量退费：整单退掉选中的报读（退剩余课时、冲减绑定学费），并可同时退账户剩余未用学费。
-     * 支持只退一门课程、只退账户余额，或多选一次性全退。
+     * 批量退费：按报读退费课时与绑定学费，可同时退账户剩余未用学费。
+     * 课时与金额默认取全部可退值，有权限的员工可按需调小；修改会写入学员操作日志。
      */
     @Transactional(rollbackFor = Exception.class)
     public LocalOrderResultVO refundBatch(LocalOrderRequests.BatchRefund request) {
@@ -836,47 +841,58 @@ public class LocalOrderService {
         List<Long> enrollmentIds = request.enrollmentIds() == null ? List.of()
                 : request.enrollmentIds().stream().filter(Objects::nonNull).distinct().toList();
         BigDecimal balanceAmount = nonNegativeMoney(request.balanceAmount(), "退账户余额");
-        if (enrollmentIds.isEmpty() && balanceAmount.signum() <= 0) {
+        if (enrollmentIds.isEmpty()
+                && (request.items() == null || request.items().isEmpty())
+                && balanceAmount.signum() <= 0) {
             throw new IllegalArgumentException("请选择要退费的课程或账户余额");
         }
 
-        BigDecimal total = BigDecimal.ZERO;
-        List<String> parts = new ArrayList<>();
-        List<Map.Entry<Enrollment, BigDecimal>> refunded = new ArrayList<>();
-        for (Long enrollmentId : enrollmentIds) {
-            Enrollment enrollment = enrollmentMapper.selectById(enrollmentId);
-            if (enrollment == null || !Objects.equals(enrollment.getStudentId(), student.getId())) {
-                throw new IllegalArgumentException("请选择该学员的报读记录");
+        List<RefundLine> lines = new ArrayList<>();
+        if (request.items() != null && !request.items().isEmpty()) {
+            Map<Long, LocalOrderRequests.BatchRefundItem> unique = new LinkedHashMap<>();
+            for (LocalOrderRequests.BatchRefundItem item : request.items()) {
+                if (item != null && item.enrollmentId() != null) {
+                    unique.putIfAbsent(item.enrollmentId(), item);
+                }
             }
-            if (!STATUS_ACTIVE.equals(enrollment.getStatus()) && !"停课".equals(enrollment.getStatus())) {
-                throw new IllegalArgumentException("报读记录状态为「" + enrollment.getStatus() + "」，不能退费");
+            for (LocalOrderRequests.BatchRefundItem item : unique.values()) {
+                lines.add(resolveRefundLine(student, item.enrollmentId(), item.lessons(), item.amount()));
             }
-            Course course = courseMapper.selectById(enrollment.getCourseId());
-            String courseName = course == null ? "报读#" + enrollment.getId() : course.getName();
-            // 可退学费 = 报读实收 - 已课耗金额
-            BigDecimal amount = money(nz(enrollment.getPaidAmount())
-                    .subtract(nz(enrollment.getConsumedAmount())).max(BigDecimal.ZERO));
-            if (amount.signum() <= 0) {
-                throw new IllegalArgumentException("报读「" + courseName + "」没有可退学费");
+        } else {
+            for (Long enrollmentId : enrollmentIds) {
+                lines.add(resolveRefundLine(student, enrollmentId, null, null));
             }
-            BigDecimal lessons = nz(enrollment.getRemainLessons()).max(BigDecimal.ZERO);
-            // 退剩余课时并冲减绑定学费，使该报读账户余额归零
-            enrollment.setTotalLessons(nz(enrollment.getTotalLessons()).subtract(lessons).max(BigDecimal.ZERO));
-            enrollment.setRemainLessons(BigDecimal.ZERO);
-            enrollment.setPaidAmount(nz(enrollment.getPaidAmount()).subtract(amount).max(BigDecimal.ZERO));
-            enrollment.setStatus(STATUS_REFUNDED);
-            enrollment.setUpdatedAt(LocalDateTime.now());
-            enrollmentMapper.updateById(enrollment);
-            syncClassStudent(enrollment, null);
-            refunded.add(Map.entry(enrollment, lessons));
-            total = total.add(amount);
-            parts.add(courseName + "（退" + plain(lessons) + "课时，￥" + plain(amount) + "）");
         }
 
         BigDecimal pool = money(nz(student.getBalance()));
         if (balanceAmount.compareTo(pool) > 0) {
             throw new IllegalArgumentException("退费金额不能大于账户剩余未用学费（可用 ￥" + plain(pool) + "）");
         }
+        boolean balanceChanged = balanceAmount.signum() > 0 && balanceAmount.compareTo(pool) != 0;
+        boolean courseChanged = lines.stream().anyMatch(RefundLine::changed);
+        if ((courseChanged || balanceChanged) && !operatorResolver.canEditRefundAmounts()) {
+            throw new IllegalArgumentException("仅管理员、财务或已分配退费修改权限的员工可修改退费课时与金额");
+        }
+
+        BigDecimal total = BigDecimal.ZERO;
+        List<String> parts = new ArrayList<>();
+        List<Map.Entry<Enrollment, BigDecimal>> refunded = new ArrayList<>();
+        for (RefundLine line : lines) {
+            Enrollment enrollment = line.enrollment();
+            enrollment.setTotalLessons(nz(enrollment.getTotalLessons()).subtract(line.lessons()).max(BigDecimal.ZERO));
+            enrollment.setRemainLessons(nz(enrollment.getRemainLessons()).subtract(line.lessons()).max(BigDecimal.ZERO));
+            enrollment.setPaidAmount(nz(enrollment.getPaidAmount()).subtract(line.amount()).max(BigDecimal.ZERO));
+            if (nz(enrollment.getRemainLessons()).signum() <= 0) {
+                enrollment.setStatus(STATUS_REFUNDED);
+            }
+            enrollment.setUpdatedAt(LocalDateTime.now());
+            enrollmentMapper.updateById(enrollment);
+            syncClassStudent(enrollment, null);
+            refunded.add(Map.entry(enrollment, line.lessons()));
+            total = total.add(line.amount());
+            parts.add(line.courseName() + "（退" + plain(line.lessons()) + "课时，￥" + plain(line.amount()) + "）");
+        }
+
         if (balanceAmount.signum() > 0) {
             student.setBalance(money(pool.subtract(balanceAmount)));
             total = total.add(balanceAmount);
@@ -895,12 +911,91 @@ public class LocalOrderService {
                 total.negate(), total.negate(), BigDecimal.ZERO, BigDecimal.ZERO,
                 payMethod, creator, content, reason, null);
         for (Map.Entry<Enrollment, BigDecimal> line : refunded) {
-            writeTxn(line.getKey(), line.getValue().negate(), "退课", order.getId(), content);
+            if (line.getValue().signum() > 0) {
+                writeTxn(line.getKey(), line.getValue().negate(), "退课", order.getId(), content);
+            }
         }
+
+        // 记录修改前后的差异，保证敏感金额调整可追溯
+        List<String> changes = new ArrayList<>();
+        for (RefundLine line : lines) {
+            List<String> diff = new ArrayList<>();
+            if (line.lessons().compareTo(line.maxLessons()) != 0) {
+                diff.add("退费课时 " + plain(line.maxLessons()) + " → " + plain(line.lessons()));
+            }
+            if (line.amount().compareTo(line.maxAmount()) != 0) {
+                diff.add("绑定学费 ￥" + plain(line.maxAmount()) + " → ￥" + plain(line.amount()));
+            }
+            if (!diff.isEmpty()) {
+                changes.add("课程「" + line.courseName() + "」" + String.join("，", diff));
+            }
+        }
+        if (balanceChanged) {
+            changes.add("账户剩余未用学费退费金额 ￥" + plain(balanceAmount) + "（原可退 ￥" + plain(pool) + "）");
+        }
+        if (!changes.isEmpty()) {
+            writeStudentOperationLog(campusId, student.getId(), "退费金额修改", String.join("；", changes));
+        }
+        writeStudentOperationLog(campusId, student.getId(), "退费办理",
+                "退费合计 ￥" + plain(total) + "；" + String.join("；", parts)
+                        + (reason == null ? "" : "；原因：" + reason));
+
         student.setCourseCount(refreshCourseCount(student.getId()));
         studentMapper.updateById(student);
         return new LocalOrderResultVO(order.getId(), order.getOrderNo(), "退费", content,
                 student.getBalance(), null);
+    }
+
+    /** 校验单条报读的可退课时与金额，返回本次实际退费行。 */
+    private RefundLine resolveRefundLine(Student student, Long enrollmentId,
+                                         BigDecimal requestedLessons, BigDecimal requestedAmount) {
+        Enrollment enrollment = enrollmentMapper.selectById(enrollmentId);
+        if (enrollment == null || !Objects.equals(enrollment.getStudentId(), student.getId())) {
+            throw new IllegalArgumentException("请选择该学员的报读记录");
+        }
+        if (!STATUS_ACTIVE.equals(enrollment.getStatus()) && !"停课".equals(enrollment.getStatus())) {
+            throw new IllegalArgumentException("报读记录状态为「" + enrollment.getStatus() + "」，不能退费");
+        }
+        Course course = courseMapper.selectById(enrollment.getCourseId());
+        String courseName = course == null ? "报读#" + enrollment.getId() : course.getName();
+        BigDecimal maxAmount = money(nz(enrollment.getPaidAmount())
+                .subtract(nz(enrollment.getConsumedAmount())).max(BigDecimal.ZERO));
+        if (maxAmount.signum() <= 0) {
+            throw new IllegalArgumentException("报读「" + courseName + "」没有可退学费");
+        }
+        BigDecimal maxLessons = nz(enrollment.getRemainLessons()).max(BigDecimal.ZERO).setScale(1, RoundingMode.HALF_UP);
+        BigDecimal lessons = requestedLessons == null
+                ? maxLessons
+                : nonNegativeLessons(requestedLessons, "退费课时");
+        BigDecimal amount = requestedAmount == null
+                ? maxAmount
+                : nonNegativeMoney(requestedAmount, "退费金额");
+        if (lessons.compareTo(maxLessons) > 0) {
+            throw new IllegalArgumentException("报读「" + courseName + "」退费课时不能超过剩余 " + plain(maxLessons) + " 课时");
+        }
+        if (amount.compareTo(maxAmount) > 0) {
+            throw new IllegalArgumentException("报读「" + courseName + "」退费金额不能超过可退 ￥" + plain(maxAmount));
+        }
+        if (lessons.signum() <= 0 && amount.signum() <= 0) {
+            throw new IllegalArgumentException("报读「" + courseName + "」退费课时与金额不能同时为 0");
+        }
+        boolean changed = lessons.compareTo(maxLessons) != 0 || amount.compareTo(maxAmount) != 0;
+        return new RefundLine(enrollment, courseName, maxLessons, maxAmount, lessons, amount, changed);
+    }
+
+    private void writeStudentOperationLog(Long campusId, Long studentId, String type, String content) {
+        StudentOperationLog log = new StudentOperationLog();
+        log.setCampusId(campusId);
+        log.setStudentId(studentId);
+        log.setType(type);
+        log.setContent(content);
+        log.setOperatorId(operatorResolver.currentStaffId());
+        log.setOperatorName(operatorResolver.resolve(null));
+        studentOperationLogMapper.insert(log);
+    }
+
+    private record RefundLine(Enrollment enrollment, String courseName, BigDecimal maxLessons,
+                              BigDecimal maxAmount, BigDecimal lessons, BigDecimal amount, boolean changed) {
     }
 
     /** 退账户剩余未用学费：从学员账户余额中退款，生成退费订单。 */

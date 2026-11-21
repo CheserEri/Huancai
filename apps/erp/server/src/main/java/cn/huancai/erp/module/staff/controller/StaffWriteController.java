@@ -120,7 +120,9 @@ public class StaffWriteController {
         String encoded = PermissionCodec.encode(form.getPermissions());
         staffMapper.update(null, new LambdaUpdateWrapper<Staff>()
                 .eq(Staff::getId, id)
-                .set(Staff::getMenuPermissions, encoded));
+                .set(Staff::getMenuPermissions, encoded)
+                // 记录套用的模板，后续模板调整可自动同步；手工配置时为 null
+                .set(Staff::getPermissionTemplateId, form.getTemplateId()));
         return ApiResult.ok(PermissionCodec.resolve(staff.getRole(), encoded));
     }
 

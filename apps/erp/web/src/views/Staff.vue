@@ -14,7 +14,7 @@ import {
   type StaffRow,
   type StaffSummary,
 } from '../api/client'
-import { menuGroups } from '../config/menu'
+import { actionPermissionGroups, menuGroups } from '../config/menu'
 import FilterBar from '../components/FilterBar.vue'
 
 const keyword = ref('')
@@ -122,7 +122,7 @@ function onPrimaryRoleChange() {
 }
 
 /** 权限配置按菜单分组展示，值与路由路径一致。 */
-const permissionGroups = menuGroups.map((group) => ({
+const permissionGroups = [...menuGroups, ...actionPermissionGroups].map((group) => ({
   key: group.key,
   title: group.title,
   items: group.items

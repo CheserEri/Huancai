@@ -19,5 +19,6 @@ public class ScheduleForm {
     private LocalTime endTime;
     private String room;
     private String topic;
+    private String assistantName;
     private Integer lessonMode;
 }

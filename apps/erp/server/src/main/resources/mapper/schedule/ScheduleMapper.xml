@@ -32,6 +32,7 @@
       COALESCE(NULLIF(s.class_name, ''), cg.name) AS className,
       s.course_id      AS courseId,
       COALESCE(NULLIF(s.course_name, ''), co.name) AS courseName,
+      s.teacher_id     AS teacherId,
       COALESCE(NULLIF(s.teacher_name, ''), t.name) AS teacherName,
       s.assistant_name AS assistantName,
       s.lesson_date    AS lessonDate,

@@ -7,7 +7,7 @@
         stu_name_pinyin, type_code, content, should_pay, real_pay, remain, arrearage, credit,
         source_type, salesman, creator, sales_source, tags, is_return, status_code,
         contract_status, pay_method, comment, comment_outer, has_confirmed_detail, has_textbook,
-        is_online_payment, has_multi_lesson_enroll, deal_date, created_time, expiry_date,
+        is_online_payment, has_multi_lesson_enroll, deal_date, created_time, updated_time, expiry_date,
         void_reason, void_at
     </sql>
 

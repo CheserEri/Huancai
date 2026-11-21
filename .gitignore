@@ -1,10 +1,11 @@
 # ---------- 本地运行环境 / 运行时数据（体积大且含敏感信息，不入库）----------
-tools/
-tmp/
-backups/
-storage/
-screenshots/
-data/
+/tools/
+/tmp/
+/backups/
+/storage/
+/screenshots/
+/data/
+/.trae/
 apps/ledger/data.db
 
 # ---------- 构建产物与依赖 ----------

@@ -15,7 +15,7 @@ import {
   type StaffOptions,
   type StaffRow,
 } from '../api/client'
-import { menuGroups } from '../config/menu'
+import { actionPermissionGroups, menuGroups } from '../config/menu'
 import { authState } from '../stores/auth'
 
 interface OrgNode {
@@ -70,7 +70,7 @@ const activeTab = ref('staff')
 const isAdmin = computed(() => authState.user?.role === 'admin')
 
 /** 权限配置按菜单分组展示，值与路由路径一致。 */
-const permissionGroups: PermGroup[] = menuGroups
+const permissionGroups: PermGroup[] = [...menuGroups, ...actionPermissionGroups]
   .map((group) => ({
     key: group.key,
     title: group.title,
@@ -226,6 +226,16 @@ function toggleStaffGroup(group: PermGroup, event: { target: { checked: boolean 
   draft.value = toggleGroupValues(group, draft.value, event.target.checked)
 }
 
+/** 单个菜单勾选：仅在完整权限集合上增删，避免多个分组共享数组时互相覆盖。 */
+function toggleValue(values: string[], path: string, checked: boolean) {
+  if (checked) return values.includes(path) ? values : [...values, path]
+  return values.filter((item) => item !== path)
+}
+
+function toggleStaffItem(path: string, event: { target: { checked: boolean } }) {
+  draft.value = toggleValue(draft.value, path, event.target.checked)
+}
+
 function clearAll() {
   draft.value = []
   message.info('已清空，仅保留工作台。保存后生效')
@@ -255,6 +265,7 @@ const templateColumns = [
   { title: '模板名称', dataIndex: 'name', width: 180 },
   { title: '适用角色', dataIndex: 'role', width: 110 },
   { title: '可见菜单', dataIndex: 'menuCount', width: 150 },
+  { title: '已绑定员工', dataIndex: 'staffCount', width: 110 },
   { title: '类型', dataIndex: 'builtin', width: 100 },
   { title: '更新时间', dataIndex: 'updatedAt', width: 170 },
   { title: '操作', dataIndex: 'action', width: 120 },
@@ -286,12 +297,14 @@ async function savePermissions() {
   saving.value = true
   try {
     const targetId = current.value.id
-    const permissions = await updateStaffPermissions(targetId, draft.value)
+    const permissions = await updateStaffPermissions(targetId, draft.value, selectedTemplateId.value)
     const target = rows.value.find((row) => row.id === targetId)
     if (target) target.permissions = permissions
     current.value = { ...current.value, permissions }
     message.success(`「${current.value.name}」的菜单权限已更新`)
     drawerOpen.value = false
+    // 套用模板会建立绑定，刷新模板列表里的「已绑定员工」数量
+    if (selectedTemplateId.value) await loadTemplates()
   } catch (e) {
     message.error(e instanceof Error ? e.message : '保存权限失败')
   } finally {
@@ -342,6 +355,10 @@ function toggleTemplateGroup(group: PermGroup, event: { target: { checked: boole
   templateDraft.permissions = toggleGroupValues(group, templateDraft.permissions, event.target.checked)
 }
 
+function toggleTemplateItem(path: string, event: { target: { checked: boolean } }) {
+  templateDraft.permissions = toggleValue(templateDraft.permissions, path, event.target.checked)
+}
+
 function clearTemplatePermissions() {
   templateDraft.permissions = []
 }
@@ -368,8 +385,10 @@ async function saveTemplate() {
       await createPermissionTemplate(payload)
       message.success('权限模板已创建')
     } else {
-      await updatePermissionTemplate(editingTemplateId.value, payload)
-      message.success('权限模板已更新')
+      const saved = await updatePermissionTemplate(editingTemplateId.value, payload)
+      const bound = saved?.staffCount ?? 0
+      message.success(bound > 0 ? `权限模板已更新，已同步到 ${bound} 名员工` : '权限模板已更新')
+      if (bound > 0) await load()
     }
     templateDrawerOpen.value = false
     await loadTemplates()
@@ -383,7 +402,7 @@ async function saveTemplate() {
 function removeTemplate(row: PermissionTemplateRow) {
   Modal.confirm({
     title: `确认删除权限模板「${row.name}」？`,
-    content: '删除模板不会影响已经套用该模板的员工权限。',
+    content: '删除模板会解除员工的绑定关系，已写入的菜单权限保持不变。',
     okText: '删除',
     okType: 'danger',
     cancelText: '取消',
@@ -492,7 +511,7 @@ onMounted(() => {
 
       <a-tab-pane key="template" tab="权限模板">
         <div class="org-tip">
-          权限模板是菜单权限的预设组合：在「员工权限」里选中模板即可一键填充勾选，仍需保存后才会写入员工账号；修改模板不会自动同步到已配置的员工。
+          权限模板是菜单权限的预设组合：在「员工权限」里选中模板套用并保存后，员工即与该模板绑定；之后修改模板并保存，会自动同步到所有绑定该模板的员工。
           内置模板与职务一一对应，可调整勾选内容但不可删除。
         </div>
 
@@ -523,6 +542,9 @@ onMounted(() => {
                   {{ record.role ? roleText[record.role] ?? record.role : '通用' }}
                 </span>
                 <span v-else-if="column.dataIndex === 'menuCount'">{{ templateMenuCount(record) }}</span>
+                <span v-else-if="column.dataIndex === 'staffCount'">
+                  {{ record.staffCount > 0 ? `${record.staffCount} 人` : '未绑定' }}
+                </span>
                 <span v-else-if="column.dataIndex === 'builtin'">
                   <a-tag :color="record.builtin === 1 ? 'blue' : 'default'">
                     {{ record.builtin === 1 ? '内置' : '自定义' }}
@@ -637,7 +659,17 @@ onMounted(() => {
             >
               {{ group.title }}
             </a-checkbox>
-            <a-checkbox-group v-model:value="draft" :options="group.items" class="perm-items" :disabled="!canEdit" />
+            <div class="perm-items">
+              <a-checkbox
+                v-for="item in group.items"
+                :key="item.value"
+                :checked="draft.includes(item.value)"
+                :disabled="!canEdit"
+                @change="toggleStaffItem(item.value, $event)"
+              >
+                {{ item.label }}
+              </a-checkbox>
+            </div>
           </div>
           <div class="perm-tip">
             工作台为默认页面始终可见；未勾选的菜单登录后不显示，也无法通过网址直接访问。
@@ -692,11 +724,16 @@ onMounted(() => {
           >
             {{ group.title }}
           </a-checkbox>
-          <a-checkbox-group
-            v-model:value="templateDraft.permissions"
-            :options="group.items"
-            class="perm-items"
-          />
+          <div class="perm-items">
+            <a-checkbox
+              v-for="item in group.items"
+              :key="item.value"
+              :checked="templateDraft.permissions.includes(item.value)"
+              @change="toggleTemplateItem(item.value, $event)"
+            >
+              {{ item.label }}
+            </a-checkbox>
+          </div>
         </div>
         <div class="perm-tip">
           工作台为默认页面始终可见；模板仅用于填充员工权限，不自动继承。

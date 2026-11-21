@@ -97,6 +97,9 @@
         <text class="delta {{item.deltaClass}}" wx:if="{{item.deltaText}}">{{item.deltaText}}</text>
       </view>
       <view class="exam-remark" wx:if="{{item.remark}}">{{item.remark}}</view>
+      <view class="exam-paper" wx:if="{{item.paperImage}}" data-src="{{item.paperImage}}" bindtap="previewPaper">
+        <text>查看试卷图片</text>
+      </view>
     </view>
   </block>
 </view>

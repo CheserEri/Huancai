@@ -26,7 +26,9 @@ public interface GradeScoreMapper extends BaseMapper<GradeScore> {
                    gs.part_scores  AS partScoresJson,
                    COALESCE(gs.status, '未考') AS status,
                    gs.remark       AS remark,
-                   gs.rank_class   AS rankClass
+                   gs.rank_class   AS rankClass,
+                   (SELECT gp.url FROM grade_student_paper gp
+                     WHERE gp.exam_id = #{examId} AND gp.student_id = cs.student_id LIMIT 1) AS paperImage
             FROM class_student cs
             JOIN student st ON st.id = cs.student_id
             LEFT JOIN grade_score gs

@@ -32,6 +32,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -219,6 +220,9 @@ public class GradeExamController {
             return ApiResult.fail("满分必须大于 0");
         }
         exam.setFullScore(fullScore);
+        if (exam.getPassScore() == null || exam.getPassScore().compareTo(fullScore) > 0) {
+            exam.setPassScore(fullScore.multiply(BigDecimal.valueOf(0.6)).setScale(1, RoundingMode.HALF_UP));
+        }
         exam.setUpdatedAt(LocalDateTime.now());
         examMapper.updateById(exam);
         return ApiResult.ok(toVO(exam));
@@ -529,7 +533,16 @@ public class GradeExamController {
         exam.setCourseId(form.getCourseId());
         exam.setCourseName(resolveCourseName(form));
         exam.setExamDate(form.getExamDate());
-        exam.setFullScore(form.getFullScore() == null ? BigDecimal.valueOf(100) : form.getFullScore());
+        BigDecimal fullScore = form.getFullScore() == null ? BigDecimal.valueOf(100) : form.getFullScore();
+        exam.setFullScore(fullScore);
+        BigDecimal passScore = form.getPassScore();
+        if (passScore == null || passScore.signum() <= 0) {
+            passScore = fullScore.multiply(BigDecimal.valueOf(0.6)).setScale(1, RoundingMode.HALF_UP);
+        }
+        if (passScore.compareTo(fullScore) > 0) {
+            passScore = fullScore;
+        }
+        exam.setPassScore(passScore);
         exam.setScoringMode(form.getScoringMode() == null || form.getScoringMode().isBlank()
                 ? "分数" : form.getScoringMode().trim());
         exam.setRemark(form.getRemark() == null ? null : form.getRemark().trim());

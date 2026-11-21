@@ -20,6 +20,7 @@ public class GradeExamVO {
     private String courseName;
     private LocalDate examDate;
     private BigDecimal fullScore;
+    private BigDecimal passScore;
     private String scoringMode;
     /** 试卷图片地址列表。 */
     private List<String> paperImages;

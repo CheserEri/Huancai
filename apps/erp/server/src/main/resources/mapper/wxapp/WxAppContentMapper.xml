@@ -133,7 +133,9 @@
            gs.rank_campus    AS rankCampus,
            gs.status,
            gs.remark,
-           gs.part_scores    AS partScoresJson
+           gs.part_scores    AS partScoresJson,
+           (SELECT gp.url FROM grade_student_paper gp
+             WHERE gp.exam_id = gs.exam_id AND gp.student_id = gs.student_id LIMIT 1) AS paperImage
     FROM grade_score gs
     JOIN grade_exam ge ON ge.id = gs.exam_id
     LEFT JOIN class_group cg ON cg.id = gs.class_id

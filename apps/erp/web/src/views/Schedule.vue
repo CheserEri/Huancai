@@ -5,6 +5,7 @@ import { Modal, message } from 'ant-design-vue'
 import {
   cancelSchedule,
   createSchedule,
+  createScheduleBatch,
   fetchScheduleClasses,
   fetchScheduleCourses,
   fetchScheduleOptions,
@@ -12,15 +13,12 @@ import {
   fetchScheduleSummary,
   fetchScheduleTeachers,
   fetchSchedules,
-  fetchStudents,
   restoreSchedule,
   updateSchedule,
-  type ScheduleFormPayload,
   type ScheduleOption,
   type ScheduleOptions,
   type ScheduleRow,
   type ScheduleSummary,
-  type StudentRow,
 } from '../api/client'
 
 const weekStart = ref(startOfWeek(new Date()))
@@ -49,60 +47,62 @@ const classFilterOptions = computed(() => [
   { value: 'all', label: '全部班级' },
   ...classes.value.map((item) => ({ value: item.id, label: item.name })),
 ])
+const campusNameById = computed(
+  () => new Map((options.value?.campuses ?? []).map((item) => [item.id, item.name])),
+)
 const classFormOptions = computed(() =>
-  (options.value?.classes ?? []).map((item) => ({ value: item.id, label: item.name }))
+  (options.value?.classes ?? []).map((item) => {
+    const campusName = item.campusId ? campusNameById.value.get(item.campusId) : ''
+    return { value: item.id, label: campusName ? `${item.name}（${campusName}）` : item.name }
+  }),
 )
 const courseFilterOptions = computed(() => [
   { value: 'all', label: '全部课程' },
   ...courses.value.map((item) => ({ value: item.id, label: item.name })),
 ])
-const courseFormOptions = computed(() =>
-  (options.value?.courses ?? []).map((item) => ({ value: item.id, label: item.name }))
-)
 const teacherFormOptions = computed(() =>
-  (options.value?.teachers ?? []).map((item) => ({ value: item.id, label: item.name }))
+  (options.value?.teachers ?? []).map((item) => ({ value: item.id, label: item.name })),
 )
-const studentFormOptions = computed(() =>
-  students.value.map((item) => ({
-    value: item.id,
-    label: `${item.name}（${item.phone || '无电话'}）`,
-  }))
-)
-const roomFormOptions = computed(() =>
-  (options.value?.rooms ?? []).map((item) => ({ value: item, label: item }))
-)
-const students = ref<StudentRow[]>([])
-const studentLoading = ref(false)
+
+type RepeatType = 'week' | 'biweek' | 'altDay'
 
 interface ScheduleFormState {
-  campusId?: number
-  lessonMode: number
   classId?: number
-  studentId?: number
-  courseId?: number
-  teacherId?: number
+  method: 'free' | 'repeat'
   lessonDate: string
+  startDate: string
+  endDate: string
+  repeatType: RepeatType
+  weekdays: number[]
+  holidayFilter: 'skip' | 'allow'
   startTime: string
   endTime: string
+  teacherId?: number
+  assistantName: string
   room: string
-  topic: string
 }
 
-function emptyScheduleForm(date?: string): ScheduleFormState {
-  return {
-    campusId: undefined,
-    lessonMode: 1,
-    classId: undefined,
-    studentId: undefined,
-    courseId: undefined,
-    teacherId: undefined,
-    lessonDate: date ?? nowDate(),
-    startTime: '09:00',
-    endTime: '10:30',
-    room: '',
-    topic: '',
-  }
+const weekdayOptions = [
+  { value: 1, label: '周一' },
+  { value: 2, label: '周二' },
+  { value: 3, label: '周三' },
+  { value: 4, label: '周四' },
+  { value: 5, label: '周五' },
+  { value: 6, label: '周六' },
+  { value: 7, label: '周日' },
+]
+const weekdayByName: Record<string, number> = {
+  周一: 1,
+  周二: 2,
+  周三: 3,
+  周四: 4,
+  周五: 5,
+  周六: 6,
+  周日: 7,
 }
+const extraRooms = ref<string[]>([])
+const roomOpen = ref(false)
+const roomName = ref('')
 
 const formOpen = ref(false)
 const formMode = ref<'create' | 'edit'>('create')
@@ -110,8 +110,142 @@ const formSaving = ref(false)
 const editingId = ref<number | null>(null)
 const form = ref<ScheduleFormState>(emptyScheduleForm())
 
+const roomFormOptions = computed(() =>
+  Array.from(new Set([...(options.value?.rooms ?? []), ...extraRooms.value])).map((item) => ({
+    value: item,
+    label: item,
+  })),
+)
+const repeatCount = computed(() => repeatDates(form.value).length)
+
 function nowDate() {
   return fmt(new Date())
+}
+
+function parseDate(value: string) {
+  const [y, m, d] = value.split('-').map(Number)
+  return new Date(y, m - 1, d)
+}
+
+function addDays(value: string, days: number) {
+  const d = parseDate(value)
+  d.setDate(d.getDate() + days)
+  return fmt(d)
+}
+
+function emptyScheduleForm(): ScheduleFormState {
+  const today = nowDate()
+  return {
+    classId: undefined,
+    method: 'repeat',
+    lessonDate: today,
+    startDate: today,
+    endDate: addDays(today, 90),
+    repeatType: 'week',
+    weekdays: [],
+    holidayFilter: 'allow',
+    startTime: '09:00',
+    endTime: '10:30',
+    teacherId: undefined,
+    assistantName: '',
+    room: '',
+  }
+}
+
+/** 按重复规则推算上课日期，与后端生成逻辑保持一致。 */
+function repeatDates(state: ScheduleFormState) {
+  const result: string[] = []
+  if (!state.startDate || !state.endDate) {
+    return result
+  }
+  const start = parseDate(state.startDate)
+  const end = parseDate(state.endDate)
+  if (end < start) {
+    return result
+  }
+  if (state.repeatType === 'altDay') {
+    for (const d = new Date(start); d <= end; d.setDate(d.getDate() + 2)) {
+      result.push(fmt(d))
+    }
+  } else {
+    const startWeek = startOfWeek(start)
+    for (const d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      const day = d.getDay() === 0 ? 7 : d.getDay()
+      if (!state.weekdays.includes(day)) {
+        continue
+      }
+      if (state.repeatType === 'biweek') {
+        const weeks = Math.round((startOfWeek(d).getTime() - startWeek.getTime()) / (7 * 86400000))
+        if (weeks % 2 !== 0) {
+          continue
+        }
+      }
+      result.push(fmt(d))
+    }
+  }
+  if (state.holidayFilter === 'skip') {
+    return result.filter((date) => {
+      const day = parseDate(date).getDay()
+      return day !== 0 && day !== 6
+    })
+  }
+  return result
+}
+
+/** 选中班级后，用班级已配置的上课时间自动带出周几与时段。 */
+function applyClassSchedule(text?: string | null) {
+  if (!text) {
+    return
+  }
+  const pattern = /(周[一二三四五六日])\s*(\d{1,2}):(\d{2})\s*[-~至]\s*(\d{1,2}):(\d{2})/g
+  const days: number[] = []
+  let first: { start: string; end: string } | null = null
+  let matched: RegExpExecArray | null
+  while ((matched = pattern.exec(text)) !== null) {
+    const day = weekdayByName[matched[1]]
+    if (day) {
+      days.push(day)
+    }
+    if (!first) {
+      first = {
+        start: `${matched[2].padStart(2, '0')}:${matched[3]}`,
+        end: `${matched[4].padStart(2, '0')}:${matched[5]}`,
+      }
+    }
+  }
+  if (days.length) {
+    form.value.weekdays = Array.from(new Set(days)).sort()
+  }
+  if (first) {
+    form.value.startTime = first.start
+    form.value.endTime = first.end
+  }
+}
+
+function toggleAllWeekdays(checked: boolean) {
+  form.value.weekdays = checked ? weekdayOptions.map((item) => item.value) : []
+}
+
+function onToggleAllWeekdays(event: any) {
+  toggleAllWeekdays(Boolean(event?.target?.checked ?? event))
+}
+
+function openRoomCreate() {
+  roomName.value = ''
+  roomOpen.value = true
+}
+
+function confirmRoom() {
+  const name = roomName.value.trim()
+  if (!name) {
+    message.warning('请输入教室名称')
+    return
+  }
+  if (!extraRooms.value.includes(name)) {
+    extraRooms.value.push(name)
+  }
+  form.value.room = name
+  roomOpen.value = false
 }
 
 function startOfWeek(d: Date) {
@@ -274,23 +408,11 @@ async function ensureOptions(force = false) {
   options.value = await fetchScheduleOptions().catch(() => null)
 }
 
-async function loadStudents() {
-  if (students.value.length) return
-  studentLoading.value = true
-  try {
-    const res = await fetchStudents({ status: '在读', size: 200 })
-    students.value = res.records
-  } catch (e) {
-    console.error(e)
-  } finally {
-    studentLoading.value = false
-  }
-}
-
 async function openCreate() {
   await ensureOptions(true)
   formMode.value = 'create'
   editingId.value = null
+  extraRooms.value = []
   form.value = emptyScheduleForm()
   formOpen.value = true
 }
@@ -300,17 +422,19 @@ async function openAdjust(row: ScheduleRow) {
   formMode.value = 'edit'
   editingId.value = row.id
   form.value = {
-    campusId: row.campusId,
-    lessonMode: row.lessonMode ?? 1,
     classId: row.classId ?? undefined,
-    studentId: row.studentId ?? undefined,
-    courseId: row.courseId ?? undefined,
-    teacherId: row.teacherId ?? undefined,
+    method: 'free',
     lessonDate: row.lessonDate,
+    startDate: row.lessonDate,
+    endDate: row.lessonDate,
+    repeatType: 'week',
+    weekdays: [],
+    holidayFilter: 'allow',
     startTime: timeOf(row.startTime),
     endTime: timeOf(row.endTime),
+    teacherId: row.teacherId ?? undefined,
+    assistantName: row.assistantName ?? '',
     room: row.room ?? '',
-    topic: row.topic ?? '',
   }
   current.value = null
   formOpen.value = true
@@ -319,81 +443,139 @@ async function openAdjust(row: ScheduleRow) {
 watch(
   () => form.value.classId,
   (id) => {
-    if (!id || !options.value) return
+    if (formMode.value !== 'create' || !id || !options.value) return
     const cls = options.value.classes.find((c) => c.id === id)
     if (!cls) return
-    if (cls.campusId) form.value.campusId = cls.campusId
-    if (cls.courseId) form.value.courseId = cls.courseId
     if (cls.teacherId) form.value.teacherId = cls.teacherId
-    if (cls.room && !form.value.room) form.value.room = cls.room
-  },
-)
-
-watch(
-  () => form.value.lessonMode,
-  (mode) => {
-    if (mode === 1) {
-      form.value.studentId = undefined
-      loadStudents()
-    } else {
-      form.value.classId = undefined
-      loadStudents()
-    }
+    form.value.assistantName = cls.assistName ?? ''
+    form.value.room = cls.room ?? ''
+    applyClassSchedule(cls.scheduleText)
   },
 )
 
 async function submitForm() {
-  if (!form.value.campusId) {
-    message.warning('请选择校区')
+  if (formMode.value === 'edit') {
+    if (!form.value.lessonDate) {
+      message.warning('请选择上课日期')
+      return
+    }
+    if (!form.value.startTime || !form.value.endTime) {
+      message.warning('请选择上课时段')
+      return
+    }
+    if (form.value.startTime >= form.value.endTime) {
+      message.warning('下课时间必须晚于上课时间')
+      return
+    }
+    if (editingId.value === null) return
+    formSaving.value = true
+    try {
+      await updateSchedule(editingId.value, {
+        lessonDate: form.value.lessonDate,
+        startTime: form.value.startTime,
+        endTime: form.value.endTime,
+        room: form.value.room,
+        assistantName: form.value.assistantName,
+        teacherId: form.value.teacherId ?? null,
+      })
+      message.success('调课已保存')
+      formOpen.value = false
+      await load()
+    } catch (e) {
+      message.error((e as Error).message || '保存失败')
+    } finally {
+      formSaving.value = false
+    }
     return
   }
-  if (form.value.lessonMode === 1 && !form.value.classId) {
+
+  if (!form.value.classId) {
     message.warning('请选择班级')
     return
   }
-  if (form.value.lessonMode === 2 && !form.value.studentId) {
-    message.warning('请选择一对一学员')
-    return
-  }
-  if (!form.value.lessonDate) {
-    message.warning('请选择上课日期')
-    return
-  }
   if (!form.value.startTime || !form.value.endTime) {
-    message.warning('请填写上课时间')
+    message.warning('请选择上课时段')
     return
   }
-  const payload: ScheduleFormPayload = {
-    campusId: form.value.campusId,
-    lessonMode: form.value.lessonMode,
-    lessonDate: form.value.lessonDate,
-    startTime: form.value.startTime,
-    endTime: form.value.endTime,
-    room: form.value.room,
-    topic: form.value.topic,
+  if (form.value.startTime >= form.value.endTime) {
+    message.warning('下课时间必须晚于上课时间')
+    return
   }
-  if (formMode.value === 'create') {
-    payload.classId = form.value.classId ?? null
-    payload.studentId = form.value.studentId ?? null
-    payload.courseId = form.value.courseId ?? null
-    payload.teacherId = form.value.teacherId ?? null
-  } else {
-    payload.teacherId = form.value.teacherId ?? null
-    payload.courseId = form.value.courseId ?? null
+  const cls = options.value?.classes.find((c) => c.id === form.value.classId)
+  const className = cls?.name ?? '班级'
+
+  if (form.value.method === 'free') {
+    if (!form.value.lessonDate) {
+      message.warning('请选择上课日期')
+      return
+    }
+    formSaving.value = true
+    try {
+      const res = await createSchedule({
+        campusId: cls?.campusId ?? undefined,
+        classId: form.value.classId,
+        lessonDate: form.value.lessonDate,
+        startTime: form.value.startTime,
+        endTime: form.value.endTime,
+        teacherId: form.value.teacherId ?? null,
+        assistantName: form.value.assistantName,
+        room: form.value.room,
+        lessonMode: 1,
+      })
+      message.success(`已为「${className}」添加 ${res.lessonDate} ${timeOf(res.startTime)} 的课次`)
+      formOpen.value = false
+      await load()
+    } catch (e) {
+      message.error((e as Error).message || '排课失败')
+    } finally {
+      formSaving.value = false
+    }
+    return
+  }
+
+  if (!form.value.startDate) {
+    message.warning('请选择开始日期')
+    return
+  }
+  if (!form.value.endDate) {
+    message.warning('请选择结束日期')
+    return
+  }
+  if (form.value.endDate < form.value.startDate) {
+    message.warning('结束日期不能早于开始日期')
+    return
+  }
+  if (form.value.repeatType !== 'altDay' && !form.value.weekdays.length) {
+    message.warning('请选择周几上课')
+    return
+  }
+  if (!repeatCount.value) {
+    message.warning('所选条件下没有可排课的日期')
+    return
   }
   formSaving.value = true
   try {
-    if (formMode.value === 'create') {
-      const res = await createSchedule(payload)
-      message.success(`已新增 ${res.lessonDate} ${timeOf(res.startTime)} 的课次`)
-    } else if (editingId.value !== null) {
-      await updateSchedule(editingId.value, payload)
-      message.success('调课已保存')
-    }
+    const res = await createScheduleBatch({
+      classId: form.value.classId,
+      startDate: form.value.startDate,
+      endDate: form.value.endDate,
+      repeatType: form.value.repeatType,
+      weekdays: form.value.weekdays,
+      skipWeekend: form.value.holidayFilter === 'skip',
+      startTime: form.value.startTime,
+      endTime: form.value.endTime,
+      teacherId: form.value.teacherId ?? null,
+      assistantName: form.value.assistantName,
+      room: form.value.room,
+    })
+    message.success(
+      `已为「${res.className}」添加 ${res.created} 节课次` +
+        (res.skipped ? `，跳过 ${res.skipped} 节已存在课次` : ''),
+    )
     formOpen.value = false
     await load()
   } catch (e) {
-    message.error((e as Error).message || '保存失败')
+    message.error((e as Error).message || '排课失败')
   } finally {
     formSaving.value = false
   }
@@ -435,7 +617,6 @@ const listColumns = [
   { title: '时间', dataIndex: 'startTime', width: 110 },
   { title: '班级', dataIndex: 'className', width: 240, ellipsis: true },
   { title: '课程', dataIndex: 'courseName', width: 180, ellipsis: true },
-  { title: '课程主题', dataIndex: 'topic', width: 160, ellipsis: true },
   { title: '教师', dataIndex: 'teacherName', width: 90 },
   { title: '助教', dataIndex: 'assistantName', width: 90 },
   { title: '教室', dataIndex: 'room', width: 90 },
@@ -513,7 +694,7 @@ onMounted(async () => {
           </a-select>
         </div>
         <div class="filter-item">
-          <a-input v-model:value="keyword" size="small" style="width: 180px" placeholder="班级 / 课程 / 主题 / 教师 / 教室" allow-clear @press-enter="search" />
+          <a-input v-model:value="keyword" size="small" style="width: 180px" placeholder="班级 / 课程 / 教师 / 教室" allow-clear @press-enter="search" />
         </div>
         <a-button type="primary" size="small" :loading="loading" @click="search"><SearchOutlined />查询</a-button>
         <a-button size="small" @click="reset">重置</a-button>
@@ -535,7 +716,7 @@ onMounted(async () => {
             <a-radio-button value="day">日课表</a-radio-button>
             <a-radio-button value="list">列表</a-radio-button>
           </a-radio-group>
-          <a-button type="primary" size="small" class="primary-btn" @click="openCreate">新增排课</a-button>
+          <a-button type="primary" size="small" class="primary-btn" @click="openCreate">新建排课</a-button>
         </div>
         <div class="summary">
           <span>课次 <b>{{ summary?.total ?? 0 }}</b></span>
@@ -567,7 +748,6 @@ onMounted(async () => {
                 @click="current = lesson"
               >
                 <div class="lesson-name">{{ lesson.className || lesson.courseName }}</div>
-                <div v-if="lesson.topic" class="lesson-topic">{{ lesson.topic }}</div>
                 <div class="lesson-meta">
                   {{ timeOf(lesson.startTime) }}-{{ timeOf(lesson.endTime) }} · {{ lesson.teacherName }}
                 </div>
@@ -601,7 +781,6 @@ onMounted(async () => {
                 @click="current = lesson"
               >
                 <div class="lesson-name">{{ lesson.className || lesson.courseName }}</div>
-                <div v-if="lesson.topic" class="lesson-topic">{{ lesson.topic }}</div>
                 <div class="lesson-meta">
                   {{ timeOf(lesson.startTime) }}-{{ timeOf(lesson.endTime) }} · {{ lesson.teacherName }} · {{ lesson.room || '未指定教室' }}
                 </div>
@@ -622,14 +801,13 @@ onMounted(async () => {
           :pagination="{ pageSize: 20, showSizeChanger: true, pageSizeOptions: ['20', '50', '100'], showTotal: (t: number) => `共 ${t} 条` }"
           row-key="id"
           size="small"
-          :scroll="{ x: 1700 }"
+          :scroll="{ x: 1540 }"
           :custom-row="rowProps"
         >
           <template #bodyCell="{ column, record }">
             <span v-if="column.dataIndex === 'startTime'">{{ timeOf(record.startTime) }}-{{ timeOf(record.endTime) }}</span>
             <span v-else-if="column.dataIndex === 'className'">{{ record.className || '—' }}</span>
             <span v-else-if="column.dataIndex === 'courseName'">{{ record.courseName || '—' }}</span>
-            <span v-else-if="column.dataIndex === 'topic'">{{ record.topic || '—' }}</span>
             <span v-else-if="column.dataIndex === 'teacherName'">{{ record.teacherName || '—' }}</span>
             <span v-else-if="column.dataIndex === 'assistantName'" class="muted">{{ record.assistantName || '—' }}</span>
             <span v-else-if="column.dataIndex === 'room'">{{ record.room || '—' }}</span>
@@ -657,7 +835,6 @@ onMounted(async () => {
           <a-descriptions-item label="时间">{{ timeOf(current.startTime) }}-{{ timeOf(current.endTime) }}</a-descriptions-item>
           <a-descriptions-item label="班级" :span="2">{{ current.className || '—' }}</a-descriptions-item>
           <a-descriptions-item label="课程" :span="2">{{ current.courseName || '—' }}</a-descriptions-item>
-          <a-descriptions-item label="课程主题" :span="2">{{ current.topic || '—' }}</a-descriptions-item>
           <a-descriptions-item label="校区">{{ current.campusName }}</a-descriptions-item>
           <a-descriptions-item label="教室">{{ current.room || '—' }}</a-descriptions-item>
           <a-descriptions-item label="教师">{{ current.teacherName || '—' }}</a-descriptions-item>
@@ -700,33 +877,28 @@ onMounted(async () => {
 
     <a-modal
       v-model:open="formOpen"
-      :title="formMode === 'create' ? '新增排课' : '调课'"
+      :title="formMode === 'create' ? '新建排课' : '调课'"
       :confirm-loading="formSaving"
-      width="680"
-      ok-text="保存"
+      centered
+      wrap-class-name="schedule-modal"
+      width="720"
+      ok-text="确定"
       cancel-text="取消"
       @ok="submitForm"
     >
       <a-form layout="vertical" class="schedule-form">
         <div class="form-grid">
-          <a-form-item label="模式" required>
-            <a-radio-group v-model:value="form.lessonMode" :disabled="formMode === 'edit'">
-              <a-radio :value="1">班课</a-radio>
-              <a-radio :value="2">一对一</a-radio>
+          <a-form-item v-if="formMode === 'create'" label="排课方式" required>
+            <a-radio-group v-model:value="form.method">
+              <a-radio value="free">自由排课</a-radio>
+              <a-radio value="repeat">重复排课</a-radio>
             </a-radio-group>
           </a-form-item>
-          <a-form-item label="校区" required>
-            <a-select v-model:value="form.campusId" placeholder="请选择校区" allow-clear>
-              <a-select-option v-for="item in options?.campuses ?? []" :key="item.id" :value="item.id">
-                {{ item.name }}
-              </a-select-option>
-            </a-select>
-          </a-form-item>
 
-          <a-form-item v-if="form.lessonMode === 1" label="班级" required>
+          <a-form-item label="班级" required>
             <a-select
               v-model:value="form.classId"
-              placeholder="请选择班级"
+              placeholder="搜索并选择已建班级"
               show-search
               :options="classFormOptions"
               option-filter-prop="label"
@@ -734,59 +906,128 @@ onMounted(async () => {
               :disabled="formMode === 'edit'"
             />
           </a-form-item>
-          <a-form-item v-else label="一对一学员" required>
-            <a-select
-              v-model:value="form.studentId"
-              placeholder="搜索学员姓名"
-              show-search
-              :options="studentFormOptions"
-              option-filter-prop="label"
-              allow-clear
-              :loading="studentLoading"
-              :disabled="formMode === 'edit'"
-            />
+
+          <template v-if="formMode === 'edit' || form.method === 'free'">
+            <a-form-item label="上课日期" required>
+              <a-date-picker v-model:value="form.lessonDate" value-format="YYYY-MM-DD" style="width: 100%" />
+            </a-form-item>
+          </template>
+
+          <template v-if="formMode === 'create' && form.method === 'repeat'">
+            <a-form-item label="开始日期" required>
+              <a-date-picker v-model:value="form.startDate" value-format="YYYY-MM-DD" style="width: 100%" />
+            </a-form-item>
+            <a-form-item label="结束方式" required>
+              <a-select value="date" style="width: 100%">
+                <a-select-option value="date">按日期结束</a-select-option>
+              </a-select>
+            </a-form-item>
+            <a-form-item label="结束日期" required>
+              <a-date-picker v-model:value="form.endDate" value-format="YYYY-MM-DD" style="width: 100%" />
+            </a-form-item>
+            <a-form-item label="重复方式" required>
+              <a-radio-group v-model:value="form.repeatType">
+                <a-radio value="week">每周重复</a-radio>
+                <a-radio value="biweek">间隔周重复</a-radio>
+                <a-radio value="altDay">隔天重复</a-radio>
+              </a-radio-group>
+            </a-form-item>
+            <a-form-item label="周几上课" required class="span-2">
+              <div class="weekday-row">
+                <a-checkbox
+                  :checked="form.weekdays.length === weekdayOptions.length"
+                  :indeterminate="form.weekdays.length > 0 && form.weekdays.length < weekdayOptions.length"
+                  :disabled="form.repeatType === 'altDay'"
+                  @change="onToggleAllWeekdays"
+                >
+                  全选
+                </a-checkbox>
+                <a-checkbox-group
+                  v-model:value="form.weekdays"
+                  :options="weekdayOptions"
+                  :disabled="form.repeatType === 'altDay'"
+                />
+              </div>
+            </a-form-item>
+            <a-form-item label="节假日过滤" required class="span-2">
+              <a-radio-group v-model:value="form.holidayFilter">
+                <a-radio value="skip">节假日不排课</a-radio>
+                <a-radio value="allow">节假日排课</a-radio>
+              </a-radio-group>
+              <span class="form-hint">节假日不排课将跳过周六、周日</span>
+            </a-form-item>
+            <div class="form-hint span-2 repeat-hint">按当前规则预计生成 {{ repeatCount }} 节课次</div>
+          </template>
+
+          <a-form-item label="上课时段" required class="span-2">
+            <div class="slot-row">
+              <a-time-picker
+                v-model:value="form.startTime"
+                value-format="HH:mm"
+                format="HH:mm"
+                :minute-step="5"
+                :allow-clear="false"
+                style="width: 120px"
+              />
+              <span class="slot-sep">至</span>
+              <a-time-picker
+                v-model:value="form.endTime"
+                value-format="HH:mm"
+                format="HH:mm"
+                :minute-step="5"
+                :allow-clear="false"
+                style="width: 120px"
+              />
+            </div>
           </a-form-item>
 
-          <a-form-item label="课程">
-            <a-select
-              v-model:value="form.courseId"
-              placeholder="请选择课程"
-              show-search
-              :options="courseFormOptions"
-              option-filter-prop="label"
-              allow-clear
-            />
-          </a-form-item>
-          <a-form-item label="教师">
+          <a-form-item label="上课教师">
             <a-select
               v-model:value="form.teacherId"
-              placeholder="请选择教师"
+              placeholder="请选择上课教师"
               show-search
               :options="teacherFormOptions"
               option-filter-prop="label"
               allow-clear
             />
           </a-form-item>
-
-          <a-form-item label="上课日期" required>
-            <a-date-picker v-model:value="form.lessonDate" value-format="YYYY-MM-DD" style="width: 100%" />
-          </a-form-item>
-          <a-form-item label="教室">
-            <a-select v-model:value="form.room" placeholder="请选择或输入教室" allow-clear show-search :options="roomFormOptions" option-filter-prop="label" />
+          <a-form-item label="助教">
+            <a-input v-model:value="form.assistantName" placeholder="选填" :maxlength="20" />
           </a-form-item>
 
-          <a-form-item label="上课时间" required>
-            <a-time-picker v-model:value="form.startTime" value-format="HH:mm" format="HH:mm" style="width: 100%" />
-          </a-form-item>
-          <a-form-item label="下课时间" required>
-            <a-time-picker v-model:value="form.endTime" value-format="HH:mm" format="HH:mm" style="width: 100%" />
-          </a-form-item>
-
-          <a-form-item label="课程主题" class="span-2">
-            <a-input v-model:value="form.topic" placeholder="如 第三单元 · 阅读理解" :maxlength="128" />
+          <a-form-item label="上课教室" class="span-2">
+            <div class="slot-row">
+              <a-select
+                v-model:value="form.room"
+                placeholder="请选择上课教室"
+                allow-clear
+                show-search
+                :options="roomFormOptions"
+                option-filter-prop="label"
+                style="width: 240px"
+              />
+              <a-button @click="openRoomCreate">创建教室</a-button>
+            </div>
           </a-form-item>
         </div>
       </a-form>
+    </a-modal>
+
+    <a-modal
+      v-model:open="roomOpen"
+      title="创建教室"
+      width="420"
+      ok-text="确定"
+      cancel-text="取消"
+      destroy-on-close
+      @ok="confirmRoom"
+    >
+      <a-input
+        v-model:value="roomName"
+        placeholder="请输入教室名称，如 301 教室"
+        :maxlength="32"
+        @press-enter="confirmRoom"
+      />
     </a-modal>
   </div>
 </template>
@@ -799,6 +1040,20 @@ onMounted(async () => {
   text-align: center;
 }
 
+.schedule-modal .ant-modal {
+  max-width: calc(100vw - 32px);
+}
+
+.schedule-modal .ant-modal-body {
+  max-height: calc(100vh - 200px);
+  overflow-y: auto;
+  padding-right: 6px;
+}
+
+.schedule-form .ant-form-item {
+  margin-bottom: 14px;
+}
+
 .form-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -807,6 +1062,40 @@ onMounted(async () => {
 
 .span-2 {
   grid-column: span 2;
+}
+
+@media (max-width: 640px) {
+  .form-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .span-2 {
+    grid-column: span 1;
+  }
+}
+
+.weekday-row,
+.slot-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.slot-sep {
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+.form-hint {
+  font-size: 12px;
+  color: var(--text-3);
+  margin-left: 8px;
+}
+
+.repeat-hint {
+  margin: -8px 0 16px;
+  padding-left: 4px;
 }
 
 .schedule-form :deep(.ant-form-item) {
@@ -905,13 +1194,6 @@ onMounted(async () => {
 .lesson-name {
   font-size: 12px;
   color: var(--text);
-  line-height: 1.4;
-}
-
-.lesson-topic {
-  font-size: 11px;
-  color: #007aff;
-  margin-top: 2px;
   line-height: 1.4;
 }
 

@@ -273,3 +273,14 @@
   color: var(--text-2);
   line-height: 1.65;
 }
+
+.exam-paper {
+  display: inline-flex;
+  align-items: center;
+  margin-top: 16rpx;
+  padding: 10rpx 22rpx;
+  border-radius: 999rpx;
+  background: var(--brand-soft);
+  color: var(--brand);
+  font-size: 23rpx;
+}

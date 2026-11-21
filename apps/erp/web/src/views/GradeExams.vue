@@ -10,7 +10,6 @@ import {
   deleteGradeExam,
   fetchGradeClassOptions,
   fetchGradeExams,
-  fetchGradePartTemplates,
   publishGradeExam,
   unlockGradeExam,
   updateGradeExam,
@@ -18,8 +17,6 @@ import {
   type GradeExamPayload,
   type GradeExamRow,
   type GradePart,
-  type GradePartTemplate,
-  type GradeScoringMode,
   type GradeType,
 } from '../api/client'
 
@@ -27,11 +24,12 @@ const router = useRouter()
 
 const rows = ref<GradeExamRow[]>([])
 const classOptions = ref<GradeClassOption[]>([])
-const templates = ref<GradePartTemplate[]>([])
 const loading = ref(false)
 const modalOpen = ref(false)
 const saving = ref(false)
 const editingId = ref<number | null>(null)
+/** 用户是否手动修改过及格线，未修改时随满分按 60% 自动调整。 */
+const passTouched = ref(false)
 
 const keyword = ref('')
 const typeFilter = ref<string | undefined>(undefined)
@@ -50,50 +48,9 @@ const classSelectOptions = computed(() =>
     value: item.id,
   })),
 )
-const courseSelectOptions = computed(() => {
-  const map = new Map<number, string>()
-  classOptions.value.forEach((item) => {
-    if (item.courseId && item.courseName) map.set(item.courseId, item.courseName)
-  })
-  return Array.from(map.entries()).map(([value, label]) => ({ label, value }))
-})
 
-const form = reactive<{
-  name: string
-  type: GradeType
-  courseId: number | null
-  examDate: string | null
-  fullScore: number
-  scoringMode: GradeScoringMode
-  remark: string
-  classIds: number[]
-  parts: GradePart[]
-}>({
-  name: '',
-  type: '周考',
-  courseId: null,
-  examDate: null,
-  fullScore: 100,
-  scoringMode: '分数',
-  remark: '',
-  classIds: [],
-  parts: [],
-})
-
-/** 学校考试不绑定课程，直接批量选择班级。 */
-const schoolExam = computed(() => form.type === '学校考试')
-
-/** 机构周考/月考：选中课程后，其下全部班级自动适用。 */
-const autoClassOptions = computed(() =>
-  form.courseId
-    ? classOptions.value
-        .filter((item) => item.courseId === form.courseId)
-        .map((item) => ({ label: item.name, value: item.id }))
-    : [],
-)
-
-/** 学校考试：按课程分组批量选择班级。 */
-const schoolClassGroups = computed(() => {
+/** 适用班级按课程分组，直接多选班级。 */
+const classGroupOptions = computed(() => {
   const groups = new Map<string, { label: string; options: { label: string; value: number }[] }>()
   classOptions.value.forEach((item) => {
     const groupName = item.courseName || '未绑定课程'
@@ -103,13 +60,33 @@ const schoolClassGroups = computed(() => {
   return Array.from(groups.values())
 })
 
-/** 本次考试已适用的班级（机构考试随课程自动带出）。 */
-const appliedClassOptions = computed(() =>
-  form.classIds.map((id) => ({
-    value: id,
-    label: classOptions.value.find((item) => item.id === id)?.name ?? `班级#${id}`,
-  })),
+const allClassIds = computed(() =>
+  classGroupOptions.value.flatMap((group) => group.options.map((item) => item.value)),
 )
+
+const form = reactive<{
+  name: string
+  type: GradeType
+  /** 兼容历史数据：弹窗不再选择课程，编辑时原样保留。 */
+  courseId: number | null
+  examDate: string | null
+  fullScore: number
+  passScore: number
+  remark: string
+  classIds: number[]
+  /** 分项不再在新建/编辑弹窗中维护，编辑时原样保留历史配置。 */
+  parts: GradePart[]
+}>({
+  name: '',
+  type: '周考',
+  courseId: null,
+  examDate: null,
+  fullScore: 100,
+  passScore: 60,
+  remark: '',
+  classIds: [],
+  parts: [],
+})
 
 const columns = [
   { title: '考试名称', dataIndex: 'name', width: 180, ellipsis: true },
@@ -169,11 +146,6 @@ async function loadOptions() {
   } catch (e) {
     message.error(e instanceof Error ? e.message : '加载班级选项失败')
   }
-  try {
-    templates.value = await fetchGradePartTemplates()
-  } catch {
-    templates.value = []
-  }
 }
 
 function resetForm() {
@@ -182,10 +154,22 @@ function resetForm() {
   form.courseId = null
   form.examDate = null
   form.fullScore = 100
-  form.scoringMode = '分数'
+  form.passScore = 60
   form.remark = ''
   form.classIds = []
   form.parts = []
+  passTouched.value = false
+}
+
+function onFullScoreChange(value: number | null) {
+  const full = Number(value ?? 0)
+  if (!passTouched.value || form.passScore > full) {
+    form.passScore = Math.max(1, Math.round(full * 0.6))
+  }
+}
+
+function onPassScoreChange() {
+  passTouched.value = true
 }
 
 function openModal(record?: GradeExamRow) {
@@ -197,7 +181,10 @@ function openModal(record?: GradeExamRow) {
     form.courseId = record.courseId
     form.examDate = record.examDate
     form.fullScore = Number(record.fullScore)
-    form.scoringMode = record.scoringMode
+    form.passScore = record.passScore != null
+      ? Number(record.passScore)
+      : Math.round(Number(record.fullScore) * 0.6)
+    passTouched.value = record.passScore != null
     form.remark = record.remark ?? ''
     form.classIds = [...record.classIds]
     form.parts = record.parts.map((part) => ({
@@ -210,43 +197,8 @@ function openModal(record?: GradeExamRow) {
   modalOpen.value = true
 }
 
-/** 机构考试：选中课程后批量带出该课程下的全部班级。 */
-function onCourseChange() {
-  if (schoolExam.value) return
-  form.classIds = autoClassOptions.value.map((item) => item.value)
-}
-
-/** 切换类型：学校考试不绑定课程，需重新批量选择班级。 */
-function onTypeChange(value: GradeType) {
-  if (value === '学校考试') {
-    form.courseId = null
-    form.classIds = []
-    return
-  }
-  // 从学校考试切回机构考试时，需要重新选课程带出班级；周考/月考之间保留已选内容
-  if (!form.courseId) form.classIds = []
-}
-
-function selectAllSchoolClasses() {
-  form.classIds = schoolClassGroups.value.flatMap((group) => group.options.map((item) => item.value))
-}
-
-function addPart() {
-  form.parts.push({ name: '', weight: 0, fullScore: 0 })
-}
-
-function removePart(index: number) {
-  form.parts.splice(index, 1)
-}
-
-function applyTemplate(templateId: number) {
-  const template = templates.value.find((item) => item.id === templateId)
-  if (!template) return
-  form.parts = template.parts.map((part) => ({
-    name: part.name,
-    weight: Number(part.weight),
-    fullScore: Number(part.fullScore),
-  }))
+function selectAllClasses() {
+  form.classIds = [...allClassIds.value]
 }
 
 async function submit() {
@@ -254,34 +206,30 @@ async function submit() {
     message.warning('请填写考试名称')
     return
   }
-  if (!schoolExam.value && !form.courseId) {
-    message.warning('请选择课程，系统会自动适用该课程下的全部班级')
-    return
-  }
   if (!form.classIds.length) {
-    message.warning(schoolExam.value ? '请选择适用班级' : '该课程下暂无班级，请先在班级管理中添加')
+    message.warning('请选择适用班级')
     return
   }
-  const parts = form.parts.filter((part) => part.name.trim())
-  const weightSum = parts.reduce((sum, part) => sum + Number(part.weight || 0), 0)
-  if (parts.length && Math.abs(weightSum - 100) > 0.01) {
-    message.warning(`分项权重合计应为 100%，当前为 ${weightSum}%`)
+  if (!(Number(form.fullScore) > 0)) {
+    message.warning('请填写大于 0 的满分')
+    return
+  }
+  if (!(Number(form.passScore) > 0) || Number(form.passScore) > Number(form.fullScore)) {
+    message.warning('及格线需大于 0 且不超过满分')
     return
   }
   const payload: GradeExamPayload = {
     name: form.name.trim(),
     type: form.type,
-    courseId: schoolExam.value ? null : form.courseId,
-    courseName: schoolExam.value
-      ? null
-      : courseSelectOptions.value.find((item) => item.value === form.courseId)?.label ?? null,
+    courseId: form.courseId,
     examDate: form.examDate,
     fullScore: Number(form.fullScore || 100),
-    scoringMode: form.scoringMode,
+    passScore: Number(form.passScore),
+    scoringMode: '分数',
     remark: form.remark.trim() || undefined,
     classIds: form.classIds,
-    parts: parts.map((part, index) => ({
-      name: part.name.trim(),
+    parts: form.parts.map((part, index) => ({
+      name: part.name,
       weight: Number(part.weight || 0),
       fullScore: Number(part.fullScore || 0),
       sort: index,
@@ -519,77 +467,52 @@ onMounted(async () => {
             <a-input v-model:value="form.name" :maxlength="120" placeholder="例如：2026 秋季书法期中测试" />
           </a-form-item>
           <a-form-item label="成绩类型">
-            <a-select v-model:value="form.type" :options="typeOptions" @change="onTypeChange" />
+            <a-select v-model:value="form.type" :options="typeOptions" />
           </a-form-item>
         </div>
-        <div class="form-grid">
-          <a-form-item v-if="!schoolExam" label="课程" required>
-            <a-select
-              v-model:value="form.courseId"
-              placeholder="选择课程，自动适用其下全部班级"
-              :options="courseSelectOptions"
-              @change="onCourseChange"
+        <div class="form-grid three">
+          <a-form-item label="考试日期（选填）">
+            <a-date-picker
+              v-model:value="form.examDate"
+              value-format="YYYY-MM-DD"
+              placeholder="选填，可不填"
+              allow-clear
+              style="width: 100%"
             />
           </a-form-item>
-          <a-form-item label="考试日期">
-            <a-date-picker v-model:value="form.examDate" value-format="YYYY-MM-DD" style="width: 100%" />
-          </a-form-item>
-        </div>
-        <div class="form-grid">
           <a-form-item label="满分">
-            <a-input-number v-model:value="form.fullScore" :min="1" :precision="1" style="width: 100%" />
+            <a-input-number
+              v-model:value="form.fullScore"
+              :min="1"
+              :step="10"
+              style="width: 100%"
+              @change="onFullScoreChange"
+            />
           </a-form-item>
-          <a-form-item label="计分方式">
-            <a-radio-group v-model:value="form.scoringMode">
-              <a-radio value="分数">分数</a-radio>
-              <a-radio value="等级">等级（等级 + 评语）</a-radio>
-            </a-radio-group>
+          <a-form-item label="及格线">
+            <a-input-number
+              v-model:value="form.passScore"
+              :min="1"
+              :max="form.fullScore"
+              :step="5"
+              style="width: 100%"
+              @change="onPassScoreChange"
+            />
+            <div class="class-hint">默认满分的 60%，用于自动评级</div>
           </a-form-item>
         </div>
-        <a-form-item
-          :label="schoolExam ? '适用班级（可批量选择）' : '适用班级（随课程自动带出）'"
-          required
-        >
-          <template v-if="schoolExam">
-            <a-select
-              v-model:value="form.classIds"
-              mode="multiple"
-              placeholder="按课程分组批量选择班级"
-              option-filter-prop="label"
-              :options="schoolClassGroups"
-            />
-            <div class="class-tools">
-              <a-button type="link" size="small" @click="selectAllSchoolClasses">全选所有班级</a-button>
-              <a-button type="link" size="small" @click="form.classIds = []">清空</a-button>
-            </div>
-          </template>
-          <template v-else>
-            <div v-if="!form.courseId" class="class-hint">选择课程后，该课程下的全部班级会自动适用</div>
-            <div v-else-if="!appliedClassOptions.length" class="class-hint">该课程下暂无在读班级</div>
-            <div v-else class="class-tags">
-              <a-tag v-for="item in appliedClassOptions" :key="item.value" color="blue">{{ item.label }}</a-tag>
-              <span class="class-hint">共 {{ appliedClassOptions.length }} 个班级</span>
-            </div>
-          </template>
-        </a-form-item>
-        <a-form-item label="分项（可选，录入分项后自动汇总总分）">
-          <div class="part-toolbar">
-            <a-button size="small" @click="addPart">+ 添加分项</a-button>
-            <a-select
-              v-if="templates.length"
-              size="small"
-              style="width: 200px"
-              placeholder="从分项模板导入"
-              :options="templates.map((item) => ({ label: item.name, value: item.id }))"
-              @change="(value: number) => applyTemplate(value)"
-            />
-          </div>
-          <div v-if="!form.parts.length" class="part-empty">未配置分项时直接录入总分</div>
-          <div v-for="(part, index) in form.parts" :key="index" class="part-row">
-            <a-input v-model:value="part.name" placeholder="分项名称，如 笔画" style="flex: 1; min-width: 0" />
-            <a-input-number v-model:value="part.weight" :min="0" :max="100" addon-after="%" style="width: 110px" />
-            <a-input-number v-model:value="part.fullScore" :min="0" placeholder="分项满分" style="width: 110px" />
-            <a-button type="link" size="small" danger @click="removePart(index)">删除</a-button>
+        <a-form-item label="适用班级（可多选）" required>
+          <a-select
+            v-model:value="form.classIds"
+            mode="multiple"
+            placeholder="按课程分组直接多选班级"
+            option-filter-prop="label"
+            :options="classGroupOptions"
+          />
+          <div class="class-tools">
+            <span class="class-hint">已选 {{ form.classIds.length }} 个班级</span>
+            <a-button type="link" size="small" @click="selectAllClasses">全选所有班级</a-button>
+            <a-button type="link" size="small" @click="form.classIds = []">清空</a-button>
           </div>
         </a-form-item>
         <a-form-item label="备注">
@@ -720,7 +643,7 @@ onMounted(async () => {
 }
 
 .exam-form :deep(.ant-form-item) {
-  margin-bottom: 14px;
+  margin-bottom: 16px;
 }
 
 .form-grid {
@@ -729,46 +652,25 @@ onMounted(async () => {
   gap: 0 20px;
 }
 
+.form-grid.three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0 14px;
+}
+
 .class-tools {
   display: flex;
+  align-items: center;
   justify-content: flex-end;
   gap: 4px;
-  margin-top: 2px;
+  margin-top: 6px;
+}
+
+.class-tools .class-hint {
+  margin-right: auto;
 }
 
 .class-hint {
   font-size: 12px;
   color: var(--text-3);
-}
-
-.class-tags {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-  padding: 2px 0;
-}
-
-.part-toolbar {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 8px;
-}
-
-.part-empty {
-  padding: 6px 10px;
-  background: #fafbfc;
-  border: 1px dashed #e5e6eb;
-  border-radius: 4px;
-  color: var(--text-2);
-  font-size: 12px;
-}
-
-.part-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
 }
 </style>

@@ -6,14 +6,15 @@ import type { UploadProps } from 'ant-design-vue'
 import { CameraOutlined, DeleteOutlined, SettingOutlined } from '@ant-design/icons-vue'
 import GradeSettings from './GradeSettings.vue'
 import {
-  deleteGradePaperImage,
+  deleteGradeStudentPaper,
+  fetchClassDetail,
   fetchGradeEntry,
   fetchGradeExams,
   fetchGradeRules,
   publishGradeEntry,
   saveGradeEntry,
   updateGradeExamFullScore,
-  uploadGradePaperImage,
+  uploadGradeStudentPaper,
   type GradeEntryData,
   type GradeEntryStudent,
   type GradeExamRow,
@@ -24,6 +25,14 @@ import {
 
 type EntryRow = Omit<GradeEntryStudent, 'partScores'> & { partScores: Record<string, number | null> }
 
+interface ClassCard {
+  id: number
+  name: string
+  teacherName: string | null
+  studentCount: number | null
+  courseName: string | null
+}
+
 const route = useRoute()
 
 const exams = ref<GradeExamRow[]>([])
@@ -33,6 +42,9 @@ const classId = ref<number | null>(route.query.classId ? Number(route.query.clas
 const entry = ref<GradeEntryData | null>(null)
 const rows = ref<EntryRow[]>([])
 const loading = ref(false)
+const classCards = ref<ClassCard[]>([])
+const classCardsLoading = ref(false)
+let entryRequestId = 0
 const saving = ref(false)
 const fillValue = ref<number | null>(null)
 const fullScoreDraft = ref<number | null>(null)
@@ -41,6 +53,7 @@ const settingsOpen = ref(false)
 const batchOpen = ref(false)
 const batchText = ref('')
 const batchTarget = ref('total')
+const paperUploading = ref<number | null>(null)
 
 const examSelectOptions = computed(() =>
   exams.value.map((exam) => ({
@@ -50,14 +63,6 @@ const examSelectOptions = computed(() =>
 )
 
 const currentExam = computed(() => exams.value.find((exam) => exam.id === examId.value) ?? null)
-
-const paperImages = computed(() => currentExam.value?.paperImages ?? [])
-
-const classSelectOptions = computed(() => {
-  const exam = currentExam.value
-  if (!exam) return []
-  return exam.classIds.map((id, index) => ({ label: exam.classNames[index] ?? `班级#${id}`, value: id }))
-})
 
 const readonly = computed(() => {
   const status = entry.value?.status
@@ -86,12 +91,11 @@ const batchTargetOptions = computed(() => {
 const columns = computed(() => {
   const parts = entry.value?.parts ?? []
   const list: { title: string; dataIndex: string; width?: number; align?: 'left' | 'right' | 'center' }[] = [
-    { title: '学员', dataIndex: 'studentName', width: 130 },
+    { title: '学员 / 分数', dataIndex: 'studentName', width: 320 },
   ]
   parts.forEach((part) => {
     list.push({ title: `${part.name}（${part.fullScore}）`, dataIndex: `part-${part.id}`, width: 120 })
   })
-  list.push({ title: '总分', dataIndex: 'totalScore', width: 100, align: 'right' })
   if (levelMode.value) {
     list.push({ title: '等级', dataIndex: 'level', width: 120 })
   }
@@ -134,6 +138,7 @@ function onPartChange(row: EntryRow, partId: number | undefined, value: number |
 }
 
 function onStatusChange(row: EntryRow, value: string) {
+  row.status = value
   if (value !== '正常') {
     row.totalScore = null
     row.level = null
@@ -201,39 +206,35 @@ async function saveFullScore() {
   }
 }
 
-const uploadPaper: UploadProps['customRequest'] = async (option) => {
-  const exam = currentExam.value
-  if (!exam) return
-  if (paperImages.value.length >= 9) {
-    message.warning('每场考试最多上传 9 张试卷图片')
-    option.onError?.(new Error('limit'))
-    return
-  }
+const uploadPaper = (row: EntryRow): UploadProps['customRequest'] => async (option) => {
+  if (!examId.value) return
+  paperUploading.value = row.studentId
   try {
-    const updated = await uploadGradePaperImage(exam.id, option.file as File)
-    replaceExam(updated)
-    option.onSuccess?.(updated)
-    message.success('试卷图片已上传')
+    const result = await uploadGradeStudentPaper(examId.value, row.studentId, option.file as File)
+    row.paperImage = result.url
+    option.onSuccess?.(result)
+    message.success(`${row.studentName} 的试卷图片已上传`)
   } catch (e) {
     const error = e instanceof Error ? e : new Error('上传试卷图片失败')
     option.onError?.(error)
     message.error(error.message)
+  } finally {
+    paperUploading.value = null
   }
 }
 
-function removePaper(url: string) {
-  const exam = currentExam.value
-  if (!exam) return
+function removePaper(row: EntryRow) {
+  if (!examId.value) return
   Modal.confirm({
     title: '删除试卷图片',
-    content: '确认删除这张试卷图片？删除后不可恢复。',
+    content: `确认删除 ${row.studentName} 的试卷图片？删除后不可恢复。`,
     okText: '删除',
     okType: 'danger',
     cancelText: '取消',
     onOk: async () => {
       try {
-        const updated = await deleteGradePaperImage(exam.id, url)
-        replaceExam(updated)
+        await deleteGradeStudentPaper(examId.value as number, row.studentId)
+        row.paperImage = null
         message.success('试卷图片已删除')
       } catch (e) {
         message.error(e instanceof Error ? e.message : '删除试卷图片失败')
@@ -326,20 +327,66 @@ async function loadRules() {
 }
 
 async function loadEntry() {
-  if (!examId.value || !classId.value) {
+  const currentExamId = examId.value
+  const currentClassId = classId.value
+  if (!currentExamId || !currentClassId) {
+    entryRequestId += 1
     entry.value = null
     rows.value = []
+    loading.value = false
     return
   }
+  const requestId = ++entryRequestId
   loading.value = true
+  entry.value = null
+  rows.value = []
   try {
-    const data = await fetchGradeEntry(examId.value, classId.value)
+    const data = await fetchGradeEntry(currentExamId, currentClassId)
+    if (requestId !== entryRequestId) return
     applyEntry(data)
   } catch (e) {
+    if (requestId !== entryRequestId) return
     message.error(e instanceof Error ? e.message : '加载成绩失败')
   } finally {
-    loading.value = false
+    if (requestId === entryRequestId) loading.value = false
   }
+}
+
+/** 考试关联班级以卡片展示；教师与学员数取班级详情接口的真实字段。 */
+async function loadClassCards() {
+  const exam = currentExam.value
+  if (!exam) {
+    classCards.value = []
+    classCardsLoading.value = false
+    return
+  }
+  const targetExamId = exam.id
+  const cards: ClassCard[] = exam.classIds.map((id, index) => ({
+    id,
+    name: exam.classNames[index] ?? `班级#${id}`,
+    teacherName: null,
+    studentCount: null,
+    courseName: null,
+  }))
+  classCards.value = cards
+  classCardsLoading.value = true
+  const details = await Promise.allSettled(exam.classIds.map((id) => fetchClassDetail(id)))
+  if (examId.value !== targetExamId) return
+  classCards.value = cards.map((card, index) => {
+    const detail = details[index]
+    if (detail.status !== 'fulfilled') return card
+    return {
+      ...card,
+      teacherName: detail.value.teacherName ?? null,
+      studentCount: detail.value.studentCount ?? null,
+      courseName: detail.value.courseName ?? null,
+    }
+  })
+  classCardsLoading.value = false
+}
+
+function selectClass(id: number) {
+  classId.value = id
 }
 
 function applyEntry(data: GradeEntryData) {
@@ -358,9 +405,8 @@ function applyEntry(data: GradeEntryData) {
 }
 
 function onExamChange() {
-  const exam = currentExam.value
-  classId.value = exam?.classIds[0] ?? null
-  loadEntry()
+  classId.value = null
+  void loadClassCards()
 }
 
 function buildPayload(): GradeScoreSavePayload | null {
@@ -438,13 +484,18 @@ function publish() {
 
 watch([examId, classId], () => {
   if (examId.value && classId.value) loadEntry()
+  else {
+    entry.value = null
+    rows.value = []
+  }
 })
 
 onMounted(async () => {
   await Promise.all([loadExams(), loadRules()])
-  if (examId.value && !classId.value) {
+  if (examId.value) {
     const exam = currentExam.value
-    if (exam) classId.value = exam.classIds[0] ?? null
+    if (classId.value && !exam?.classIds.includes(classId.value)) classId.value = null
+    void loadClassCards()
   }
   await loadEntry()
 })
@@ -461,14 +512,6 @@ onMounted(async () => {
         show-search
         :options="examSelectOptions"
         @change="onExamChange"
-      />
-      <a-select
-        v-model:value="classId"
-        size="small"
-        style="width: 180px"
-        placeholder="选择班级"
-        :options="classSelectOptions"
-        :disabled="!examId"
       />
       <template v-if="entry">
         <a-tag :color="entry.scoringMode === '等级' ? 'purple' : 'blue'">
@@ -503,49 +546,48 @@ onMounted(async () => {
       </a-button>
     </div>
 
-    <div v-if="entry" class="paper-panel">
-      <div class="paper-head">
-        <span class="paper-title">试卷图片</span>
-        <span class="paper-hint">
-          支持手机拍照或上传，最多 9 张{{ readonly ? '（已锁定，仅可查看）' : '' }}
-        </span>
-      </div>
-      <div class="paper-list">
-        <div v-for="url in paperImages" :key="url" class="paper-item">
-          <a-image :src="url" :width="92" :height="68" class="paper-img" />
-          <a-button
-            v-if="!readonly"
-            class="paper-delete"
-            type="text"
-            size="small"
-            danger
-            @click="removePaper(url)"
-          >
-            <DeleteOutlined />
-          </a-button>
+    <div class="entry-layout">
+      <aside class="class-panel">
+        <div class="class-panel-head">
+          <span>班级</span>
+          <span class="class-panel-count">{{ classCards.length }} 个</span>
         </div>
-        <a-upload
-          v-if="!readonly && paperImages.length < 9"
-          :show-upload-list="false"
-          accept="image/*"
-          :multiple="true"
-          :custom-request="uploadPaper"
-        >
-          <div class="paper-add">
-            <CameraOutlined />
-            <span>拍照 / 上传</span>
+        <div class="class-list">
+          <div
+            v-for="card in classCards"
+            :key="card.id"
+            class="class-card"
+            :class="{ 'class-card-active': card.id === classId }"
+            role="button"
+            tabindex="0"
+            @click="selectClass(card.id)"
+            @keydown.enter="selectClass(card.id)"
+          >
+            <div class="class-card-name">{{ card.name }}</div>
+            <div class="class-card-meta">上课教师：{{ card.teacherName || '未安排' }}</div>
+            <div class="class-card-meta">
+              <template v-if="card.studentCount !== null">学员 {{ card.studentCount }} 人</template>
+              <template v-else>暂无学员数</template>
+            </div>
+            <div v-if="card.courseName" class="class-card-course">{{ card.courseName }}</div>
           </div>
-        </a-upload>
-        <span v-if="!paperImages.length && readonly" class="filter-label">暂无试卷图片</span>
-      </div>
-    </div>
+          <div v-if="!classCards.length" class="class-panel-empty">暂无班级</div>
+          <div v-else-if="classCardsLoading" class="class-panel-empty">教师与学员信息加载中…</div>
+        </div>
+      </aside>
 
-    <div v-if="!entry" class="empty-panel">
-      <a-empty description="请选择要录入成绩的考试与班级" />
-    </div>
-
-    <template v-else>
-      <a-alert
+      <section class="entry-main">
+        <div v-if="!classId" class="empty-panel">
+          <a-empty description="请选择班级开始录入成绩" />
+        </div>
+        <div v-else-if="loading && !entry" class="empty-panel">
+          <a-spin />
+        </div>
+        <div v-else-if="!entry" class="empty-panel">
+          <a-empty description="暂无成绩数据" />
+        </div>
+        <template v-else>
+          <a-alert
         v-if="readonly"
         class="lock-alert"
         type="warning"
@@ -582,34 +624,71 @@ onMounted(async () => {
       >
         <template #bodyCell="{ column, record }">
           <template v-if="column.dataIndex === 'studentName'">
-            <span class="stu-name">{{ record.studentName }}</span>
-            <span class="stu-no">{{ record.studentNo || '' }}</span>
+            <div class="stu-cell">
+              <div class="stu-identity">
+                <span class="stu-name">{{ record.studentName }}</span>
+                <span class="stu-no">{{ record.studentNo || '' }}</span>
+              </div>
+              <a-input-number
+                v-if="!usingParts"
+                :value="record.totalScore"
+                :min="0"
+                :max="Number(entry.fullScore)"
+                :disabled="readonly || record.status === '缺考' || record.status === '免考'"
+                :precision="1"
+                size="small"
+                class="stu-score"
+                placeholder="分数"
+                @change="(value: number | null) => onTotalChange(record, value)"
+              />
+              <span v-else class="total-text">{{ totalOf(record) ?? '—' }}</span>
+              <a-image
+                v-if="record.paperImage"
+                :src="record.paperImage"
+                :width="28"
+                :height="22"
+                class="stu-paper-img"
+              />
+              <a-upload
+                v-else-if="!readonly"
+                :show-upload-list="false"
+                accept="image/*"
+                :custom-request="uploadPaper(record)"
+              >
+                <a-button
+                  type="text"
+                  size="small"
+                  class="stu-paper-btn"
+                  :loading="paperUploading === record.studentId"
+                  title="上传试卷图片（选填）"
+                >
+                  <CameraOutlined />
+                </a-button>
+              </a-upload>
+              <a-button
+                v-if="record.paperImage && !readonly"
+                type="text"
+                size="small"
+                danger
+                class="stu-paper-btn"
+                title="删除试卷图片"
+                @click="removePaper(record)"
+              >
+                <DeleteOutlined />
+              </a-button>
+            </div>
           </template>
           <template v-else-if="String(column.dataIndex).startsWith('part-')">
             <a-input-number
               :value="record.partScores[String(column.dataIndex).slice(5)]"
               :min="0"
               :max="Number(entry.fullScore)"
-              :disabled="readonly || record.status !== '正常'"
+              :disabled="readonly || record.status === '缺考' || record.status === '免考'"
               :precision="1"
               size="small"
               style="width: 96px"
               @change="(value: number | null) => onPartChange(record, Number(String(column.dataIndex).slice(5)), value)"
             />
-          </template>
-          <template v-else-if="column.dataIndex === 'totalScore'">
-            <a-input-number
-              v-if="!usingParts"
-              :value="record.totalScore"
-              :min="0"
-              :max="Number(entry.fullScore)"
-              :disabled="readonly || record.status !== '正常'"
-              :precision="1"
-              size="small"
-              style="width: 90px"
-              @change="(value: number | null) => onTotalChange(record, value)"
-            />
-            <span v-else class="total-text">{{ totalOf(record) ?? '—' }}</span>
           </template>
           <template v-else-if="column.dataIndex === 'level'">
             <a-select
@@ -618,7 +697,7 @@ onMounted(async () => {
               style="width: 100px"
               placeholder="选择等级"
               :options="levelOptions"
-              :disabled="readonly || record.status !== '正常'"
+              :disabled="readonly || record.status === '缺考' || record.status === '免考'"
               allow-clear
               @change="(value: string) => (record.level = value ?? null)"
             />
@@ -655,7 +734,9 @@ onMounted(async () => {
           <a-empty description="该班级暂无在读学员，请先在班级中分班" />
         </template>
       </a-table>
-    </template>
+        </template>
+      </section>
+    </div>
 
     <a-modal
       v-model:open="batchOpen"
@@ -714,6 +795,98 @@ onMounted(async () => {
   color: var(--text-2);
 }
 
+.entry-layout {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.class-panel {
+  flex: 0 0 240px;
+  width: 240px;
+  padding: 12px;
+  background: #fafbfc;
+  border: 1px solid #eef0f2;
+  border-radius: 8px;
+}
+
+.class-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.class-panel-count {
+  color: var(--text-3);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.class-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: calc(100vh - 240px);
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.class-card {
+  padding: 10px 12px;
+  background: #fff;
+  border: 1px solid #e5e6eb;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+}
+
+.class-card:hover {
+  border-color: var(--brand);
+  box-shadow: 0 2px 8px rgba(22, 119, 255, 0.08);
+}
+
+.class-card-active {
+  background: #f0f7ff;
+  border-color: var(--brand);
+  box-shadow: 0 2px 8px rgba(22, 119, 255, 0.12);
+}
+
+.class-card-name {
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.class-card-meta {
+  margin-top: 4px;
+  color: var(--text-2);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.class-card-course {
+  margin-top: 2px;
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+.class-panel-empty {
+  padding: 24px 0;
+  color: var(--text-3);
+  font-size: 12px;
+  text-align: center;
+}
+
+.entry-main {
+  flex: 1;
+  min-width: 0;
+}
+
 .settings-btn {
   margin-left: auto;
 }
@@ -723,75 +896,6 @@ onMounted(async () => {
   align-items: center;
   gap: 4px;
   color: var(--text-2);
-}
-
-.paper-panel {
-  margin-bottom: 12px;
-  padding: 12px 14px;
-  border: 1px dashed #e5e6eb;
-  border-radius: 6px;
-}
-
-.paper-head {
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-  margin-bottom: 10px;
-}
-
-.paper-title {
-  color: var(--text);
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.paper-hint {
-  color: var(--text-3);
-  font-size: 12px;
-}
-
-.paper-list {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px;
-}
-
-.paper-item {
-  position: relative;
-}
-
-.paper-img {
-  overflow: hidden;
-  border-radius: 4px;
-}
-
-.paper-delete {
-  position: absolute;
-  top: 2px;
-  right: 2px;
-  background: rgba(255, 255, 255, 0.85);
-}
-
-.paper-add {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  width: 92px;
-  height: 68px;
-  color: var(--text-2);
-  font-size: 12px;
-  background: #fafbfc;
-  border: 1px dashed #d9dce0;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-.paper-add:hover {
-  color: var(--brand);
-  border-color: var(--brand);
 }
 
 .batch-tip {
@@ -836,14 +940,47 @@ onMounted(async () => {
   border-right: 1px solid #f5f6f7;
 }
 
+.stu-cell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.stu-identity {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.3;
+  min-width: 48px;
+}
+
 .stu-name {
   font-weight: 500;
 }
 
 .stu-no {
-  margin-left: 6px;
   color: var(--text-2);
   font-size: 12px;
+}
+
+.stu-score {
+  width: 84px;
+}
+
+.stu-paper-img {
+  flex: none;
+  overflow: hidden;
+  border-radius: 4px;
+}
+
+.stu-paper-btn {
+  flex: none;
+  padding: 0 4px;
+  color: var(--text-2);
+}
+
+.stu-paper-btn:hover {
+  color: var(--brand);
 }
 
 .total-text {

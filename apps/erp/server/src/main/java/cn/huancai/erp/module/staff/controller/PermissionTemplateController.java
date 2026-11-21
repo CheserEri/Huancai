@@ -4,14 +4,19 @@ import cn.huancai.erp.common.ApiResult;
 import cn.huancai.erp.config.AuthInterceptor;
 import cn.huancai.erp.module.staff.dto.PermissionTemplateForm;
 import cn.huancai.erp.module.staff.entity.PermissionTemplate;
+import cn.huancai.erp.module.staff.entity.Staff;
 import cn.huancai.erp.module.staff.mapper.PermissionTemplateMapper;
+import cn.huancai.erp.module.staff.mapper.StaffMapper;
 import cn.huancai.erp.module.staff.support.PermissionCodec;
 import cn.huancai.erp.module.staff.support.StaffRoles;
 import cn.huancai.erp.module.staff.vo.PermissionTemplateVO;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /** 组织架构 - 权限模板：内置角色模板可编辑不可删，自定义模板可自由增删改。 */
 @RestController
@@ -21,9 +26,11 @@ public class PermissionTemplateController {
     private static final int MAX_NAME_LENGTH = 64;
 
     private final PermissionTemplateMapper templateMapper;
+    private final StaffMapper staffMapper;
 
-    public PermissionTemplateController(PermissionTemplateMapper templateMapper) {
+    public PermissionTemplateController(PermissionTemplateMapper templateMapper, StaffMapper staffMapper) {
         this.templateMapper = templateMapper;
+        this.staffMapper = staffMapper;
     }
 
     @GetMapping
@@ -32,7 +39,8 @@ public class PermissionTemplateController {
                 new LambdaQueryWrapper<PermissionTemplate>()
                         .orderByDesc(PermissionTemplate::getBuiltin)
                         .orderByAsc(PermissionTemplate::getId));
-        return ApiResult.ok(templates.stream().map(this::toVO).toList());
+        Map<Long, Integer> staffCounts = countBoundStaff();
+        return ApiResult.ok(templates.stream().map(item -> toVO(item, staffCounts)).toList());
     }
 
     @PostMapping
@@ -52,7 +60,7 @@ public class PermissionTemplateController {
         template.setBuiltin(0);
         template.setPermissions(PermissionCodec.encode(form.getPermissions()));
         templateMapper.insert(template);
-        return ApiResult.ok(toVO(templateMapper.selectById(template.getId())));
+        return ApiResult.ok(toVO(templateMapper.selectById(template.getId()), countBoundStaff()));
     }
 
     @PutMapping("/{id}")
@@ -81,7 +89,9 @@ public class PermissionTemplateController {
         }
         update.setPermissions(PermissionCodec.encode(form.getPermissions()));
         templateMapper.updateById(update);
-        return ApiResult.ok(toVO(templateMapper.selectById(id)));
+        // 保存模板后把新权限同步给所有绑定该模板的员工，实现「改模板即改员工权限」
+        syncPermissionToBoundStaff(id, update.getPermissions());
+        return ApiResult.ok(toVO(templateMapper.selectById(id), countBoundStaff()));
     }
 
     @DeleteMapping("/{id}")
@@ -98,8 +108,31 @@ public class PermissionTemplateController {
         if (Integer.valueOf(1).equals(existing.getBuiltin())) {
             return ApiResult.fail("内置角色模板不可删除");
         }
+        // 先解除员工绑定，避免删除后留下指向不存在模板的悬空记录
+        staffMapper.update(null, new LambdaUpdateWrapper<Staff>()
+                .eq(Staff::getPermissionTemplateId, id)
+                .set(Staff::getPermissionTemplateId, null));
         templateMapper.deleteById(id);
         return ApiResult.ok(null);
+    }
+
+    /** 把模板最新的菜单集合覆盖写入绑定该模板的员工，管理员不受影响。 */
+    private void syncPermissionToBoundStaff(Long templateId, String encodedPermissions) {
+        staffMapper.update(null, new LambdaUpdateWrapper<Staff>()
+                .eq(Staff::getPermissionTemplateId, templateId)
+                .ne(Staff::getRole, "admin")
+                .set(Staff::getMenuPermissions, encodedPermissions));
+    }
+
+    private Map<Long, Integer> countBoundStaff() {
+        Map<Long, Integer> counts = new HashMap<>();
+        List<Staff> bound = staffMapper.selectList(new LambdaQueryWrapper<Staff>()
+                .isNotNull(Staff::getPermissionTemplateId)
+                .select(Staff::getId, Staff::getPermissionTemplateId));
+        for (Staff staff : bound) {
+            counts.merge(staff.getPermissionTemplateId(), 1, Integer::sum);
+        }
+        return counts;
     }
 
     /** 内置模板名称、角色不可改，因此仅在自定义模板场景校验名称与角色。 */
@@ -124,13 +157,14 @@ public class PermissionTemplateController {
         return value == null || value.isBlank() ? null : value.trim();
     }
 
-    private PermissionTemplateVO toVO(PermissionTemplate template) {
+    private PermissionTemplateVO toVO(PermissionTemplate template, Map<Long, Integer> staffCounts) {
         PermissionTemplateVO vo = new PermissionTemplateVO();
         vo.setId(template.getId());
         vo.setName(template.getName());
         vo.setRole(template.getRole());
         vo.setBuiltin(template.getBuiltin());
         vo.setPermissions(PermissionCodec.decode(template.getPermissions()));
+        vo.setStaffCount(staffCounts.getOrDefault(template.getId(), 0));
         vo.setUpdatedAt(template.getUpdatedAt());
         return vo;
     }

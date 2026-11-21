@@ -26,6 +26,6 @@ public class ScheduleOptionsVO {
     }
 
     public record ClassOption(Long id, String name, Long campusId, Long courseId, Long teacherId,
-                              String teacherText, String room) {
+                              String teacherText, String room, String assistName, String scheduleText) {
     }
 }

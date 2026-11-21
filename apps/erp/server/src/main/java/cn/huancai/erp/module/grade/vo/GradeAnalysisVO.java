@@ -16,6 +16,8 @@ public class GradeAnalysisVO {
     private LocalDate examDate;
     private String scoringMode;
     private BigDecimal fullScore;
+    /** 及格线（分）。 */
+    private BigDecimal passLine;
     private Integer studentCount;
     private Integer enteredCount;
     private Integer absentCount;

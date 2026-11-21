@@ -1,9 +1,11 @@
 package cn.huancai.erp.module.comment.controller;
 
 import cn.huancai.erp.common.ApiResult;
+import cn.huancai.erp.module.comment.dto.ClassLessonCommentForm;
 import cn.huancai.erp.module.comment.dto.CommentBatchForm;
 import cn.huancai.erp.module.comment.service.CommentWriteService;
 import cn.huancai.erp.module.comment.vo.ClassCommentRowVO;
+import cn.huancai.erp.module.comment.vo.ClassLessonCommentVO;
 import cn.huancai.erp.module.comment.vo.CommentRosterVO;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -53,6 +55,26 @@ public class CommentWriteController {
     public ApiResult<Integer> batch(@RequestBody CommentBatchForm form) {
         try {
             return ApiResult.ok(commentWriteService.saveBatch(form));
+        } catch (IllegalArgumentException ex) {
+            return ApiResult.fail(ex.getMessage());
+        }
+    }
+
+    /** 整节课的整体点评：对全班统一评价，与学员逐人点评分开保存。 */
+    @GetMapping("/overall")
+    public ApiResult<ClassLessonCommentVO> overall(@RequestParam Long classId,
+                                                   @RequestParam Long scheduleId) {
+        try {
+            return ApiResult.ok(commentWriteService.overall(classId, scheduleId));
+        } catch (IllegalArgumentException ex) {
+            return ApiResult.fail(ex.getMessage());
+        }
+    }
+
+    @PostMapping("/overall")
+    public ApiResult<ClassLessonCommentVO> saveOverall(@RequestBody ClassLessonCommentForm form) {
+        try {
+            return ApiResult.ok(commentWriteService.saveOverall(form));
         } catch (IllegalArgumentException ex) {
             return ApiResult.fail(ex.getMessage());
         }

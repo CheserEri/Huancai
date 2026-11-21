@@ -23,6 +23,8 @@ public class GradeExam {
     private String courseName;
     private LocalDate examDate;
     private BigDecimal fullScore;
+    /** 及格线（分），为空时按满分的 60% 计算。 */
+    private BigDecimal passScore;
     private String scoringMode;
     /** 试卷图片 JSON 数组，如 ["/uploads/grade-paper/1/xxx.jpg"]。 */
     private String paperImages;

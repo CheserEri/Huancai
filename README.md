@@ -59,7 +59,9 @@ Huancai/
 │  │  │     ├─ router/index.ts   hash 路由
 │  │  │     ├─ layout/           主框架
 │  │  │     └─ views/            各业务页面，一页一文件
-│  │  └─ app/                    员工端：Flutter
+│  │  ├─ app/                    员工端：Flutter
+│  │  └─ tools/                  桌面端配套工具（随仓库提交）
+│  │     └─ receipt-printer/     58mm 小票打印小助手（C# 源码 + exe）
 │  └─ weixin/                    家长端：微信小程序（原生）
 │     └─ 幻彩家长端/             小程序根（app.js / app.json / pages）
 ├─ apps/ledger/                  旧课时记账工具（Python 标准库单文件，独立运行）
@@ -144,6 +146,129 @@ flutter build apk --release
 >
 > 后端依赖 MySQL 先启动，否则首次启动会直接退出；修改后端代码后必须重新打包并重启进程，新增接口才会生效。
 
+## 服务器部署
+
+线上一套部署（Linux）由「MySQL + 后端 jar + nginx 静态前端 + 下载目录」四部分组成，换服务器时照下面顺序走一遍即可。
+
+### 线上目录与端口
+
+| 项 | 路径 / 值 |
+| --- | --- |
+| 后端 jar | `/opt/huancai/server/erp-server.jar` |
+| 后端日志 | `/opt/huancai/server/app.log` |
+| 后端工作目录 | `/opt/huancai`（上传目录按相对路径解析，不能用别的工作目录启动） |
+| 前端静态文件 | `/opt/huancai/web`（nginx 站点根目录） |
+| 网页下载目录 | `/opt/huancai/web/downloads`（打印小助手安装包） |
+| 上传文件目录 | `/opt/huancai/storage/uploads` |
+| 安卓安装包 | `/opt/huancai/storage/app/huancai-app.apk` |
+| 后端端口 | 8080（仅监听本机，由 nginx 反代） |
+| 前端端口 | 80（nginx 托管静态文件并把 `/api` 转发到 8080） |
+| 数据库 | MySQL 8，库 `huancai_erp`，账号 `hc`，端口 3306 |
+
+### 安装包与产物位置
+
+| 产物 | 仓库内位置 | 本地构建产物 | 服务器位置 / 访问地址 |
+| --- | --- | --- | --- |
+| 打印小助手（Windows） | 源码 `apps/erp/tools/receipt-printer/HcReceiptPrinter.cs`，可执行文件 `apps/erp/tools/receipt-printer/build/HcReceiptPrinter.exe`（约 21KB，随仓库提交） | 同左 | `/opt/huancai/web/downloads/HcReceiptPrinter.exe`，下载地址 `http://<服务器>/downloads/HcReceiptPrinter.exe` |
+| 员工 App 安卓包 | 不入库，源码在 `apps/erp/app` | `apps/erp/app/build/app/outputs/flutter-apk/app-release.apk`（约 56MB） | `/opt/huancai/storage/app/huancai-app.apk`，网页「试用手机 App」下载 |
+| 后端 jar | 源码 `apps/erp/server` | `apps/erp/server/target/erp-server-0.0.1-SNAPSHOT.jar`（约 31MB） | `/opt/huancai/server/erp-server.jar` |
+| 前端静态包 | 源码 `apps/erp/web` | `apps/erp/web/dist` | `/opt/huancai/web` |
+| 本地工具链 | 不入库 | `tools/`（JDK 17、Maven 3.9.16、MySQL 8.0.28、Node、Flutter、m2repo） | 换机时按下方「依赖版本」重新安装 |
+
+依赖版本：JDK 17、Maven 3.9.x、MySQL 8.0、Node 20+、Flutter 3.x（仅打 App 用）、nginx。
+
+### 首次部署步骤
+
+1. **装依赖**：JDK 17、MySQL 8、nginx、Node 20+。
+2. **建库导表**：
+
+```bash
+mysql -uroot -p -e "CREATE DATABASE huancai_erp DEFAULT CHARACTER SET utf8mb4;"
+mysql -uroot -p huancai_erp < apps/erp/server/src/main/resources/schema.sql
+mysql -uroot -p -e "CREATE USER 'hc'@'%' IDENTIFIED BY '<密码>'; GRANT ALL ON huancai_erp.* TO 'hc'@'%';"
+```
+
+3. **打包后端**（仓库内不带 `tools/`，用本机 Maven 即可）：
+
+```bash
+mvn -f apps/erp/server/pom.xml clean package -DskipTests
+```
+
+4. **上传并启动后端**：
+
+```bash
+mkdir -p /opt/huancai/server /opt/huancai/web/downloads /opt/huancai/storage/uploads /opt/huancai/storage/app
+scp erp-server-0.0.1-SNAPSHOT.jar <用户>@<服务器>:/opt/huancai/server/erp-server.jar
+ssh <用户>@<服务器> "cd /opt/huancai && setsid nohup java -Xms512m -Xmx2048m -jar /opt/huancai/server/erp-server.jar >> /opt/huancai/server/app.log 2>&1 < /dev/null &"
+```
+
+5. **打包并上传前端**：
+
+```bash
+cd apps/erp/web && npm ci && npm run build
+tar -czf dist.tar.gz -C dist .
+scp dist.tar.gz <用户>@<服务器>:/tmp/
+ssh <用户>@<服务器> "tar -xzf /tmp/dist.tar.gz -C /opt/huancai/web"
+```
+
+6. **nginx 站点**（关键片段，其余保持默认）：
+
+```nginx
+server {
+    listen 80;
+    server_name _;
+    root /opt/huancai/web;
+    index index.html;
+
+    location /api/ {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}
+```
+
+7. **放安装包**：把 `HcReceiptPrinter.exe` 放到 `/opt/huancai/web/downloads/`，把 App 的 `app-release.apk` 放到 `/opt/huancai/storage/app/huancai-app.apk`。
+8. **验证**：浏览器打开服务器地址登录，左下角能看到「打印小助手下载」即可。
+
+### 日常升级
+
+```bash
+# 后端：替换 jar 后重启（当前进程直接 java -jar 启动，无 systemd 托管）
+pkill -f erp-server.jar
+cd /opt/huancai && setsid nohup java -Xms512m -Xmx2048m -jar /opt/huancai/server/erp-server.jar >> /opt/huancai/server/app.log 2>&1 < /dev/null &
+
+# 前端：重新 build 后覆盖 /opt/huancai/web，index.html 的 hash 变化即生效
+```
+
+增量表结构变更必须手工执行，`schema.sql` 只在首次建库时使用。已执行过的变更：
+
+```sql
+-- 2026-11 订单详情新增「最后修改时间」
+ALTER TABLE sp_order ADD COLUMN updated_time DATETIME NULL COMMENT '最后修改时间' AFTER created_time;
+```
+
+### 打印小助手（Windows 收银电脑）
+
+1. 收银电脑登录系统，点左下角「打印小助手下载」；
+2. 双击 `HcReceiptPrinter.exe`，弹窗提示已启动即完成安装（自动复制到 `%LOCALAPPDATA%\HcReceiptPrinter\` 并写入开机自启）；
+3. 之后网页点「打印」，订单小票 / 听课证直接从 58mm 小票机出纸，不再弹浏览器打印框。
+
+排障：`http://127.0.0.1:18666/health` 能打开说明小助手在运行；日志 `%LOCALAPPDATA%\HcReceiptPrinter\printer.log`；卸载执行 `HcReceiptPrinter.exe --uninstall`。换 USB 口或换打印机型号时，如自动识别失败，可在 `%LOCALAPPDATA%\HcReceiptPrinter\device.txt` 里写设备路径覆盖。
+
+重新编译（Windows 自带 .NET Framework，无需装 SDK；源码含中文，必须加 `/codepage:65001` 否则中文会乱码）：
+
+```powershell
+& "C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe" /nologo /codepage:65001 /target:winexe /optimize+ `
+  /r:System.Web.Extensions.dll /out:build\HcReceiptPrinter.exe HcReceiptPrinter.cs
+```
+
+接口：`GET /health` 健康检查；`POST /print/receipt` 打订单小票；`POST /print/ticket` 打听课证；`POST /print/test` 打自检票；`POST /print/preview` 只渲染不打印（返回 Base64 字节，用于核对中文编码）。
+
 ## 功能模块
 
 | 分组 | 模块 | 说明 |
@@ -199,7 +324,9 @@ flutter build apk --release
 
 ### 订单与收款
 
-- 本地订单号格式为「年月日 + 4 位当日流水号」（`yyyyMMdd0001`），每日从 0001 重新计数；教材订单与办理中心共用同一号段。
+- 本地订单号接续旧系统的最新订单号递增（纯数字，如 33753、33754），历史导入订单保持原有日期型长号不变；教材订单与办理中心共用同一号段。
+- 订单列表「经办日期」列直接展示订单的经办日期（精确到天），支持排序。
+- 订单详情展示「创建时间」与「最后修改时间」；订单被编辑过才会写入最后修改时间，未编辑过显示「未修改」。
 - 历史快照订单与本地订单通过 `sp_id` 是否为空区分，本地订单在列表中显示「本地」标签。
 - 订单列表默认查询最近 30 天经办日期，提供今天 / 近 7 天 / 近 30 天 / 本月 / 全部快捷筛选。
 - 「导出当日订单」固定导出当天数据，严格套用既定 XLSX 模板的字体、版式、合并单元格与 A4 打印参数，全程 UTF-8 防姓名乱码。
@@ -233,7 +360,8 @@ flutter build apk --release
 
 ### 打印
 
-- 订单收据、听课证等小票统一由后端通过 kernel32（JNA）直接写入 USB 打印设备，绕过系统打印队列与驱动。
+- 58mm 小票（订单收据、听课证）优先由本机「打印小助手」通过 ESC/POS 指令直写 USB 打印设备，绕过系统打印队列与驱动；本机没装小助手时依次退回后端直发、浏览器小票预览。
+- 打印小助手为单文件 `HcReceiptPrinter.exe`，常驻监听 `127.0.0.1:18666`，源码与可执行文件见 `apps/erp/tools/receipt-printer/`；网页左下角提供下载入口，双击即安装（自动写入开机自启），日志在 `%LOCALAPPDATA%\HcReceiptPrinter\printer.log`。
 - 上课名单使用 A4 横向版式，固定预留 100 个学员签名位（5 列 × 20 行）与 10 个试听签名位。
 
 ## 数据导入

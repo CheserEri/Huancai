@@ -1,12 +1,13 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch, type Component } from 'vue'
+import { computed, h, onMounted, ref, watch, type Component } from 'vue'
 import { useRouter } from 'vue-router'
 import type { TableColumnsType } from 'ant-design-vue'
-import { message } from 'ant-design-vue'
+import { message, Modal } from 'ant-design-vue'
 import {
   CloseOutlined,
   CopyOutlined,
   DownOutlined,
+  EditOutlined,
   ExclamationCircleFilled,
   FileTextFilled,
   FileTextOutlined,
@@ -21,6 +22,7 @@ import {
   WalletFilled,
 } from '@ant-design/icons-vue'
 import FilterBar from '../components/FilterBar.vue'
+import { printReceiptLocally } from '../api/localPrint'
 import {
   downloadDailySettlement,
   fetchSpOrderDetail,
@@ -28,6 +30,7 @@ import {
   fetchSpOrderPage,
   fetchStudents,
   printOrderReceipt,
+  updateSpOrder,
   voidSpOrder,
   type SpOrderOptions,
   type SpOrderQuery,
@@ -35,6 +38,7 @@ import {
   type SpOrderSummary,
   type LocalOrderMode,
   type StudentRow,
+  type UpdateSpOrderPayload,
 } from '../api/client'
 
 interface FilterOption {
@@ -73,7 +77,7 @@ interface ChipGroup {
   chips: Chip[]
 }
 
-const COLUMN_STORAGE_KEY = 'hc_order_hidden_columns_v4'
+const COLUMN_STORAGE_KEY = 'hc_order_hidden_columns_v5'
 
 const router = useRouter()
 
@@ -102,11 +106,10 @@ const ALL_COLUMNS: OrderColumn[] = [
   { key: 'credit', title: '积分', width: 66, align: 'right' },
   { key: 'tags', title: '付款方式', width: 92 },
   { key: 'hasConfirmedDetail', title: '订单状态', width: 92, align: 'center' },
-  { key: 'operateTime', title: '操作时间', width: 132, align: 'center' },
+  { key: 'dealDate', title: '经办日期', width: 100, align: 'center', sorter: true },
   { key: 'sourceName', title: '订单来源', width: 96, align: 'center' },
   { key: 'salesSource', title: '销售来源', width: 96 },
   { key: 'campusName', title: '经办校区', width: 100 },
-  { key: 'dealDate', title: '经办日期', width: 100, align: 'center', sorter: true },
   { key: 'creator', title: '经办人', width: 76 },
   { key: 'comment', title: '对内备注', width: 100 },
   { key: 'commentOuter', title: '对外备注', width: 100 },
@@ -118,7 +121,6 @@ const DEFAULT_HIDDEN: string[] = [
   'sourceName',
   'salesSource',
   'campusName',
-  'dealDate',
   'creator',
   'comment',
   'commentOuter',
@@ -271,6 +273,42 @@ const voidTarget = ref<SpOrderRow | null>(null)
 const voidReason = ref('')
 const voidSubmitting = ref(false)
 const voidRemaining = computed(() => Math.max(0, 100 - voidReason.value.length))
+
+interface EditLessonRow {
+  id: number
+  courseName: string
+  lessons: number
+  originLessons: number
+}
+
+const readPermissions = (): string[] => {
+  try {
+    const parsed = JSON.parse(localStorage.getItem('hc_permissions') || '[]')
+    return Array.isArray(parsed) ? parsed.map((item) => String(item)) : []
+  } catch {
+    return []
+  }
+}
+const myPermissions = readPermissions()
+const isSuperAdmin = currentUser.role === 'admin' || myPermissions.includes('*')
+const canEditOrder = isSuperAdmin || myPermissions.includes('/order/edit')
+const canEditOrderAmount = isSuperAdmin || myPermissions.includes('/order/edit-amount')
+const canEditOrderLessons = isSuperAdmin || myPermissions.includes('/order/edit-lessons')
+const canModifyOrder = computed(() => canEditOrder || canEditOrderAmount || canEditOrderLessons)
+
+const editOpen = ref(false)
+const editLoading = ref(false)
+const editSubmitting = ref(false)
+const editTarget = ref<SpOrderRow | null>(null)
+const editOrigin = ref<SpOrderRow | null>(null)
+const editContent = ref('')
+const editPayMethod = ref('')
+const editDealDate = ref<string | null>(null)
+const editShouldPay = ref(0)
+const editRealPay = ref(0)
+const editReason = ref('')
+const editLessons = ref<EditLessonRow[]>([])
+const editRemaining = computed(() => Math.max(0, 100 - editReason.value.length))
 
 let requestSeq = 0
 
@@ -880,7 +918,7 @@ async function copyOrderNo(orderNo: string) {
   openMenuId.value = null
 }
 
-/** 打印收据：优先由后端直发 58mm 小票机；设备不可用时退回浏览器小票预览。 */
+/** 打印收据：本地小助手直发 58mm 小票机 → 后端直发 → 浏览器小票预览。 */
 async function printReceipt(row: SpOrderRow) {
   openMenuId.value = null
   let order = row
@@ -888,6 +926,15 @@ async function printReceipt(row: SpOrderRow) {
     order = await fetchSpOrderDetail(row.id)
   } catch {
     // 详情接口失败时退回列表行数据，保证仍可打印
+  }
+  const local = await printReceiptLocally({ ...order })
+  if (local.ok) {
+    message.success('小票已发送到小票打印机')
+    return
+  }
+  if (local.reachable) {
+    message.error(local.message || '小票打印失败')
+    return
   }
   try {
     await printOrderReceipt(order.id)
@@ -996,6 +1043,145 @@ async function submitVoid() {
     message.error(error instanceof Error ? error.message : '订单作废失败')
   } finally {
     voidSubmitting.value = false
+  }
+}
+
+function toDateTimeText(value?: string | null) {
+  if (!value) return ''
+  return value.replace('T', ' ').slice(0, 19)
+}
+
+function moneyText(value: number | null | undefined) {
+  return `￥${Number(value || 0).toFixed(2)}`
+}
+
+/** 修改订单：先拉取详情（含明细课时），再按员工权限放开可编辑项。 */
+async function openEditModal(row: SpOrderRow) {
+  openMenuId.value = null
+  editTarget.value = row
+  editOpen.value = true
+  editLoading.value = true
+  editOrigin.value = null
+  editLessons.value = []
+  try {
+    const order = await fetchSpOrderDetail(row.id)
+    editOrigin.value = order
+    editContent.value = order.content || ''
+    editPayMethod.value = order.payMethod || ''
+    editDealDate.value = order.dealDate ? toDateTimeText(order.dealDate) : null
+    editShouldPay.value = Number(order.shouldPay || 0)
+    editRealPay.value = Number(order.realPay || 0)
+    editReason.value = ''
+    editLessons.value = (order.items || []).map((item) => ({
+      id: item.id,
+      courseName: item.courseName || '-',
+      lessons: Number(item.lessons || 0),
+      originLessons: Number(item.lessons || 0),
+    }))
+  } catch (error) {
+    message.error(error instanceof Error ? error.message : '订单详情加载失败')
+    editOpen.value = false
+  } finally {
+    editLoading.value = false
+  }
+}
+
+function buildEditChanges() {
+  const origin = editOrigin.value
+  const changes: string[] = []
+  if (!origin) return changes
+  if (canEditOrder) {
+    if (editContent.value.trim() !== (origin.content || '')) {
+      changes.push(`交易内容「${origin.content || '-'}」→「${editContent.value.trim() || '-'}」`)
+    }
+    if (editPayMethod.value.trim() !== (origin.payMethod || '')) {
+      changes.push(`付款方式「${origin.payMethod || '-'}」→「${editPayMethod.value.trim() || '-'}」`)
+    }
+    const originDeal = toDateTimeText(origin.dealDate)
+    if ((editDealDate.value || '') !== originDeal) {
+      changes.push(`交易时间 ${originDeal || '-'} → ${editDealDate.value || '-'}`)
+    }
+  }
+  if (canEditOrderAmount) {
+    if (moneyText(editShouldPay.value) !== moneyText(origin.shouldPay)) {
+      changes.push(`应收/应退 ${moneyText(origin.shouldPay)} → ${moneyText(editShouldPay.value)}`)
+    }
+    if (moneyText(editRealPay.value) !== moneyText(origin.realPay)) {
+      changes.push(`实收/实退 ${moneyText(origin.realPay)} → ${moneyText(editRealPay.value)}`)
+    }
+  }
+  if (canEditOrderLessons) {
+    for (const row of editLessons.value) {
+      if (Number(row.lessons) !== Number(row.originLessons)) {
+        changes.push(`课程「${row.courseName}」课时 ${row.originLessons} → ${Number(row.lessons)}`)
+      }
+    }
+  }
+  return changes
+}
+
+function submitEdit() {
+  if (!editTarget.value) return
+  const reason = editReason.value.trim()
+  if (reason.length < 5 || reason.length > 100) {
+    message.warning('请填写 5～100 字的修改原因')
+    return
+  }
+  if (editLessons.value.some((row) => row.lessons === null || Number(row.lessons) < 0)) {
+    message.warning('课程课时不能为空或负数')
+    return
+  }
+  const changes = buildEditChanges()
+  if (!changes.length) {
+    message.warning('未检测到任何修改')
+    return
+  }
+  Modal.confirm({
+    title: '确认修改订单？',
+    width: 560,
+    okText: '确认提交',
+    cancelText: '返回检查',
+    content: h('div', { class: 'order-edit-confirm' }, [
+      h('div', { class: 'order-edit-confirm-tip' }, '请确认以下修改内容，提交后将记录操作人。'),
+      ...changes.map((text) => h('div', { class: 'order-edit-confirm-line' }, text)),
+    ]),
+    onOk: () => performEdit(reason),
+  })
+}
+
+async function performEdit(reason: string) {
+  const target = editTarget.value
+  if (!target) return
+  const payload: UpdateSpOrderPayload = { reason }
+  if (canEditOrder) {
+    payload.content = editContent.value
+    payload.payMethod = editPayMethod.value
+    payload.dealDate = editDealDate.value ? editDealDate.value.replace(' ', 'T') : null
+  }
+  if (canEditOrderAmount) {
+    payload.shouldPay = Number(editShouldPay.value)
+    payload.realPay = Number(editRealPay.value)
+  }
+  if (canEditOrderLessons) {
+    payload.items = editLessons.value
+      .filter((row) => Number(row.lessons) !== Number(row.originLessons))
+      .map((row) => ({ id: row.id, lessons: Number(row.lessons) }))
+  }
+  editSubmitting.value = true
+  try {
+    const updated = await updateSpOrder(target.id, payload)
+    message.success('订单已修改')
+    editOpen.value = false
+    editTarget.value = null
+    editOrigin.value = null
+    if (detailOpen.value && detail.value?.id === target.id) {
+      detail.value = updated
+    }
+    load()
+  } catch (error) {
+    message.error(error instanceof Error ? error.message : '订单修改失败')
+  } finally {
+    editSubmitting.value = false
   }
 }
 
@@ -1292,8 +1478,8 @@ onMounted(() => {
                 {{ record.statusName }}
               </span>
             </template>
-            <template v-else-if="column.key === 'operateTime'">
-              <span>{{ dateTimeText(record.createdTime) }}</span>
+            <template v-else-if="column.key === 'dealDate'">
+              <span>{{ dateTimeText(record.dealDate).slice(0, 10) }}</span>
             </template>
             <template v-else-if="column.key === 'action'">
               <a-popover
@@ -1316,6 +1502,13 @@ onMounted(() => {
                     </div>
                     <div class="row-action" @click="printReceipt(record)">
                       <PrinterOutlined /> 打印收据
+                    </div>
+                    <div
+                      v-if="canModifyOrder && record.statusCode !== 3"
+                      class="row-action"
+                      @click="openEditModal(record)"
+                    >
+                      <EditOutlined /> 修改订单
                     </div>
                     <div
                       v-if="record.statusCode !== 3"
@@ -1443,6 +1636,10 @@ onMounted(() => {
               <span>{{ dateTimeText(detail.createdTime) }}</span>
             </div>
             <div class="detail-item">
+              <span class="detail-label">最后修改时间</span>
+              <span>{{ detail.updatedTime ? dateTimeText(detail.updatedTime) : '未修改' }}</span>
+            </div>
+            <div class="detail-item">
               <span class="detail-label">到期时间</span>
               <span>{{ dateTimeText(detail.expiryDate) }}</span>
             </div>
@@ -1483,6 +1680,102 @@ onMounted(() => {
 
           <div class="detail-foot">
             <a-button type="primary" @click="detailOpen = false">关闭</a-button>
+          </div>
+        </div>
+      </a-spin>
+    </a-modal>
+
+    <a-modal
+      v-model:open="editOpen"
+      title="修改订单"
+      :width="720"
+      ok-text="提交修改"
+      cancel-text="取消"
+      :confirm-loading="editSubmitting"
+      :mask-closable="false"
+      @ok="submitEdit"
+    >
+      <a-spin :spinning="editLoading">
+        <div v-if="editOrigin" class="order-edit">
+          <div class="edit-head">
+            <span class="edit-order">{{ editOrigin.orderNo }}</span>
+            <span class="status-pill" :class="statusClass(editOrigin.statusCode)">
+              {{ editOrigin.statusName }}
+            </span>
+            <span class="edit-stu">{{ editOrigin.stuName }} · {{ editOrigin.typeName }}</span>
+          </div>
+          <div class="edit-tip">只可修改已开通权限的项目，未开通的字段为只读。</div>
+          <div class="edit-grid">
+            <div class="edit-field edit-span">
+              <span class="edit-label">交易内容</span>
+              <a-textarea
+                v-model:value="editContent"
+                :rows="2"
+                :maxlength="200"
+                :disabled="!canEditOrder"
+              />
+            </div>
+            <div class="edit-field">
+              <span class="edit-label">付款方式</span>
+              <a-input
+                v-model:value="editPayMethod"
+                :disabled="!canEditOrder"
+                placeholder="如 微信、支付宝、现金"
+              />
+            </div>
+            <div class="edit-field">
+              <span class="edit-label">交易时间</span>
+              <a-date-picker
+                v-model:value="editDealDate"
+                show-time
+                value-format="YYYY-MM-DD HH:mm:ss"
+                format="YYYY-MM-DD HH:mm:ss"
+                style="width: 100%"
+                :disabled="!canEditOrder"
+              />
+            </div>
+            <div class="edit-field">
+              <span class="edit-label">应收/应退</span>
+              <a-input-number
+                v-model:value="editShouldPay"
+                :precision="2"
+                :disabled="!canEditOrderAmount"
+                style="width: 100%"
+              />
+            </div>
+            <div class="edit-field">
+              <span class="edit-label">实收/实退</span>
+              <a-input-number
+                v-model:value="editRealPay"
+                :precision="2"
+                :disabled="!canEditOrderAmount"
+                style="width: 100%"
+              />
+            </div>
+          </div>
+          <div v-if="editLessons.length" class="edit-lessons">
+            <div class="edit-label">订单课时</div>
+            <div v-for="row in editLessons" :key="row.id" class="edit-lesson-row">
+              <span class="edit-lesson-name">{{ row.courseName }}</span>
+              <a-input-number
+                v-model:value="row.lessons"
+                :min="0"
+                :precision="2"
+                :disabled="!canEditOrderLessons"
+                style="width: 140px"
+              />
+              <span class="edit-lesson-unit">课时</span>
+            </div>
+          </div>
+          <div class="edit-reason">
+            <span class="edit-label">修改原因 <i class="edit-required">*</i></span>
+            <a-textarea
+              v-model:value="editReason"
+              :rows="3"
+              :maxlength="100"
+              placeholder="请输入修改原因（5～100个字），提交后记录到操作日志"
+            />
+            <div class="edit-counter">您还可以输入{{ editRemaining }}字</div>
           </div>
         </div>
       </a-spin>
@@ -2215,6 +2508,121 @@ onMounted(() => {
   margin-top: 6px;
   color: #8f959e;
   font-size: 13px;
+}
+
+.order-edit {
+  padding-top: 4px;
+}
+
+.edit-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.edit-order {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1f2329;
+}
+
+.edit-stu {
+  color: #646a73;
+  font-size: 13px;
+}
+
+.edit-tip {
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  border-radius: 4px;
+  background: #f2f7ff;
+  color: #007aff;
+  font-size: 12px;
+}
+
+.edit-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 16px;
+}
+
+.edit-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.edit-span {
+  grid-column: 1 / -1;
+}
+
+.edit-label {
+  color: #1f2329;
+  font-size: 13px;
+}
+
+.edit-required {
+  color: #ff4d4f;
+  font-style: normal;
+}
+
+.edit-lessons {
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.edit-lesson-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.edit-lesson-name {
+  flex: 1;
+  color: #1f2329;
+  font-size: 13px;
+}
+
+.edit-lesson-unit {
+  color: #8f959e;
+  font-size: 13px;
+}
+
+.edit-reason {
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.edit-counter {
+  color: #8f959e;
+  font-size: 12px;
+  text-align: right;
+}
+
+.order-edit-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 4px;
+}
+
+.order-edit-confirm-tip {
+  color: #646a73;
+  font-size: 13px;
+}
+
+.order-edit-confirm-line {
+  padding: 6px 10px;
+  border-radius: 4px;
+  background: #f7f8fa;
+  color: #1f2329;
+  font-size: 13px;
+  line-height: 1.5;
 }
 
 .table-empty {

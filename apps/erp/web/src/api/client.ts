@@ -258,6 +258,14 @@ export interface StudentDetail {
     note: string | null
     createdAt: string
   }>
+  operationLogs: Array<{
+    id: number
+    type: string
+    content: string
+    operatorId: number | null
+    operatorName: string | null
+    createdAt: string
+  }>
 }
 
 export function fetchStudentDetail(id: number) {
@@ -446,8 +454,10 @@ export interface ScheduleOptions {
     campusId: number | null
     courseId: number | null
     teacherId: number | null
-    teacherText: string | null
-    room: string | null
+    teacherText?: string | null
+    room?: string | null
+    assistName?: string | null
+    scheduleText?: string | null
   }>
   courses: Array<{ id: number; name: string }>
   teachers: Array<{ id: number; name: string }>
@@ -469,11 +479,42 @@ export interface ScheduleFormPayload {
   endTime?: string
   room?: string
   topic?: string
+  assistantName?: string
   lessonMode?: number
 }
 
 export function createSchedule(payload: ScheduleFormPayload) {
   return request<{ id: number; lessonDate: string; startTime: string }>('/schedules', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+export interface ScheduleBatchPayload {
+  classId: number
+  startDate: string
+  endDate: string
+  repeatType: 'week' | 'biweek' | 'altDay'
+  weekdays: number[]
+  skipWeekend: boolean
+  startTime: string
+  endTime: string
+  teacherId?: number | null
+  assistantName?: string
+  room?: string
+}
+
+export interface ScheduleBatchResult {
+  created: number
+  skipped: number
+  total: number
+  className: string
+  firstDate: string
+  lastDate: string
+}
+
+export function createScheduleBatch(payload: ScheduleBatchPayload) {
+  return request<ScheduleBatchResult>('/schedules/batch', {
     method: 'POST',
     body: JSON.stringify(payload),
   })
@@ -492,6 +533,22 @@ export function cancelSchedule(id: number) {
 
 export function restoreSchedule(id: number) {
   return request<void>(`/schedules/${id}/restore`, { method: 'POST' })
+}
+
+export interface SpOrderItem {
+  id: number
+  orderId: number
+  enrollmentId: number | null
+  courseId: number | null
+  courseName: string | null
+  priceTemplateName: string | null
+  activityTemplateName: string | null
+  lessons: number
+  unitPrice: number
+  baseAmount: number
+  discountAmount: number
+  materialAmount: number
+  amount: number
 }
 
 export interface SpOrderRow {
@@ -531,11 +588,15 @@ export interface SpOrderRow {
   hasMultiLessonEnroll: boolean
   dealDate: string
   createdTime: string
+  /** 最后修改时间，仅编辑过的订单才有值 */
+  updatedTime: string | null
   expiryDate: string | null
   /** 作废原因与作废时间，本地作废时写入 */
   voidReason: string | null
   voidAt: string | null
   rawJson?: string | null
+  /** 订单明细（详情接口返回） */
+  items?: SpOrderItem[]
 }
 
 export interface SpOrderSummary {
@@ -604,6 +665,24 @@ export function voidSpOrder(id: number, reason: string) {
   return request<SpOrderRow>(`/sp-orders/${id}/void`, {
     method: 'POST',
     body: JSON.stringify({ reason }),
+  })
+}
+
+/** 修改订单：基础信息 / 金额 / 明细课时，后端按员工权限逐项校验并记录操作人 */
+export interface UpdateSpOrderPayload {
+  content?: string | null
+  payMethod?: string | null
+  dealDate?: string | null
+  shouldPay?: number | null
+  realPay?: number | null
+  items?: Array<{ id: number; lessons: number }>
+  reason: string
+}
+
+export function updateSpOrder(id: number, payload: UpdateSpOrderPayload) {
+  return request<SpOrderRow>(`/sp-orders/${id}/update`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
   })
 }
 
@@ -911,6 +990,8 @@ export interface LocalBatchRefundPayload {
   campusId?: number
   /** 要整单退掉的报读（可多选）。 */
   enrollmentIds?: number[]
+  /** 按报读自定义退费课时与金额；有权限的员工可调小。 */
+  items?: Array<{ enrollmentId: number; lessons: number; amount: number }>
   /** 同时退掉的账户剩余未用学费金额，0 或缺省表示不退余额。 */
   balanceAmount?: number
   payMethod?: string
@@ -1495,6 +1576,33 @@ export function saveClassComments(payload: {
   })
 }
 
+/** 整节课的整体点评，对全班统一生效。 */
+export interface LessonOverallComment {
+  id?: number
+  classId: number
+  scheduleId: number
+  teacherId?: number | null
+  rating?: string | null
+  content?: string | null
+  updatedAt?: string | null
+}
+
+export function fetchLessonOverall(classId: number, scheduleId: number) {
+  return request<LessonOverallComment>(`/class-comments/overall?classId=${classId}&scheduleId=${scheduleId}`)
+}
+
+export function saveLessonOverall(payload: {
+  classId: number
+  scheduleId: number
+  rating?: string
+  content?: string
+}) {
+  return request<LessonOverallComment>('/class-comments/overall', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
 export interface ClassOption {
   id: number
   name: string
@@ -2054,11 +2162,11 @@ export function updateStaffStatus(id: number, status: number) {
   return request<StaffRow>(`/staff/${id}/status?status=${status}`, { method: 'POST' })
 }
 
-/** 组织架构页调整员工可见菜单，仅管理员可调用。 */
-export function updateStaffPermissions(id: number, permissions: string[]) {
+/** 组织架构页调整员工可见菜单，仅管理员可调用；templateId 非空时与该模板建立绑定。 */
+export function updateStaffPermissions(id: number, permissions: string[], templateId?: number | null) {
   return request<string[]>(`/staff/${id}/permissions`, {
     method: 'PUT',
-    body: JSON.stringify({ permissions }),
+    body: JSON.stringify({ permissions, templateId: templateId ?? null }),
   })
 }
 
@@ -2070,6 +2178,8 @@ export interface PermissionTemplateRow {
   /** 1 内置角色模板，0 自定义模板。 */
   builtin: number
   permissions: string[]
+  /** 绑定该模板的员工数，模板调整时会同步给他们。 */
+  staffCount: number
   updatedAt: string
 }
 
@@ -3129,6 +3239,7 @@ export interface GradeExamRow {
   courseName: string | null
   examDate: string | null
   fullScore: number
+  passScore: number | null
   scoringMode: GradeScoringMode
   paperImages: string[]
   status: GradeExamStatus
@@ -3150,6 +3261,7 @@ export interface GradeExamPayload {
   courseName?: string | null
   examDate?: string | null
   fullScore: number
+  passScore?: number | null
   scoringMode: GradeScoringMode
   remark?: string
   classIds: number[]
@@ -3177,6 +3289,8 @@ export interface GradeEntryStudent {
   status: string
   remark: string | null
   rankClass: number | null
+  /** 该学员的试卷图片，未上传时为 null。 */
+  paperImage: string | null
 }
 
 export interface GradeEntryData {
@@ -3272,6 +3386,7 @@ export interface GradeAnalysis {
   examDate: string | null
   scoringMode: GradeScoringMode
   fullScore: number
+  passLine: number
   studentCount: number
   enteredCount: number
   absentCount: number
@@ -3392,18 +3507,18 @@ export function archiveGradeExam(id: number) {
   return request<GradeExamRow>(`/grades/exams/${id}/archive`, { method: 'POST' })
 }
 
-/** 上传试卷图片（支持手机拍照），返回包含最新图片列表的考试数据。 */
-export function uploadGradePaperImage(examId: number, file: File) {
+/** 上传某位学员的试卷图片（每位学员每场考试一张，重复上传会替换）。 */
+export function uploadGradeStudentPaper(examId: number, studentId: number, file: File) {
   const form = new FormData()
   form.append('file', file)
-  return request<GradeExamRow>(`/grades/exams/${examId}/paper-images`, {
+  return request<{ url: string }>(`/grades/student-paper${toQuery({ examId, studentId })}`, {
     method: 'POST',
     body: form,
   })
 }
 
-export function deleteGradePaperImage(examId: number, url: string) {
-  return request<GradeExamRow>(`/grades/exams/${examId}/paper-images${toQuery({ url })}`, {
+export function deleteGradeStudentPaper(examId: number, studentId: number) {
+  return request<void>(`/grades/student-paper${toQuery({ examId, studentId })}`, {
     method: 'DELETE',
   })
 }

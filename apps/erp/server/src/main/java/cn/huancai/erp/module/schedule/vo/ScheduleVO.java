@@ -15,6 +15,7 @@ public class ScheduleVO {
     private String className;
     private Long courseId;
     private String courseName;
+    private Long teacherId;
     private String teacherName;
     private String assistantName;
     private LocalDate lessonDate;

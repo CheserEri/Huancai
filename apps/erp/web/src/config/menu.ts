@@ -99,6 +99,21 @@ export const menuGroups: MenuGroup[] = [
   },
 ]
 
+/** 操作权限：不显示在侧边栏，仅在员工 / 权限模板的权限配置中勾选。 */
+export const actionPermissionGroups: MenuGroup[] = [
+  {
+    key: 'action',
+    title: '操作权限',
+    icon: 'SafetyCertificateOutlined',
+    items: [
+      { path: '/student/refund-edit', title: '修改退费课时/金额', status: 'ok' },
+      { path: '/order/edit', title: '修改订单', status: 'ok' },
+      { path: '/order/edit-amount', title: '修改订单金额', status: 'ok' },
+      { path: '/order/edit-lessons', title: '修改订单课时', status: 'ok' },
+    ],
+  },
+]
+
 export const menuEntries: MenuEntry[] = menuGroups.flatMap((group) =>
   group.items.map((item) => ({ ...item, group: group.key, groupTitle: group.title })),
 )

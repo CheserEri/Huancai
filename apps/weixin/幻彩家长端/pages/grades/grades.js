@@ -1,7 +1,10 @@
 const api = require('../../utils/api')
 const util = require('../../utils/util')
+const config = require('../../config')
 
 const app = getApp()
+// 后端试卷图片是 /uploads/... 相对路径，小程序需拼上服务地址
+const FILE_BASE = config.baseUrl.replace(/\/api\/wxapp\/?$/, '')
 
 Page({
   data: {
@@ -54,6 +57,7 @@ Page({
             deltaClass: util.deltaClass(item.deltaScore),
             rankText: util.rank(item.rankClass),
             dateText: util.shortDate(item.examDate),
+            paperImage: item.paperImage ? FILE_BASE + item.paperImage : '',
             percent: Number.isNaN(score) || !full ? 0 : Math.min(100, Math.round((score / full) * 100))
           }
         })
@@ -90,6 +94,12 @@ Page({
       .finally(() => {
         wx.stopPullDownRefresh()
       })
+  },
+
+  previewPaper(e) {
+    const src = e.currentTarget.dataset.src
+    if (!src) return
+    wx.previewImage({ current: src, urls: [src] })
   },
 
   switchChild() {

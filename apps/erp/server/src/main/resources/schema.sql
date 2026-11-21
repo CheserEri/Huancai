@@ -40,6 +40,7 @@ CREATE TABLE IF NOT EXISTS staff (
   extra_roles   VARCHAR(128) DEFAULT NULL COMMENT '兼任角色，逗号分隔',
   title         VARCHAR(64)  DEFAULT NULL,
   menu_permissions TEXT      DEFAULT NULL COMMENT '可见菜单路径 JSON 数组，空表示仅工作台；admin 不受限制',
+  permission_template_id BIGINT DEFAULT NULL COMMENT '绑定的权限模板；模板调整时自动同步权限',
   status        TINYINT      NOT NULL DEFAULT 1 COMMENT '1在职 0离职',
   ext_id        VARCHAR(64)  DEFAULT NULL,
   created_at    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -429,6 +430,24 @@ CREATE TABLE IF NOT EXISTS class_comment (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='课堂点评';
 
 -- ---------------------------------------------------------------
+-- 课次整体点评（一堂课共用一条，与学员逐人点评分离）
+-- ---------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS class_lesson_comment (
+  id          BIGINT      NOT NULL AUTO_INCREMENT,
+  campus_id   BIGINT      DEFAULT NULL,
+  class_id    BIGINT      NOT NULL,
+  schedule_id BIGINT      NOT NULL,
+  teacher_id  BIGINT      DEFAULT NULL,
+  rating      VARCHAR(16) DEFAULT NULL COMMENT '整体评价：优秀/良好/需加强',
+  content     TEXT        DEFAULT NULL,
+  created_at  DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at  DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_lesson_comment (schedule_id),
+  KEY idx_lesson_comment_class (class_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='课次整体点评';
+
+-- ---------------------------------------------------------------
 -- 班级相册
 -- ---------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS class_photo (
@@ -512,6 +531,7 @@ CREATE TABLE IF NOT EXISTS sp_order (
   has_multi_lesson_enroll TINYINT   NOT NULL DEFAULT 0,
   deal_date           DATETIME      NOT NULL COMMENT '经办日期',
   created_time        DATETIME      NOT NULL COMMENT '原系统创建时间',
+  updated_time        DATETIME      DEFAULT NULL COMMENT '最后修改时间',
   expiry_date         DATETIME      DEFAULT NULL,
   raw_json            LONGTEXT      DEFAULT NULL COMMENT '原始订单 JSON',
   void_reason         VARCHAR(100)  DEFAULT NULL COMMENT '作废原因',
@@ -740,6 +760,20 @@ CREATE TABLE IF NOT EXISTS sp_order_item (
   KEY idx_soi_template (price_template_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='订单明细与模板快照';
 
+CREATE TABLE IF NOT EXISTS student_operation_log (
+  id             BIGINT        NOT NULL AUTO_INCREMENT,
+  campus_id      BIGINT        DEFAULT NULL,
+  student_id     BIGINT        NOT NULL,
+  type           VARCHAR(32)   NOT NULL,
+  content        VARCHAR(1000) NOT NULL,
+  operator_id    BIGINT        DEFAULT NULL,
+  operator_name  VARCHAR(64)   DEFAULT NULL,
+  created_at     DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_sol_student (student_id),
+  KEY idx_sol_created (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='学员操作日志';
+
 CREATE TABLE IF NOT EXISTS data_fee_template (
   id            BIGINT        NOT NULL AUTO_INCREMENT,
   name          VARCHAR(100)  NOT NULL,
@@ -820,6 +854,7 @@ CREATE TABLE IF NOT EXISTS grade_exam (
   course_name  VARCHAR(64)   DEFAULT NULL COMMENT '课程名称冗余，便于列表展示',
   exam_date    DATE          DEFAULT NULL,
   full_score   DECIMAL(6,2)  NOT NULL DEFAULT 100 COMMENT '满分',
+  pass_score   DECIMAL(6,2)  DEFAULT NULL COMMENT '及格线（分），为空按满分 60%',
   scoring_mode VARCHAR(8)    NOT NULL DEFAULT '分数' COMMENT '分数/等级',
   paper_images TEXT           DEFAULT NULL COMMENT '试卷图片 JSON 数组',
   status       VARCHAR(16)   NOT NULL DEFAULT '草稿' COMMENT '草稿/已发布/已归档',
@@ -873,6 +908,18 @@ CREATE TABLE IF NOT EXISTS grade_score (
   KEY idx_gs_student (student_id),
   KEY idx_gs_exam (exam_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='考试成绩明细';
+
+CREATE TABLE IF NOT EXISTS grade_student_paper (
+  id         BIGINT       NOT NULL AUTO_INCREMENT,
+  exam_id    BIGINT       NOT NULL,
+  student_id BIGINT       NOT NULL,
+  url        VARCHAR(255) NOT NULL COMMENT '试卷图片地址',
+  created_at DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_gsp (exam_id, student_id),
+  KEY idx_gsp_student (student_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='学员试卷图片（仅家长可查看自己孩子）';
 
 CREATE TABLE IF NOT EXISTS grade_rule (
   id         BIGINT       NOT NULL AUTO_INCREMENT,

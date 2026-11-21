@@ -48,6 +48,8 @@ public class SpOrder {
     private Boolean hasMultiLessonEnroll;
     private LocalDateTime dealDate;
     private LocalDateTime createdTime;
+    /** 最后修改时间，仅订单被编辑后才有值。 */
+    private LocalDateTime updatedTime;
     private LocalDateTime expiryDate;
     private String rawJson;
     /** 作废原因与作废时间，仅本地作废时写入。 */

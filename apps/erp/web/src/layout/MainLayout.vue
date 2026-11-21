@@ -14,6 +14,7 @@ import {
   LogoutOutlined,
   MenuOutlined,
   NotificationOutlined,
+  PrinterOutlined,
   ReadOutlined,
   RightOutlined,
   RocketOutlined,
@@ -248,8 +249,16 @@ onMounted(async () => {
           <div class="app-entry" @click="openAppDialog">
             <DesktopOutlined />
             <span>试用手机 App</span>
-            <i class="red-dot" />
           </div>
+          <a
+            class="app-entry"
+            href="/downloads/HcReceiptPrinter.exe"
+            download
+            title="下载后在收银电脑上双击运行，点打印即可直接出纸（无需再弹浏览器打印框）"
+          >
+            <PrinterOutlined />
+            <span>打印小助手下载</span>
+          </a>
         </div>
       </aside>
 
@@ -549,14 +558,14 @@ onMounted(async () => {
   position: relative;
 }
 
-.red-dot {
-  position: absolute;
-  right: 2px;
-  top: 5px;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #f5222d;
+a.app-entry {
+  color: inherit;
+  text-decoration: none;
+}
+
+a.app-entry:hover,
+.app-entry:hover {
+  color: #40a9ff;
 }
 
 /* ---------- 右侧主区 ---------- */

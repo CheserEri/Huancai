@@ -5,9 +5,11 @@ import cn.huancai.erp.module.student.dto.StudentQuery;
 import cn.huancai.erp.module.student.entity.Guardian;
 import cn.huancai.erp.module.student.entity.LessonTxn;
 import cn.huancai.erp.module.student.entity.Student;
+import cn.huancai.erp.module.student.entity.StudentOperationLog;
 import cn.huancai.erp.module.student.mapper.GuardianMapper;
 import cn.huancai.erp.module.student.mapper.LessonTxnMapper;
 import cn.huancai.erp.module.student.mapper.StudentMapper;
+import cn.huancai.erp.module.student.mapper.StudentOperationLogMapper;
 import cn.huancai.erp.module.student.vo.StudentSummaryVO;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -27,13 +29,16 @@ public class StudentProfileController {
     private final StudentMapper studentMapper;
     private final GuardianMapper guardianMapper;
     private final LessonTxnMapper lessonTxnMapper;
+    private final StudentOperationLogMapper studentOperationLogMapper;
 
     public StudentProfileController(StudentMapper studentMapper,
                                     GuardianMapper guardianMapper,
-                                    LessonTxnMapper lessonTxnMapper) {
+                                    LessonTxnMapper lessonTxnMapper,
+                                    StudentOperationLogMapper studentOperationLogMapper) {
         this.studentMapper = studentMapper;
         this.guardianMapper = guardianMapper;
         this.lessonTxnMapper = lessonTxnMapper;
+        this.studentOperationLogMapper = studentOperationLogMapper;
     }
 
     @GetMapping("/summary")
@@ -61,6 +66,11 @@ public class StudentProfileController {
                         .orderByDesc(LessonTxn::getId)
                         .last("LIMIT 50"));
         data.put("txns", txns);
+        data.put("operationLogs", studentOperationLogMapper.selectList(
+                new LambdaQueryWrapper<StudentOperationLog>()
+                        .eq(StudentOperationLog::getStudentId, id)
+                        .orderByDesc(StudentOperationLog::getId)
+                        .last("LIMIT 100")));
         return ApiResult.ok(data);
     }
 

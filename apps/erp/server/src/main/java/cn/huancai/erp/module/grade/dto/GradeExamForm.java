@@ -17,6 +17,7 @@ public class GradeExamForm {
     private String courseName;
     private LocalDate examDate;
     private BigDecimal fullScore;
+    private BigDecimal passScore;
     private String scoringMode;
     private String remark;
     private List<Long> classIds;

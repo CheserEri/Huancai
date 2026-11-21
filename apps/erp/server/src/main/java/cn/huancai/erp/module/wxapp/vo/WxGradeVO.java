@@ -26,6 +26,8 @@ public class WxGradeVO {
     private Integer rankCampus;
     private String status;
     private String remark;
+    /** 该学员自己的试卷图片，仅本人家长可见。 */
+    private String paperImage;
     @JsonIgnore
     private String partScoresJson;
     private Map<String, BigDecimal> partScores;

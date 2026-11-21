@@ -471,7 +471,7 @@ onMounted(async () => {
             @change="load"
           />
           <span v-if="analysis" class="filter-label">
-            {{ analysis.examType }} · 满分 {{ analysis.fullScore }} · {{ analysis.scoringMode }}制
+            {{ analysis.examType }} · 满分 {{ analysis.fullScore }} · 及格线 {{ analysis.passLine }} 分 · 自动评级
           </span>
         </div>
 
@@ -579,8 +579,11 @@ onMounted(async () => {
               </div>
             </div>
 
-            <div v-if="analysis.scoringMode === '等级'" class="panel">
-              <div class="panel-title">等级分布</div>
+            <div class="panel">
+              <div class="panel-title">等级分布（自动评估）</div>
+              <div class="level-tip">
+                按班级内参与考试的学生排名、得分率（距满分）和超出及格线幅度综合评定；低于及格线为「待提高」
+              </div>
               <div class="level-list">
                 <div v-for="item in analysis.levels" :key="item.level" class="level-item">
                   <span class="level-name">{{ item.level }}</span>
@@ -634,7 +637,7 @@ onMounted(async () => {
                   <span v-else-if="column.dataIndex === 'level'">{{ record.level ?? '—' }}</span>
                 </template>
                 <template #emptyText>
-                  <a-empty description="暂无有效成绩排名，等级制考试不计算分数排名" />
+                  <a-empty description="暂无有效成绩排名" />
                 </template>
               </a-table>
             </div>
@@ -1089,6 +1092,13 @@ onMounted(async () => {
 
 .delta-down {
   color: #d4380d;
+}
+
+.level-tip {
+  margin-bottom: 10px;
+  color: var(--text-3);
+  font-size: 12px;
+  line-height: 1.6;
 }
 
 .level-list {
